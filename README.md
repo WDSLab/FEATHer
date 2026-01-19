@@ -1,6 +1,6 @@
 # FEATHer
 
-**FEATHer: Fourier-Efficient Adaptive Temporal Hierarchy Forecaster for Long-Term Time Series Prediction**
+**FEATHer: Fourier-Efficient Adaptive Temporal Hierarchy Forecaster for Time-Series Forecasting**
 
 ---
 
@@ -242,7 +242,7 @@ FEATHer achieves deployability under extreme memory constraints (16KB RAM on ETT
 
 ```bibtex
 @article{feather2025,
-  title={FEATHer: Fourier-Efficient Adaptive Temporal Hierarchy Forecaster},
+  title={FEATHer: Fourier-Efficient Adaptive Temporal Hierarchy Forecaster for Time-Series Forecasting},
   author={},
   journal={},
   year={2025}
