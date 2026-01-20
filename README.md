@@ -2,6 +2,8 @@
 
 **FEATHer: Fourier-Efficient Adaptive Temporal Hierarchy Forecaster for Time-Series Forecasting**
 
+[![arXiv](https://img.shields.io/badge/arXiv-2601.11350-b31b1b.svg)](https://arxiv.org/abs/2601.11350)
+
 ---
 
 ## Overview
@@ -240,14 +242,18 @@ FEATHer achieves deployability under extreme memory constraints (16KB RAM on ETT
 
 ## Citation
 
+If you find this work useful, please cite our paper:
+
 ```bibtex
 @article{feather2025,
   title={FEATHer: Fourier-Efficient Adaptive Temporal Hierarchy Forecaster for Time-Series Forecasting},
-  author={},
-  journal={},
+  author={Lee, Jaehoon and Lee, Seungwoo and Kim, Younghwi and Kim, Dohee and Sim, Sunghyun},
+  journal={arXiv preprint arXiv:2601.11350},
   year={2025}
 }
 ```
+
+**Paper**: [https://arxiv.org/abs/2601.11350](https://arxiv.org/abs/2601.11350)
 
 ---
 
