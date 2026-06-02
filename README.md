@@ -36,15 +36,17 @@ FEATHer/
 │       └── complexity.py           # Parameter complexity variants
 │
 ├── scripts/
-│   ├── train.py                    # Main training script
-│   ├── train_ablation.py           # Ablation study training
-│   └── train_hparam_search.py      # Hyperparameter search
+│   └── benchmarks/
+│       ├── run_forecast.py         # Worker: one (model, data, pred_len) x N seeds
+│       └── run_robustness.py       # Worker: noise/missing/impulse/quant sweep
 │
 ├── utils/
-│   ├── data_factory.py             # Data provider
+│   ├── data_factory.py             # Data provider (lazy darts import)
 │   ├── data_loader.py              # Dataset classes
 │   ├── losses.py                   # Spectral separation loss
 │   ├── metrics.py                  # Evaluation metrics
+│   ├── noise.py                    # 4-axis corruption (gauss/miss/impulse/quant)
+│   ├── seed.py                     # set_seed + parse_seed_list
 │   └── timefeatures.py             # Time feature extraction
 │
 ├── README.md
@@ -71,43 +73,30 @@ pip install -r requirements.txt
 
 ## Quick Start
 
-### Training
+### Main forecasting sweep
 
 ```bash
-# Single dataset, single prediction horizon
-python scripts/train.py --data ETTh1 --pred_len 96
+# Smoke test (no checkpoints, separate CSV)
+python run_forecast.py --num_seeds 1 --num_epochs 2 --exp_tag smoke
 
-# Single dataset, all prediction horizons (96, 192, 336, 720)
-python scripts/train.py --data ETTh1
+# Show what is missing (resume by CSV — append-only, idempotent)
+python run_forecast.py --check
 
-# All datasets
-python scripts/train.py --data all
+# Full 5-seed sweep, save checkpoints for the robustness phase
+python run_forecast.py --num_seeds 5 --num_epochs 50 --exp_tag main --save_model
 
-# With visualization
-python scripts/train.py --data ETTh1 --pred_len 96 --save_plot
+# One model across all datasets/horizons
+python run_forecast.py --model FEATHer --save_model
 ```
 
-### Ablation Study
+### Robustness sweep (loads checkpoints from --save_model)
 
 ```bash
-# Multi-scale decomposition ablation
-python scripts/train_ablation.py --ablation multiscale --data ETTh1
-
-# Gating mechanism ablation
-python scripts/train_ablation.py --ablation gating --data ETTh1
-
-# Available ablation types: multiscale, gating, dtk, head
+python run_robustness.py --check
+python run_robustness.py --train_exp_tag main --exp_tag robust
+python run_robustness.py --fault_types gauss,miss   # subset of axes
 ```
 
-### Hyperparameter Search
-
-```bash
-# Full grid search
-python scripts/train_hparam_search.py --data ETTh1 --pred_len 96
-
-# Distributed search with config range
-python scripts/train_hparam_search.py --data all --config_start 0 --config_end 36 --results_dir results/run1
-```
 
 ---
 
@@ -143,7 +132,7 @@ Most datasets are available through the `darts` library and will be automaticall
 ## Model Usage
 
 ```python
-from models.base.FEATHer import FEATHer
+from baselines.FEATHer.FEATHer import FEATHer
 
 # Create model
 model = FEATHer(

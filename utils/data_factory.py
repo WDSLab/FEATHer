@@ -2,8 +2,24 @@ from utils.data_loader import Dataset_ETT_hour, Dataset_ETT_minute, Dataset_Cust
 from torch.utils.data import DataLoader
 import pandas as pd
 import numpy as np
-from darts.datasets import ETTh1Dataset, ETTh2Dataset, ETTm1Dataset, ETTm2Dataset, WeatherDataset, ExchangeRateDataset, ElectricityDataset, TrafficDataset
 import os
+
+
+# darts is only needed for the canonical benchmark datasets
+# (ETTh1/ETTh2/ETTm1/ETTm2/Weather/Exchange/Electricity/Traffic).
+# Importing lazily lets local-CSV datasets (SML, AirQuality, Volatility, etc.)
+# work without darts installed.
+def _darts():
+    from darts.datasets import (
+        ETTh1Dataset, ETTh2Dataset, ETTm1Dataset, ETTm2Dataset,
+        WeatherDataset, ExchangeRateDataset, ElectricityDataset, TrafficDataset,
+    )
+    return {
+        "ETTh1": ETTh1Dataset, "ETTh2": ETTh2Dataset,
+        "ETTm1": ETTm1Dataset, "ETTm2": ETTm2Dataset,
+        "Weather": WeatherDataset, "Exchange": ExchangeRateDataset,
+        "Electricity": ElectricityDataset, "Traffic": TrafficDataset,
+    }
 
 data_dict = {
     'ETTh1': Dataset_ETT_hour,
@@ -38,7 +54,7 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
     Data = data_dict[data]
     
     if data == 'ETTh1':
-        df = ETTh1Dataset().load().to_dataframe()
+        df = _darts()["ETTh1"]().load().to_dataframe()
         df.insert(0, 'date', df.index)
         df = df.dropna()
         df = df.reset_index(drop=True)
@@ -47,7 +63,7 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         target = 'OT'
 
     elif data == 'ETTh2':
-        df = ETTh2Dataset().load().to_dataframe()
+        df = _darts()["ETTh2"]().load().to_dataframe()
         df.insert(0, 'date', df.index)
         df = df.dropna()
         df = df.reset_index(drop=True)
@@ -56,7 +72,7 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         target = 'OT'
 
     elif data == 'ETTm1':
-        df = ETTm1Dataset().load().to_dataframe()
+        df = _darts()["ETTm1"]().load().to_dataframe()
         df.insert(0, 'date', df.index)
         df = df.dropna()
         df = df.reset_index(drop=True)
@@ -65,7 +81,7 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         target = 'OT'
 
     elif data == 'ETTm2':
-        df = ETTm2Dataset().load().to_dataframe()
+        df = _darts()["ETTm2"]().load().to_dataframe()
         df.insert(0, 'date', df.index)
         df = df.dropna()
         df = df.reset_index(drop=True)
@@ -74,7 +90,7 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         target = 'OT'
 
     elif data == 'Traffic':
-        df = TrafficDataset().load().to_dataframe().iloc[:, :162]
+        df = _darts()["Traffic"]().load().to_dataframe().iloc[:, :162]
         df.insert(0, 'date', df.index)
         df = df.dropna()
         df = df.reset_index(drop=True)
@@ -137,7 +153,7 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         embed = 'timeF'
 
     elif data == 'Weather':
-        df = WeatherDataset().load().to_dataframe()
+        df = _darts()["Weather"]().load().to_dataframe()
         df.insert(0, 'date', df.index)
         df = df.dropna()
         df = df.reset_index(drop=True)
@@ -146,7 +162,7 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         target = 'T (degC)'
 
     elif data == 'Exchange':
-        df = ExchangeRateDataset().load().to_dataframe()  
+        df = _darts()["Exchange"]().load().to_dataframe()  
         df.insert(0, 'date', df.index)
         df = df.dropna()
         df = df.reset_index(drop=True)
@@ -308,7 +324,7 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
 def data_select(data, root_path):
     
     if data == 'ETTh1':
-        df = ETTh1Dataset().load().to_dataframe()
+        df = _darts()["ETTh1"]().load().to_dataframe()
         df.insert(0, 'date', df.index)
         df = df.dropna()
         df = df.reset_index(drop=True)
@@ -318,7 +334,7 @@ def data_select(data, root_path):
         print(df.columns)
         print(f'freq: {freq} / embed: {embed}')
     elif data == 'ETTh2':
-        df = ETTh2Dataset().load().to_dataframe()
+        df = _darts()["ETTh2"]().load().to_dataframe()
         df.insert(0, 'date', df.index)
         df = df.dropna()
         df = df.reset_index(drop=True)
@@ -328,7 +344,7 @@ def data_select(data, root_path):
         print(df.columns)
         print(f'freq: {freq} / embed: {embed}')
     elif data == 'ETTm1':
-        df = ETTm1Dataset().load().to_dataframe()
+        df = _darts()["ETTm1"]().load().to_dataframe()
         df.insert(0, 'date', df.index)
         freq = 'm'
         embed = 'timeF'
@@ -336,7 +352,7 @@ def data_select(data, root_path):
         print(df.columns)
         print(f'freq: {freq} / embed: {embed}')
     elif data == 'ETTm2':
-        df = ETTm2Dataset().load().to_dataframe()
+        df = _darts()["ETTm2"]().load().to_dataframe()
         df.insert(0, 'date', df.index)
         freq = 'm'
         embed = 'timeF'
@@ -344,7 +360,7 @@ def data_select(data, root_path):
         print(df.columns)
         print(f'freq: {freq} / embed: {embed}')
     elif data == 'Traffic':
-        df = TrafficDataset().load().to_dataframe().iloc[:, :162]
+        df = _darts()["Traffic"]().load().to_dataframe().iloc[:, :162]
         df.insert(0, 'date', df.index)
         df = df.dropna()
         df = df.reset_index(drop=True)
@@ -414,7 +430,7 @@ def data_select(data, root_path):
         print(df.columns)
         print(f'freq: {freq} / embed: {embed}')
     elif data == 'Weather':
-        df = WeatherDataset().load().to_dataframe()
+        df = _darts()["Weather"]().load().to_dataframe()
         df.insert(0, 'date', df.index)
         df = df.dropna()
         df = df.reset_index(drop=True)
@@ -424,7 +440,7 @@ def data_select(data, root_path):
         print(df.columns)
         print(f'freq: {freq} / embed: {embed}')
     elif data == 'Exchange':
-        df = ExchangeRateDataset().load().to_dataframe()  
+        df = _darts()["Exchange"]().load().to_dataframe()  
         df.insert(0, 'date', df.index)
         df = df.dropna()
         df = df.reset_index(drop=True)
