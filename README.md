@@ -97,6 +97,31 @@ python run_robustness.py --train_exp_tag main --exp_tag robust
 python run_robustness.py --fault_types gauss,miss   # subset of axes
 ```
 
+### Ablation Study — FEATHer variants are first-class models
+
+The 30 FEATHer ablation variants are registered alongside the 12 baselines
+and sweep through the same orchestrator, worker, CSV, and 5-seed protocol.
+
+```bash
+# One axis across ETTh1 / all horizons / 5 seeds
+python run_forecast.py --model FEATHer_ms_PHML --data ETTh1 --exp_tag ablation_multiscale
+python run_forecast.py --model FEATHer_gate_fft --data ETTh1 --exp_tag ablation_gating
+python run_forecast.py --model FEATHer_dtk_full --data ETTh1 --exp_tag ablation_dtk
+python run_forecast.py --model FEATHer_head_spk --data ETTh1 --exp_tag ablation_head
+python run_forecast.py --model FEATHer_complexity_full --data ETTh1 --exp_tag ablation_complexity
+```
+
+Available variant names (30 total):
+
+| Axis     | Variants                                                           |
+|----------|--------------------------------------------------------------------|
+| ms (15)  | P, H, M, L, PH, PM, PL, HM, HL, ML, PHM, PHL, PML, HML, PHML       |
+| gate (4) | none, uniform, softmax, fft                                        |
+| dtk (4)  | none, mlp, shallow, full                                           |
+| head (4) | linear, mlp, conv, spk                                             |
+| complexity (3) | half, full, double                                           |
+
+`baselines.list_ablation_models()` returns the full list.
 
 ---
 

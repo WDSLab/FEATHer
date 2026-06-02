@@ -36,6 +36,12 @@ def spectral_separation_loss_scales(H: torch.Tensor, eps: float = 1e-6) -> torch
     """
     S, B, L, D = H.shape
 
+    # Single-band ablation variants (e.g. FEATHer_ms_P) have no bands to
+    # disentangle — return 0 so spec loss is a no-op rather than crashing
+    # on torch.stack of an empty list.
+    if S < 2:
+        return H.new_zeros(())
+
     # Compute power spectrum for each scale: (B, L, D) -> (B, Lf)
     P_list = []
     for s in range(S):

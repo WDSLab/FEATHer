@@ -127,7 +127,10 @@ def train_single(args, data_name, pred_len, device, seed):
     # in half precision. Keeping fp32 everywhere also makes seed-to-seed
     # variance comparable across models.
 
-    use_spec_loss = (args.model == "FEATHer") and (args.lambda_spec > 0)
+    # FEATHer and its 30 ablation variants all expose return_components=True
+    # and benefit from the spectral-separation auxiliary loss. Other
+    # baselines have no band structure to disentangle.
+    use_spec_loss = args.model.startswith("FEATHer") and (args.lambda_spec > 0)
 
     test_metric = [1e9, 1e9, 1e9, -1e9, -1e9]
     best_epoch = 0
