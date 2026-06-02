@@ -116,6 +116,66 @@ _BUILDERS: Dict[str, Callable] = {
 }
 
 
+# -----------------------------------------------------------------------------
+# FEATHer ablation variants
+# -----------------------------------------------------------------------------
+# Five ablation axes — multiscale (15), gating (4), DTK (4), head (4),
+# complexity (3) = 30 variants total. Registered as first-class models so
+# they sweep through the same orchestrator / worker / CSV / checkpoint
+# protocol as the 12-baseline main lineup. Reviewer R8 #6 ("ablations
+# only on H=96 or H=720") is then directly addressable by running each
+# variant across all four horizons with the 5-seed protocol.
+#
+# Naming: FEATHer_<axis>_<variant>
+#   axes: ms (multiscale), gate, dtk, head, complexity
+# Example: FEATHer_ms_PHML, FEATHer_gate_fft, FEATHer_dtk_full
+def _make_feather_ablation(module_path, class_name, kwarg_name, variant_value):
+    def _build(args, n_features, seq_len, pred_len):
+        import importlib
+        mod = importlib.import_module(module_path)
+        cls = getattr(mod, class_name)
+        kwargs = dict(
+            seq_len=seq_len,
+            pred_len=pred_len,
+            d_model=n_features,
+            d_state=args.d_state,
+            kernel_size=args.kernel_size,
+            use_norm=True,
+            period=args.period,
+        )
+        # FEATHer_Multiscale takes band_config instead of num_bands.
+        if class_name != "FEATHer_Multiscale":
+            kwargs["num_bands"] = getattr(args, "num_bands", 4)
+        kwargs[kwarg_name] = variant_value
+        return cls(**kwargs)
+    return _build
+
+
+_ABLATION_SPECS = [
+    # (axis, module, class, kwarg, [variants])
+    ("ms",         "baselines.FEATHer.ablation.multiscale", "FEATHer_Multiscale", "band_config",
+     ["P", "H", "M", "L",
+      "PH", "PM", "PL", "HM", "HL", "ML",
+      "PHM", "PHL", "PML", "HML",
+      "PHML"]),
+    ("gate",       "baselines.FEATHer.ablation.gating",     "FEATHer_Gating",     "gating_type",
+     ["none", "uniform", "softmax", "fft"]),
+    ("dtk",        "baselines.FEATHer.ablation.dtk",        "FEATHer_DTK",        "dtk_type",
+     ["none", "mlp", "shallow", "full"]),
+    ("head",       "baselines.FEATHer.ablation.head",       "FEATHer_Head",       "head_type",
+     ["linear", "mlp", "conv", "spk"]),
+    ("complexity", "baselines.FEATHer.ablation.complexity", "FEATHer_Complexity", "complexity",
+     ["half", "full", "double"]),
+]
+
+_ABLATION_BUILDERS: Dict[str, Callable] = {}
+for _axis, _module, _klass, _kwarg, _variants in _ABLATION_SPECS:
+    for _v in _variants:
+        _name = f"FEATHer_{_axis}_{_v}"
+        _ABLATION_BUILDERS[_name] = _make_feather_ablation(_module, _klass, _kwarg, _v)
+del _axis, _module, _klass, _kwarg, _variants, _v, _name
+
+
 # Per-method training defaults — sourced from each paper's official ETTh1
 # script (or run.py default when the script does not override). Following
 # TFB (Hu et al., PVLDB 2024) and CF-JEPA (sibling project), we keep each
@@ -157,7 +217,9 @@ def get_model(name, args, n_features, seq_len, pred_len):
     """Construct a model by registered name.
 
     Args:
-        name: registered model key (case-sensitive).
+        name: registered model key (case-sensitive). Accepts both the 12
+            main-lineup keys and the 30 FEATHer_<axis>_<variant> ablation
+            keys.
         args: argparse.Namespace carrying model + training hyperparameters.
         n_features: input feature dimension.
         seq_len, pred_len: temporal lengths.
@@ -165,19 +227,31 @@ def get_model(name, args, n_features, seq_len, pred_len):
     Returns:
         nn.Module ready to .to(device).
     """
-    if name not in _BUILDERS:
-        available = ", ".join(sorted(_BUILDERS.keys()))
-        raise KeyError(f"Unknown model '{name}'. Available: {available}")
-    return _BUILDERS[name](args, n_features, seq_len, pred_len)
+    if name in _BUILDERS:
+        return _BUILDERS[name](args, n_features, seq_len, pred_len)
+    if name in _ABLATION_BUILDERS:
+        return _ABLATION_BUILDERS[name](args, n_features, seq_len, pred_len)
+    available = ", ".join(sorted(list(_BUILDERS) + list(_ABLATION_BUILDERS)))
+    raise KeyError(f"Unknown model '{name}'. Available: {available}")
+
+
+def list_ablation_models():
+    """FEATHer ablation variants — 30 entries across 5 axes."""
+    return sorted(_ABLATION_BUILDERS.keys())
 
 
 def get_method_defaults(name):
     """Per-paper training defaults (lr, loss) for `name`.
 
-    Returns an empty dict if the model is unregistered or has no entry —
-    callers should fall back to their own defaults in that case.
+    Ablation variants inherit FEATHer's defaults (lr=1e-3, loss=l1) so
+    the spec-loss-aware FEATHer protocol applies uniformly. Returns an
+    empty dict if the model is unregistered.
     """
-    return dict(_METHOD_DEFAULTS.get(name, {}))
+    if name in _METHOD_DEFAULTS:
+        return dict(_METHOD_DEFAULTS[name])
+    if name in _ABLATION_BUILDERS:
+        return dict(_METHOD_DEFAULTS["FEATHer"])
+    return {}
 
 
 # -----------------------------------------------------------------------------
@@ -331,9 +405,12 @@ def get_dataset_overrides(name, data):
 
     Returns an empty dict when the (model, dataset) cell has no entry —
     the caller should layer this on top of `get_method_defaults(name)`.
+    FEATHer ablation variants share FEATHer's single-config protocol, so
+    they have no per-dataset overrides by design.
     """
     return dict(_DATASET_OVERRIDES.get((name, data), {}))
 
 
 def list_models():
+    """Main benchmark lineup — 12 models (FEATHer + 11 baselines)."""
     return sorted(_BUILDERS.keys())
