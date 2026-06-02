@@ -225,6 +225,12 @@ results/
 # Paper materials (optional)
 paper_materials/
 
+# Manuscript (private working drafts, reviews, notes)
+manuscript/
+
+# Cloned upstream baselines (re-fetch via setup_baselines.sh)
+baselines/*/*-main/
+
 # Claude Code
 .claude/
 CLAUDE.md
