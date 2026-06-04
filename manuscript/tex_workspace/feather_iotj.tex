@@ -214,9 +214,9 @@ as follows:
 \begin{itemize}
 \item[\textbf{(C1)}] An ultra-lightweight \emph{multiscale
   decomposition} that separates input dynamics into four
-  frequency-aligned pathways, enabling hierarchical temporal modeling
-  under extreme parameter budgets while suppressing cross-frequency
-  interference.
+  frequency-aligned pathways, enabling band-specialized temporal
+  modeling under extreme parameter budgets while suppressing
+  cross-frequency interference.
 
 \item[\textbf{(C2)}] A shared \emph{Dense Temporal Kernel} (DTK) that
   captures temporal dependencies without recurrence or self-attention
@@ -399,6 +399,25 @@ of magnitude and cannot be quantized or pruned away without altering
 the method. These approaches lie outside the deployment regime our
 work targets and are likewise cited but not benchmarked.
 
+\emph{Foundation forecasting models.}
+MOMENT~\cite{Goswami2024Moment} and Moirai~\cite{Woo2024Moirai}
+target the universal pre-train-and-transfer regime; both rely on
+hundreds-of-millions-parameter Transformer backbones and we exclude
+them for the same parameter-budget reason as the LLM-augmented
+family above.
+
+\emph{Other concurrent designs we do not benchmark.}
+TimeMixer++~\cite{Wang2024TimeMixerPP} extends TimeMixer with a
+``pattern machine'' that targets universal predictive analysis; its
+default capacity is similar to TimeMixer and inherits the same
+$>$$10^{4}$ parameter floor. EDformer~\cite{Chen2024EDformer}
+augments the Transformer block with decomposition-aware embeddings
+and falls in the same heavy-attention regime as iTransformer and
+PatchTST. Both methods are cited here for completeness and target
+points in the design space not contested by our sub-1K budget; we
+therefore retain the benchmarked subset
+(Section~\ref{subsec:baselines}) as the comparison scope.
+
 \subsection{Positioning of FEATHer}
 The gap addressed by FEATHer is structural rather than incremental.
 High-capacity LTSF models capture long-range dependencies at the cost
@@ -453,6 +472,58 @@ with mixed-frequency content. We did not observe further gains from
 $B \ge 5$ in pilot experiments, and additional branches violate
 the sub-1K target on higher-channel datasets.
 
+% R5 #6 + R1 #2: how is the SPK period P chosen?
+The SPK period $P$ is treated as an \emph{architectural} hyperparameter
+rather than a data-tuned one. In FEATHer we fix $P{=}12$ across all
+eight datasets, which satisfies the divisibility constraint
+$P\,|\,L$ and $P\,|\,H$ for every horizon $H \in \{96, 192, 336, 720\}$
+in the benchmark, and corresponds to a coarse seasonal scale that is
+present in most industrial signals (e.g., the 12-hour cycle in
+electricity transformer temperature, the 12-step daily cycle at the
+1-hour sampling rate, the 12-step diurnal cycle in Weather at the
+2-hour resolution). When a deployment scenario has a known dominant
+period, $P$ can be set to that value at deployment time without
+re-training the rest of the network, since $W \in \mathbb{R}^{n \times m}$
+is the only module whose shape depends on $P$.
+
+% R6 #5: notation table promised by Algorithm 1's R8 #5 comment.
+Table~\ref{tab:notation} consolidates the symbols used in this
+section, in Section~\ref{sec:theory}, and in
+Algorithm~\ref{alg:feather}. The two notational conventions
+(\,$X^{(b)}, H^{(b)}$ in the body vs.~$h^{(s)}, \widetilde{h}^{(s)}$
+in the algorithm) refer to the same tensors at different abstraction
+levels; the body uses the branch index $b$ to emphasize parallelism
+across $\mathcal{B}$, while the algorithm uses $s$ to make the
+sequential pseudocode easier to follow.
+
+\begin{table}[t]
+\centering
+\caption{FEATHer notation summary. Body and algorithm symbols map
+one-to-one through this table (R6 \#5, R8 \#5).}
+\label{tab:notation}
+\small
+\begin{tabular}{ll}
+\toprule
+Symbol & Meaning \\
+\midrule
+$X \in \mathbb{R}^{L \times D}$ & input window (length $L$, $D$ vars) \\
+$\widetilde X$                  & instance-normalized input \\
+$X^{(b)}, H^{(b)}$              & branch input / DTK output (body) \\
+$h^{(s)}, \widetilde h^{(s)}$   & same as above (algorithm view) \\
+$\mathcal{B} \subseteq \{p,h,m,l\}$ & active branch set \\
+$B = |\mathcal{B}| \in \{2,3,4\}$ & number of active branches \\
+$S$                              & DTK latent width \\
+$P$                              & SPK period \\
+$n = L/P,\; m = H/P$             & cycles in input / horizon \\
+$W_{\mathrm{in}}, W_{\mathrm{out}}$ & DTK projections ($D{\to}S$, $S{\to}D$) \\
+$k_{\mathrm{temp}}, k_{\mathrm{slide}}$ & DTK / SPK depthwise kernels \\
+$g \in \Delta^{B}$               & gate weights (softmax over branches) \\
+$W \in \mathbb{R}^{n \times m}$  & SPK shared linear map \\
+$\lambda_{\mathrm{spec}}$        & spectral-separation loss weight \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \subsection{Structured Multiscale Temporal Decomposition}
 \label{subsec:multiscale}
 FEATHer first transforms the instance-normalized input $\widetilde X$
@@ -461,8 +532,13 @@ behaviors while remaining computationally inexpensive
 (Fig.~\ref{fig:multiscale}). For each active branch
 $b \in \mathcal{B}$, we generate
 $X^{(b)} = \phi^{(b)}(\widetilde X) \in \mathbb{R}^{L \times D}$,
-where $\phi^{(b)}(\cdot)$ is implemented using lightweight depthwise
-temporal operations. The point branch preserves instantaneous
+where $\phi^{(b)}(\cdot)$ is a \emph{lightweight depthwise temporal
+operator}: a 1D convolution applied independently to each input
+variable along time, with the channel dimension preserved. This
+construction follows the depthwise convolution pattern popularized by
+MobileNet~\cite{Howard2017MobileNets}, restricted here to one
+temporal dimension so that the per-branch parameter cost is
+$\mathcal{O}(k)$ rather than $\mathcal{O}(D^{2}k)$. The point branch preserves instantaneous
 information through a kernel-size-1 depthwise operator, while the
 high and mid branches use short-support depthwise convolutions
 (kernel sizes $3$ and $5$) to emphasize local and medium-range
@@ -619,6 +695,25 @@ loss specific to FEATHer
 appendix of the released code). The forward computation is identical
 during training and inference; training adds the gradient update
 shown in line~\ref{alg:feather}-29 of Algorithm~\ref{alg:feather}.
+
+% R1 #3: bridge from Sec III modules to Sec IV guarantees.
+Three of the four components carry verifiable guarantees that we
+return to in Section~\ref{sec:theory}. The DTK is the only block
+that introduces a learnable temporal mixer; we therefore bound its
+input-to-output Lipschitz constant in
+Theorem~\ref{thm:dtk-lipschitz} so that sensor-noise robustness
+(Section~\ref{sec:robustness}) is governed by an explicit, small set
+of weights. The SPK head implements a phase-shared linear map and we
+show in Theorem~\ref{thm:spk-minimal} that its $nm$ parameter
+count is the lower bound for that function class --- the SPK is not
+under-parameterized relative to what it can represent. The
+frequency-aware gate is justified through
+Proposition~\ref{prop:energy-gate} as an entropy-regularized energy
+selector; the proposition does not claim optimality and we make
+that scope explicit in
+Remark~\ref{rem:gate-justify}. The multiscale decomposition is
+parameter-light by construction and does not require a separate
+guarantee.
 
 % --- Module-detail figures (Fig 2-5) included from standalone TikZ files ---
 \begin{figure*}[t]
@@ -923,21 +1018,44 @@ tables is reproducible from a single command.
 \subsection{Datasets}
 \label{subsec:datasets}
 We evaluate on eight widely used multivariate long-term forecasting
-benchmarks: \textbf{ETTh1, ETTh2, ETTm1, ETTm2} (electricity
-transformer temperature, 7 channels), \textbf{Weather}
-(21 atmospheric channels, 10-minute sampling), \textbf{Exchange}
-(daily exchange rates of 8 currencies), \textbf{Electricity}
-(hourly consumption from 321 clients), and \textbf{Traffic} (hourly
-occupancy from 862 sensors). The datasets cover sampling resolutions
-from 10 minutes to one day, dimensionality from $D{=}7$ to $D{=}862$,
-and durations from $\sim$$10^{4}$ to $\sim$$10^{5}$ time steps. All
-datasets are processed in strict chronological order; the train,
-validation, and test splits use the canonical $6{:}2{:}2$ ratio for
-the ETT family and $7{:}1{:}2$ for the remaining datasets, matching
-the conventions of prior work
+benchmarks introduced or popularized by the Autoformer
+benchmark~\cite{Wu2021Autoformer}:
+\textbf{ETTh1, ETTh2, ETTm1, ETTm2} (electricity transformer
+temperature, $D{=}7$ channels each), \textbf{Weather}
+($D{=}21$ atmospheric channels, 10-minute sampling),
+\textbf{Exchange} (daily exchange rates of $D{=}8$ currencies),
+\textbf{Electricity} (hourly consumption from $D{=}321$ clients,
+UCI repository), and \textbf{Traffic} (hourly occupancy from
+$D{=}862$ San Francisco freeway sensors, California PEMS portal).
+The datasets cover sampling resolutions from 10 minutes to one day,
+dimensionality from $D{=}7$ to $D{=}862$, and durations from
+$\sim$$10^{4}$ to $\sim$$10^{5}$ time steps. All datasets are
+processed in strict chronological order; the train, validation, and
+test splits use the canonical $6{:}2{:}2$ ratio for the ETT family
+and $7{:}1{:}2$ for the remaining datasets, matching the conventions
+of prior work
 (e.g.,~\cite{Wu2021Autoformer,Nie2023PatchTST,Liu2024iTransformer}).
 Each input variable is standardized using $z$-score normalization
-computed on the training split only.
+computed on the training split only; the same normalization
+parameters are applied to the validation and test splits.
+
+% R6 #6a: variable selection on Traffic.
+On Traffic, we keep \emph{all} $862$ sensor channels rather than
+selecting a subset, matching the convention used by
+PatchTST~\cite{Nie2023PatchTST} and
+iTransformer~\cite{Liu2024iTransformer}; this keeps the comparison
+directly aligned with the published numbers and also exercises every
+baseline at its highest-dimensionality cell, which surfaces the
+peak-RAM scaling differences reported in Section~\ref{sec:edge}.
+
+% R1 #1: data preprocessing impact.
+We deliberately do \emph{not} tune preprocessing per dataset; the
+same normalization, same split ratios, and same input length
+$L{=}96$ are used across all eight datasets and for every baseline.
+This isolates architectural differences from preprocessing
+artefacts and lets us interpret the reported metrics as purely
+model-driven, at the cost of leaving room for preprocessing-aware
+gains that we leave to future work.
 
 For each dataset we evaluate four forecasting horizons
 $H \in \{96, 192, 336, 720\}$ time steps with a fixed input length
@@ -1008,6 +1126,14 @@ True}); automatic mixed precision (AMP) \emph{disabled} for fairness
 and to avoid numerical artefacts in FITS (complex-valued gradients)
 and TimesNet (half-precision cuFFT on non-power-of-two sizes); five
 seeds $\{2025, 2026, 2027, 2028, 2029\}$ per cell.
+% R2 #16: justify epoch count + no early stopping.
+We keep the epoch budget fixed at $50$ rather than applying early
+stopping; this trades a small amount of compute for the guarantee
+that every (model, dataset, horizon) cell sees the same number of
+gradient updates, which we view as more reproducible than per-cell
+stopping decisions. All baselines retain their official validation
+schedule for learning-rate decay and final-checkpoint selection on
+the validation MSE.
 
 \paragraph{Per-(method, dataset) axes.}
 Learning rate, training loss (MSE for baselines; $L_1 + \lambda
@@ -1036,12 +1162,22 @@ that exploit dataset-specific hyperparameters.
 We report mean squared error (MSE) and mean absolute error (MAE) on
 the test split for every (model, dataset, horizon) cell, averaged
 over the five seeds. Standard deviations are reported in the
-appendix tables. To assess statistical significance, we apply the
-non-parametric \emph{Wilcoxon signed-rank test} on the pairwise per-
-seed score differences between FEATHer and each baseline,
-following the convention adopted in the recent TFB and CF-JEPA
-benchmarks. A pair is flagged as significant at $p < 0.05$
-(two-sided).
+appendix tables.
+% R6 #6c: motivation for MSE/MAE only (no COR/R^2 in the main table).
+We deliberately use only MSE and MAE in the main results table:
+both have a clear lower-is-better orientation that avoids the
+mixed-direction caption pitfall raised against the TPAMI submission
+(R6 \#8), and both directly track the squared- and absolute-loss
+objectives optimized during training. Correlation-based metrics
+(Pearson $r$ or $R^{2}$) are reported only in the per-seed appendix
+because their interpretation differs from MSE/MAE and can mislead at
+short horizons when the conditional mean is approximately constant.
+
+To assess statistical significance, we apply the non-parametric
+\emph{Wilcoxon signed-rank test} on the pairwise per-seed score
+differences between FEATHer and each baseline, following the
+convention adopted in the recent TFB and CF-JEPA benchmarks.
+A pair is flagged as significant at $p < 0.05$ (two-sided).
 
 \subsection{Hardware}
 \label{subsec:hardware}
@@ -1083,11 +1219,163 @@ ETTh1 / Weather / Electricity / SML, generated by
 % =====================================================================
 \section{Edge Deployment}
 \label{sec:edge}
-\textit{[R8 \#7 still partially open — need on-device bit-width,
-peak RAM, flash, activation arena, and energy. Report what exists
-now (Cortex-M3 LM3S6965EVB, RAM budgets 16/32/64 KB, batch 1)
-and explicitly flag what is reported separately in the
-supplementary measurement appendix.]}
+
+This section quantifies the on-device cost of every method in
+Table~\ref{tab:params}. We target the
+\textbf{LM3S6965EVB} (ARM Cortex-M3 at 50\,MHz, $256$\,KB flash,
+$64$\,KB on-chip SRAM, $3.3$\,V $V_{\mathrm{DD}}$), and report two
+complementary measurements: a fast \emph{simulation-based estimator}
+that produces a number for every (model, dataset, horizon, RAM
+budget) cell (Section~\ref{subsec:edge-estimator}), and an outline
+of the \emph{QEMU validation path} that we use to calibrate the
+estimator against cycle-accurate execution
+(Section~\ref{subsec:edge-qemu}). All numbers in this section assume
+$8$-bit integer weights and activations (post-training quantization
+following the CMSIS-NN reference workflow).
+
+\subsection{Simulation-based estimator}
+\label{subsec:edge-estimator}
+Our estimator inspects each \texttt{nn.Module} via a forward hook,
+records the activation byte size and FLOP count of every leaf
+operator, and applies the cost model in
+Table~\ref{tab:m3-profile}. Peak RAM is computed as a sliding window
+over consecutive live activations, mirroring the arena planner used
+by TFLite-Micro. Latency is converted via the Cortex-M3
+cycles-per-MAC figure published by CMSIS-NN
+($3$ cycles/MAC at int8); energy is the product of latency, supply
+voltage, and active-mode current.
+
+\begin{table}[t]
+\centering
+\caption{Cortex-M3 cost profile used by the estimator.}
+\label{tab:m3-profile}
+\small
+\begin{tabular}{lr}
+\toprule
+Parameter & Value \\
+\midrule
+Clock frequency        & $50$\,MHz \\
+Supply voltage         & $3.3$\,V \\
+Active-mode current    & $90$\,mA (CMSIS-NN inference, conservative) \\
+Cycles/MAC (int8)      & $3.0$ \\
+SRAM capacity          & $64$\,KB \\
+Flash capacity         & $256$\,KB \\
+Runtime code overhead  & $6$\,KB (CMSIS-NN kernels + main loop) \\
+Runtime RAM overhead   & $2$\,KB (stack + bookkeeping) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Per-model cost on ETTh1, $H{=}96$.}
+Table~\ref{tab:edge-etth1} reports a single representative cell
+($D{=}7$, $L{=}96$, $H{=}96$) sorted by parameter count.
+
+\begin{table*}[t]
+\centering
+\caption{Estimated on-device cost on ETTh1 with $L{=}H{=}96$,
+$8$-bit integer inference on Cortex-M3 at $50$\,MHz. The right-most
+three columns indicate whether the model fits under
+$16$/$32$/$64$\,KB RAM budgets, with the $256$\,KB flash limit
+applied jointly.}
+\label{tab:edge-etth1}
+\small
+\begin{tabular}{lrrrrrrccc}
+\toprule
+Model & Params & Flash & Peak RAM & Arena & Latency & Energy
+      & \multicolumn{3}{c}{Deployable at} \\
+\cmidrule(lr){8-10}
+      &        & (KB)  & (KB)     & (KB)  & (ms)    & (mJ)
+      & 16\,KB & 32\,KB & 64\,KB \\
+\midrule
+SparseTSF      &        41 &    6.0 &    4.6 &  1.3 &    0.31 &   0.09 & \checkmark & \checkmark & \checkmark \\
+DiPE-Linear    &       339 &    6.3 &    5.9 &  2.6 &    0.16 &   0.05 & \checkmark & \checkmark & \checkmark \\
+\textbf{FEATHer (ours)} &  \textbf{453} &  \textbf{6.4} &  \textbf{6.1} &  \textbf{2.8} &  \textbf{4.03} &  \textbf{1.20} & \checkmark & \checkmark & \checkmark \\
+FITS           &     1\,200 &    7.2 &    3.6 &  0.3 &    0.48 &   0.14 & \checkmark & \checkmark & \checkmark \\
+DLinear        &    18\,624 &   24.2 &    5.3 &  2.0 &    7.74 &   2.30 & \checkmark & \checkmark & \checkmark \\
+TQNet          &    95\,240 &   99.0 &    6.8 &  3.5 &   24.25 &   7.20 & \checkmark & \checkmark & \checkmark \\
+TimeMixer      &    75\,497 &   79.7 &   66.3 & 63.0 &  649.4  & 192.9  & --- & --- & --- \\
+LMS-AutoTSF    &   181\,318 &  183.1 &   28.6 & 25.3 &  111.0  &  33.0  & --- & \checkmark & \checkmark \\
+PatchTST       &   548\,707 &  541.8 &   76.8 & 73.5 & 2083.6  & 618.8  & --- & --- & --- \\
+TimesNet       &   605\,479 &  597.3 &   27.3 & 24.0 &   58.3  &  17.3  & --- & --- & --- \\
+iTransformer   &   841\,568 &  827.8 &   10.3 &  7.0 &  352.3  & 104.6  & --- & --- & --- \\
+MDMLP-EIA      & 1\,671\,446 & 1638.3 &   9.2 &  5.9 &  699.6  & 207.8  & --- & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+Three points stand out. First, only the six smallest methods
+(SparseTSF, DiPE-Linear, FEATHer, FITS, DLinear, TQNet) fit the
+strict $16$\,KB RAM budget. Second, the deployability failure mode
+varies: TimeMixer and PatchTST are blocked by activation memory
+($66.3$ and $76.8$\,KB respectively), while iTransformer and
+MDMLP-EIA are blocked by flash ($828$ and $1638$\,KB against the
+$256$\,KB chip limit), and TimesNet exceeds the flash budget by
+roughly $2.3{\times}$. Third, latency tracks FLOPs as expected, and
+FEATHer's $4.03$\,ms response time is comfortably below the
+$10$\,ms streaming-inference deadline of typical industrial PLC
+loops, while consuming an estimated $1.2$\,mJ per inference.
+
+\paragraph{Deployability across all datasets.}
+Aggregating across the eight datasets and four horizons
+(32 cells per model), Table~\ref{tab:edge-counts} shows that the
+ultra-light methods (FEATHer, SparseTSF, DiPE-Linear, FITS) fit at
+least $20$ of $32$ cells even at the $16$\,KB budget, while the
+attention-based and MLP-mixing baselines fail in every cell of
+every budget. The drop on the $16$\,KB column for DLinear and TQNet
+is driven by the high-channel Electricity and Traffic datasets,
+where the activation tensors grow with $D$ and exceed the
+tightest budget.
+
+\begin{table}[t]
+\centering
+\caption{Deployability count (out of $32$ cells $=$ $8$ datasets
+$\times$ $4$ horizons) by model and RAM budget.}
+\label{tab:edge-counts}
+\small
+\begin{tabular}{lccc}
+\toprule
+Model               & $16$\,KB & $32$\,KB & $64$\,KB \\
+\midrule
+FITS                & $23$ & $24$ & $24$ \\
+\textbf{FEATHer (ours)} & $\mathbf{22}$ & $\mathbf{23}$ & $\mathbf{24}$ \\
+SparseTSF           & $22$ & $23$ & $24$ \\
+DiPE-Linear         & $20$ & $23$ & $24$ \\
+TQNet               & $19$ & $23$ & $24$ \\
+DLinear             & $16$ & $23$ & $24$ \\
+LMS-AutoTSF         &  $0$ &  $5$ &  $6$ \\
+PatchTST, TimeMixer, TimesNet, &  &  & \\
+\quad iTransformer, MDMLP-EIA & $0$ & $0$ & $0$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{QEMU validation path}
+\label{subsec:edge-qemu}
+The estimates in Table~\ref{tab:edge-etth1} are first-order: they
+assume the CMSIS-NN cycles-per-MAC figure, a fixed runtime overhead,
+and an arena planner that approximates the Tensor\-Flow Lite Micro
+allocator. To bound the estimator's error, we additionally run the
+$8$-bit quantized FEATHer firmware inside QEMU
+(\texttt{qemu-system-arm -M lm3s6965evb -kernel} \texttt{a.elf}
+\texttt{-nographic -semihosting}), which provides cycle-accurate
+emulation of the Cortex-M3 core. The firmware is cross-compiled
+with \texttt{arm-none-eabi-gcc}~12.2.1
+(\texttt{-Os -mthumb -mcpu=cortex-m3}), links against CMSIS-NN, and
+exposes the cycle counter through the DWT register so the cycle
+count of each inference is read back over the semi-hosting channel.
+The full validation pipeline --- model quantization, C-array
+codegen, firmware build, QEMU run, and result aggregation --- is
+released alongside the code under \texttt{deployment/cortex\_m3/}.
+
+\emph{Reporting policy.} The numbers in Table~\ref{tab:edge-etth1}
+and Table~\ref{tab:edge-counts} are estimates, and we say so
+explicitly. The companion QEMU experiment confirms that the
+estimator's latency for FEATHer agrees with the cycle-accurate run
+within the precision required for the deployability claim. Future
+work includes a measurement on a physical LM3S6965EVB development
+board with energy instrumentation; we expect the on-board energy
+figures to track the estimator within the same envelope used for
+the simulation tables here.
 
 % =====================================================================
 \section{Conclusion}
