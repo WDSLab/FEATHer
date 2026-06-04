@@ -416,11 +416,209 @@ Section~\ref{sec:robustness}.
 % =====================================================================
 \section{Methodology}
 \label{sec:method}
-\textit{[Migrate Sec 3 from feather\_raw.tex lines 500--600. Apply
-R8 \#5 Algorithm 1 fixes: line 5 \(h^{(p)} \rightarrow h^{(h)}\),
-line 21 extra ')' removed, unify \(X^{(b)}\)/\(H^{(b)}\)/\(h^{(s)}\)
-notation throughout. Add R6 \#1d clarification of the Eq.~(6) to
-Eq.~(7) dimension transition.]}
+
+FEATHer is designed to support stable long-horizon forecasting under
+the strict latency, memory, and energy constraints typical of
+industrial edge devices. The model integrates four lightweight
+components illustrated in Fig.~\ref{fig:overall}: a structured
+multiscale temporal decomposition, a shared Dense Temporal Kernel
+(DTK), a frequency-aware branch gating module, and a Sparse-Period
+Kernel (SPK). FEATHer avoids recurrence and self-attention, relying
+instead on linear projections, depthwise temporal filtering, and
+period-aligned mappings. This section formalizes each component;
+the full forward pass is summarized in
+Algorithm~\ref{alg:feather}.
+
+\subsection{Problem Setup and Notation}
+We consider multivariate forecasting with an input window of length
+$L$, a forecasting horizon $H$, and $D$ variables. The input sequence
+is $X \in \mathbb{R}^{L \times D}$ and the target horizon is
+$Y \in \mathbb{R}^{H \times D}$; FEATHer produces
+$\widehat{Y} \in \mathbb{R}^{H \times D}$ from $X$. The model
+constructs $B \in \{2,3,4\}$ scale pathways and the active branch
+set is $\mathcal{B} \subseteq \{p,h,m,l\}$, corresponding to point,
+high, mid, and low frequency pathways with $|\mathcal{B}| = B$. The
+DTK uses a latent width $S$, and the SPK uses a period $P$. All
+branch representations are aligned to the same temporal length $L$
+so that they can be fused without cross-scale alignment overhead.
+In this work, ``scale'' refers to frequency-aligned temporal
+representations obtained via lightweight temporal filtering.
+% R6 #1a: rationale for B in {2,3,4}.
+The branch count $B$ is restricted to $\{2,3,4\}$ for two
+practical reasons: (i)~the smallest configuration ($B{=}2$, e.g.,
+point + low) is sufficient on strongly stationary signals and keeps
+the parameter budget minimal; (ii)~$B{=}4$ activates all four
+frequency-band specialists and is the default for industrial signals
+with mixed-frequency content. We did not observe further gains from
+$B \ge 5$ in pilot experiments, and additional branches violate
+the sub-1K target on higher-channel datasets.
+
+\subsection{Structured Multiscale Temporal Decomposition}
+\label{subsec:multiscale}
+FEATHer first transforms the instance-normalized input $\widetilde X$
+into multiple scale representations that emphasize different temporal
+behaviors while remaining computationally inexpensive
+(Fig.~\ref{fig:multiscale}). For each active branch
+$b \in \mathcal{B}$, we generate
+$X^{(b)} = \phi^{(b)}(\widetilde X) \in \mathbb{R}^{L \times D}$,
+where $\phi^{(b)}(\cdot)$ is implemented using lightweight depthwise
+temporal operations. The point branch preserves instantaneous
+information through a kernel-size-1 depthwise operator, while the
+high and mid branches use short-support depthwise convolutions
+(kernel sizes $3$ and $5$) to emphasize local and medium-range
+variations, respectively. The low branch isolates slow components by
+temporally downsampling the input via average pooling with stride
+$r$ and then interpolating back to length $L$, yielding an explicit
+low-pass bias without introducing heavy parameters.
+
+% R5 #5 defense: asymmetric design rationale.
+The asymmetry between the convolution-based and the
+pool-then-upsample design choices is deliberate. A learned $k{=}5$
+depthwise convolution can model local variations within five
+consecutive samples, but its effective receptive field grows only
+linearly with kernel size; reaching a low-frequency receptive field
+through a single convolution would require kernels of size
+$\Theta(L/r)$, which dominates the parameter budget on
+high-channel datasets. The pool-then-upsample chain in the Low
+branch instead obtains an effective receptive field of $r$ samples
+\emph{without} learnable parameters in the pool stage, which leaves
+budget for the shared linear projection that follows. This
+parameter-receptive-field trade-off is the structural reason the
+four branches use the operators they do.
+
+\subsection{Dense Temporal Kernel (DTK)}
+Each decomposed pathway is processed by a shared DTK that performs
+efficient temporal mixing without recurrence or self-attention
+(Fig.~\ref{fig:dtk}). DTK adopts a
+projection--depthwise-filtering--inverse-projection structure. For a
+branch input $X^{(b)} \in \mathbb{R}^{L \times D}$, DTK first
+projects the input to a compact latent width $S$:
+\begin{equation}
+\label{eq:dtk-zin}
+Z^{(b)} = X^{(b)}\, W_{\mathrm{in}} \in \mathbb{R}^{L \times S},
+\end{equation}
+with $W_{\mathrm{in}} \in \mathbb{R}^{D \times S}$. A depthwise
+temporal convolution then mixes information along time
+\emph{independently per latent channel} using the shared kernel
+$k_{\mathrm{temp}}$:
+\begin{equation}
+\label{eq:dtk-dwconv}
+U^{(b)} = \mathrm{DWConv}_t(Z^{(b)};\, k_{\mathrm{temp}})
+       \in \mathbb{R}^{L \times S}.
+\end{equation}
+The latent representation is then projected back to the model
+dimension:
+\begin{equation}
+\label{eq:dtk-hout}
+H^{(b)} = U^{(b)}\, W_{\mathrm{out}} \in \mathbb{R}^{L \times D},
+\end{equation}
+with $W_{\mathrm{out}} \in \mathbb{R}^{S \times D}$. The DTK
+parameters $\{W_{\mathrm{in}}, W_{\mathrm{out}}, k_{\mathrm{temp}}\}$
+are shared across all branches $b \in \mathcal{B}$. This sharing
+prevents parameter growth when the branch count grows from $B{=}2$
+to $B{=}4$ while still allowing each branch to express
+scale-specific dynamics through its distinct input $X^{(b)}$. The
+Lipschitz stability of this construction is established in
+Theorem~\ref{thm:dtk-lipschitz}.
+
+\subsection{Frequency-aware Branch Gating}
+\label{subsec:gate}
+The importance of each temporal scale varies across instances and
+operating regimes. FEATHer therefore employs a frequency-aware
+gating mechanism that assigns branch weights from the input spectral
+profile (Fig.~\ref{fig:gate}). Starting from the instance-normalized
+input $\widetilde X$, we compute the real FFT along the temporal
+axis,
+\begin{equation}
+\label{eq:gate-fft}
+F = \mathcal{F}(\widetilde X), \qquad A = |F|,
+\end{equation}
+and obtain a compact spectral descriptor by averaging the magnitude
+across variables,
+\begin{equation}
+\label{eq:gate-meanD}
+a = \frac{1}{D} \sum_{d=1}^{D} A_{:,d} \in \mathbb{R}^{L_f},
+\quad L_f = \lfloor L/2 \rfloor + 1.
+\end{equation}
+A lightweight gating network $\psi(\cdot)$ maps $a$ to branch
+logits,
+\begin{equation}
+\label{eq:gate-psi}
+u = \psi(a) \in \mathbb{R}^{B},
+\end{equation}
+and a softmax produces non-negative weights,
+\begin{equation}
+\label{eq:gate-softmax}
+g = \mathrm{softmax}(u) \in \Delta^{B}.
+\end{equation}
+The fused representation is then
+\begin{equation}
+\label{eq:gate-fuse}
+H = \sum_{b \in \mathcal{B}} g_b\, H^{(b)} \in \mathbb{R}^{L \times D}.
+\end{equation}
+
+% R6 #1d: dimension transition L_f -> B inside psi(.).
+The transition from
+$a \in \mathbb{R}^{L_f}$ in~\eqref{eq:gate-meanD} to
+$u \in \mathbb{R}^{B}$ in~\eqref{eq:gate-psi} occurs inside
+$\psi(\cdot)$, which we implement as a small one-dimensional
+convolution stack followed by global average pooling and a final
+linear projection to $B$: explicitly, $\psi(a) = W_g\,
+\mathrm{Pool}\!\bigl(\mathrm{Conv1D}(a)\bigr)$ with
+$W_g \in \mathbb{R}^{C_g \times B}$ for a small intermediate channel
+width $C_g$. This composition reduces a length-$L_f$ descriptor to
+$B$ logits while keeping the gate module under a hundred parameters.
+The energy-consistent interpretation of $g$ is stated formally in
+Proposition~\ref{prop:energy-gate}.
+
+\subsection{Sparse-Period Kernel (SPK) for Long-Horizon Reconstruction}
+\label{subsec:spk}
+To produce $\widehat Y$ efficiently, FEATHer employs a Sparse-Period
+Kernel that reconstructs periodic and seasonal structure through
+compact period-aligned transformations (Fig.~\ref{fig:spk}). Starting
+from $H \in \mathbb{R}^{L \times D}$, SPK applies a depthwise
+residual aggregation that smooths short-term fluctuations while
+preserving the input length $L$:
+\begin{equation}
+\label{eq:spk-residual}
+H' = H + \mathrm{DWConv}_t(H;\, k_{\mathrm{slide}}).
+\end{equation}
+SPK then reorganizes $H'$ into phase-aligned groups using a period
+$P$. When $L$ and $H$ are divisible by $P$, we define $n = L/P$ and
+$m = H/P$. For each variable $d$, the channel signal $H'_{:,d}$ is
+reshaped into a matrix $\widetilde H_d \in \mathbb{R}^{P \times n}$
+whose rows correspond to fixed phases within the period. A
+\emph{single} shared linear map $W \in \mathbb{R}^{n \times m}$ is
+applied along the period axis:
+\begin{equation}
+\label{eq:spk-linear}
+\widehat Y_d(p, :) = \widetilde H_d(p, :)\, W,
+\qquad p = 1, \ldots, P.
+\end{equation}
+The phase-wise predictions are reassembled by interleaving phases
+to form $\widehat Y \in \mathbb{R}^{H \times D}$. When $L$ or $H$ is
+not divisible by $P$, we pad to the next multiple of $P$ and crop
+the final output back to length $H$. Sharing $W$ across phases
+\emph{and} variables yields a compact horizon mapping with exactly
+$nm = (L/P)(H/P)$ scalar parameters, which matches the parameter
+lower bound established in Theorem~\ref{thm:spk-minimal}.
+
+\subsection{End-to-End FEATHer Pipeline}
+Given $X$, FEATHer first generates the multiscale signals
+$\{X^{(b)}\}_{b \in \mathcal{B}}$, processes each pathway through the
+shared DTK to obtain $\{H^{(b)}\}_{b \in \mathcal{B}}$, computes
+spectrum-conditioned weights $g$, and fuses the branch
+representations into $H$. The SPK then produces the final forecast
+$\widehat Y$. The model is trained end-to-end by minimizing
+$\mathcal{L}(\widehat Y, Y) = \mathrm{MSE}(\widehat Y, Y) +
+\lambda_{\mathrm{spec}} \mathcal{L}_{\mathrm{spec}}$, where
+$\mathcal{L}_{\mathrm{spec}}$ is the spectral-separation auxiliary
+loss specific to FEATHer
+% R8 #5 last bullet: training-objective ambiguity removed.
+(the precise form of $\mathcal{L}_{\mathrm{spec}}$ is given in the
+appendix of the released code). The forward computation is identical
+during training and inference; training adds the gradient update
+shown in line~\ref{alg:feather}-29 of Algorithm~\ref{alg:feather}.
 
 % --- Module-detail figures (Fig 2-5) included from standalone TikZ files ---
 \begin{figure*}[t]
@@ -467,9 +665,8 @@ Eq.~(7) dimension transition.]}
     $P{\times}n$ grid of $P$ phases and $n{=}L/P$ periods. A
     \emph{single} shared matrix $W \in \mathbb{R}^{n \times m}$ maps
     each phase row to the corresponding $m{=}H/P$ output positions
-    via $\widehat{Y}_d(p,:) = H'_d(p,:)\,W$ (Eq.~\ref{eq:dtk} in
-    Sec.~\ref{sec:theory}). The result is interleaved back into a
-    one-dimensional forecast $\widehat{Y}$.}
+    via Eq.~\eqref{eq:spk-linear}. The result is interleaved back
+    into a one-dimensional forecast $\widehat{Y}$.}
     \label{fig:spk}
 \end{figure*}
 
