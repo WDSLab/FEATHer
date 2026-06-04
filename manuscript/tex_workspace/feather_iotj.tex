@@ -912,12 +912,150 @@ necessary to support FEATHer's core contributions.
 % =====================================================================
 \section{Experimental Setup}
 \label{sec:setup}
-\textit{[Datasets (8 darts + local CSV opt-in), baselines (12 — paper
-table from the registry's METHOD\_DEFAULTS and per-(method, dataset)
-overrides), HP protocol (sequence length 96, batch 32, 50 epochs, AMP
-off, 5 seeds 2025--2029, Adam + cosine LR, cuDNN deterministic),
-hardware. Address R8 \#3 reproducibility by listing every per-(method,
-dataset) learning rate / d-model / e-layers and citing the code repo.]}
+
+This section states the experimental protocol that governs every
+quantitative result reported in Sections~\ref{sec:results}--%
+\ref{sec:robustness}. The same protocol is used across all baselines
+and FEATHer to keep the comparison fair, and is implemented
+end-to-end in the released code so that every cell in the result
+tables is reproducible from a single command.
+
+\subsection{Datasets}
+\label{subsec:datasets}
+We evaluate on eight widely used multivariate long-term forecasting
+benchmarks: \textbf{ETTh1, ETTh2, ETTm1, ETTm2} (electricity
+transformer temperature, 7 channels), \textbf{Weather}
+(21 atmospheric channels, 10-minute sampling), \textbf{Exchange}
+(daily exchange rates of 8 currencies), \textbf{Electricity}
+(hourly consumption from 321 clients), and \textbf{Traffic} (hourly
+occupancy from 862 sensors). The datasets cover sampling resolutions
+from 10 minutes to one day, dimensionality from $D{=}7$ to $D{=}862$,
+and durations from $\sim$$10^{4}$ to $\sim$$10^{5}$ time steps. All
+datasets are processed in strict chronological order; the train,
+validation, and test splits use the canonical $6{:}2{:}2$ ratio for
+the ETT family and $7{:}1{:}2$ for the remaining datasets, matching
+the conventions of prior work
+(e.g.,~\cite{Wu2021Autoformer,Nie2023PatchTST,Liu2024iTransformer}).
+Each input variable is standardized using $z$-score normalization
+computed on the training split only.
+
+For each dataset we evaluate four forecasting horizons
+$H \in \{96, 192, 336, 720\}$ time steps with a fixed input length
+$L = 96$, so that every model produces the entire horizon in a
+single forward pass without autoregressive decoding.
+
+\subsection{Baselines}
+\label{subsec:baselines}
+We compare FEATHer against eleven contemporary baselines that span
+five orders of magnitude in parameter count (Table~\ref{tab:params}):
+SparseTSF~\cite{Lin2024SparseTSF} (ICML 2024 oral), DiPE-Linear
+\cite{Wintertee2026DiPELinear} (DASFAA 2026),
+FITS~\cite{Xu2024FITS} (ICLR 2024 spotlight),
+DLinear~\cite{Zeng2023DLinear} (AAAI 2023),
+PatchTST~\cite{Nie2023PatchTST} (ICLR 2023),
+TimeMixer~\cite{Wang2024TimeMixer} (ICLR 2024),
+TQNet~\cite{Lin2025TQNet} (ICML 2025),
+LMS-AutoTSF~\cite{Ibrahim2024LMSAutoTSF}, TimesNet~\cite{Wu2023TimesNet}
+(ICLR 2023), iTransformer~\cite{Liu2024iTransformer} (ICLR 2024), and
+MDMLP-EIA~\cite{Zh2026MDMLPEIA} (AAAI 2026). The two 2026 baselines
+(DiPE-Linear and MDMLP-EIA) directly address the
+``outdated-baselines'' concern raised against the TPAMI submission of
+this work. Architectures outside the deployment scope of this paper
+(S-Mamba and TimeCMA) are discussed in
+Section~\ref{subsec:scope-exclusion} but not benchmarked here.
+
+\begin{table}[t]
+\centering
+\caption{Parameter counts on ETTh1 ($D{=}7$) with the paper-default
+configuration of each method, sorted by size.}
+\label{tab:params}
+\small
+\begin{tabular}{lrr}
+\toprule
+Method            & Venue         & Params (ETTh1) \\
+\midrule
+DiPE-Linear       & DASFAA 2026   & 267            \\
+SparseTSF         & ICML 2024     & 41             \\
+\textbf{FEATHer (ours)} & ---     & \textbf{453}   \\
+FITS              & ICLR 2024     & 1{,}200        \\
+DLinear           & AAAI 2023     & 18{,}624       \\
+PatchTST          & ICLR 2023     & 35{,}171       \\
+TimeMixer         & ICLR 2024     & 75{,}497       \\
+TQNet             & ICML 2025     & 86{,}192       \\
+LMS-AutoTSF       & 2024          & 181{,}318      \\
+TimesNet          & ICLR 2023     & 605{,}479      \\
+iTransformer      & ICLR 2024     & 841{,}568      \\
+MDMLP-EIA         & AAAI 2026     & 1{,}632{,}832  \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Training Protocol}
+\label{subsec:protocol}
+
+% R8 #3 defense: explicit per-(method, dataset) HP table + code repo cite.
+We follow a TFB-style protocol in which a small set of axes is
+unified across all (method, dataset) cells, while
+architecture-sensitive hyperparameters are taken from each baseline's
+\emph{official per-dataset script} rather than re-tuned on this
+benchmark.
+
+\paragraph{Unified axes (every cell).} Input length $L = 96$;
+batch size $32$; training epochs $50$; optimizer
+\textsc{Adam} with cosine-annealing learning-rate schedule; cuDNN
+deterministic mode (\texttt{torch.backends.cudnn.deterministic =
+True}); automatic mixed precision (AMP) \emph{disabled} for fairness
+and to avoid numerical artefacts in FITS (complex-valued gradients)
+and TimesNet (half-precision cuFFT on non-power-of-two sizes); five
+seeds $\{2025, 2026, 2027, 2028, 2029\}$ per cell.
+
+\paragraph{Per-(method, dataset) axes.}
+Learning rate, training loss (MSE for baselines; $L_1 + \lambda
+L_{\mathrm{spec}}$ for FEATHer), architecture widths
+($d_{\mathrm{model}}, d_{\mathrm{ff}}, e_{\mathrm{layers}},
+n_{\mathrm{heads}}$, dropout), and any dataset-frequency-tied
+constants (e.g.,~the cycle period of TQNet, the period of SparseTSF)
+are read from each baseline repository's \textit{official} script
+for the corresponding ETT / Weather / Electricity / Traffic / Exchange
+configuration. The complete set of overrides is shipped as a Python
+table in the released code (\texttt{baselines/\_\_init\_\_.py},
+fields \texttt{\_METHOD\_DEFAULTS} and \texttt{\_DATASET\_OVERRIDES})
+and reproduced in the appendix.
+
+\paragraph{FEATHer's protocol --- a single configuration.}
+By deliberate paper-narrative choice, \emph{FEATHer uses one
+configuration across all eight datasets} ($S{=}8$,
+$k_{\mathrm{temp}}{=}7$, $P{=}12$, $\lambda_{\mathrm{spec}}{=}0.01$,
+$\mathrm{lr}{=}10^{-3}$, MAE + $\lambda_{\mathrm{spec}}$ spectral
+separation loss). This demonstrates that the proposed design
+generalizes without per-dataset tuning, in contrast to baselines
+that exploit dataset-specific hyperparameters.
+
+\subsection{Evaluation Protocol}
+\label{subsec:evaluation}
+We report mean squared error (MSE) and mean absolute error (MAE) on
+the test split for every (model, dataset, horizon) cell, averaged
+over the five seeds. Standard deviations are reported in the
+appendix tables. To assess statistical significance, we apply the
+non-parametric \emph{Wilcoxon signed-rank test} on the pairwise per-
+seed score differences between FEATHer and each baseline,
+following the convention adopted in the recent TFB and CF-JEPA
+benchmarks. A pair is flagged as significant at $p < 0.05$
+(two-sided).
+
+\subsection{Hardware}
+\label{subsec:hardware}
+Training and evaluation are performed on a server with an NVIDIA
+GPU and PyTorch~\mbox{2.5}. On-device latency and memory
+measurements (Section~\ref{sec:edge}) are obtained on a physical
+LM3S6965EVB development board (ARM Cortex-M3, 50\,MHz,
+64\,KB on-chip SRAM), compiled with
+\texttt{arm-none-eabi-gcc}~12.2.1 using the standard
+\texttt{-Os -mthumb -mcpu=cortex-m3} flags. Three RAM budgets
+$\{16, 32, 64\}$\,KB are enforced through the linker script so that
+the inference runtime cannot exceed the configured budget. The same
+trained checkpoint is used for both server-side metric evaluation
+and on-device measurement.
 
 % =====================================================================
 \section{Results}
