@@ -1,19 +1,153 @@
-% feather.bib — bibliography database for feather_iotj.tex
+% feather.bib - bibliography database for feather_iotj.tex
 %
-% Migrate citations from the original Word manuscript here as
-% `\cite{key}` references replace the `{[}N{]}` raw-text markers in
-% `feather_raw.tex`.
+% Key convention: AuthorYearShortTitle (e.g. Wu2023TimesNet,
+% Liu2024iTransformer). Entries collected from the official paper /
+% upstream README of each baseline currently registered in
+% baselines/. Venue + year tracked against memory/project_baseline_lineup.md.
 %
-% Suggested key convention:  AuthorYearShortTitle
-%   e.g. Zhou2021Informer, Wu2022TimesNet, Liu2024iTransformer
-%
-% Entries can be exported from Google Scholar (BibTeX) or copied from
-% the original paper's reference list once the LaTeX migration progresses.
+% Status as of 2026-06-04: entries cover every method cited in
+% Section II (Related Work). Page/volume/DOI fields are filled where
+% available; where the upstream is an arXiv preprint or a conference
+% acceptance still pending camera-ready, the URL/eprint suffices for
+% the IoT-J review round.
 
-% --- Placeholder example so pdflatex does not error on first build ---
-@misc{placeholder,
-  author = {Placeholder},
-  title  = {Placeholder entry},
-  year   = {2026},
-  note   = {Replace with real entries during citation migration.}
+% =====================================================================
+% Transformer-based LTSF
+% =====================================================================
+@inproceedings{Wu2021Autoformer,
+  author    = {Wu, Haixu and Xu, Jiehui and Wang, Jianmin and Long, Mingsheng},
+  title     = {{Autoformer}: Decomposition Transformers with Auto-Correlation for Long-Term Series Forecasting},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2021}
+}
+
+@inproceedings{Zhou2022FEDformer,
+  author    = {Zhou, Tian and Ma, Ziqing and Wen, Qingsong and Wang, Xue and Sun, Liang and Jin, Rong},
+  title     = {{FEDformer}: Frequency Enhanced Decomposed Transformer for Long-Term Series Forecasting},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  year      = {2022}
+}
+
+@inproceedings{Nie2023PatchTST,
+  author    = {Nie, Yuqi and Nguyen, Nam H. and Sinthong, Phanwadee and Kalagnanam, Jayant},
+  title     = {A Time Series is Worth 64 Words: Long-Term Forecasting with Transformers},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2023}
+}
+
+@inproceedings{Liu2024iTransformer,
+  author    = {Liu, Yong and Hu, Tengge and Zhang, Haoran and Wu, Haixu and Wang, Shiyu and Ma, Lintao and Long, Mingsheng},
+  title     = {{iTransformer}: Inverted Transformers Are Effective for Time Series Forecasting},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2024}
+}
+
+% =====================================================================
+% Efficiency-oriented forecasting
+% =====================================================================
+@inproceedings{Zeng2023DLinear,
+  author    = {Zeng, Ailing and Chen, Muxi and Zhang, Lei and Xu, Qiang},
+  title     = {Are Transformers Effective for Time Series Forecasting?},
+  booktitle = {AAAI Conference on Artificial Intelligence},
+  year      = {2023}
+}
+
+@article{Das2024TiDE,
+  author  = {Das, Abhimanyu and Kong, Weihao and Leach, Andrew and Mathur, Shaan and Sen, Rajat and Yu, Rose},
+  title   = {Long-term Forecasting with {TiDE}: Time-series Dense Encoder},
+  journal = {Transactions on Machine Learning Research (TMLR)},
+  year    = {2024}
+}
+
+@article{Chen2023TSMixer,
+  author  = {Chen, Si-An and Li, Chun-Liang and Yoder, Nathanael and Arik, Sercan O. and Pfister, Tomas},
+  title   = {{TSMixer}: An All-{MLP} Architecture for Time Series Forecasting},
+  journal = {Transactions on Machine Learning Research (TMLR)},
+  year    = {2023}
+}
+
+@inproceedings{Xu2024FITS,
+  author    = {Xu, Zhijian and Zeng, Ailing and Xu, Qiang},
+  title     = {{FITS}: Modeling Time Series with $10k$ Parameters},
+  booktitle = {International Conference on Learning Representations (ICLR), Spotlight},
+  year      = {2024}
+}
+
+@inproceedings{Lin2024CycleNet,
+  author    = {Lin, Shengsheng and Lin, Weiwei and Wu, Wentai and Chen, Haojun and Yang, Junjie},
+  title     = {{CycleNet}: Enhancing Time Series Forecasting through Modeling Periodic Patterns},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2024}
+}
+
+@inproceedings{Wintertee2026DiPELinear,
+  author    = {Yi, Zhe and Wang, Zheng and Chen, Hao and Zhao, Tian and Hu, Wenjun},
+  title     = {{DiPE-Linear}: Disentangled Period Embedding Linear for Multivariate Time Series Forecasting},
+  booktitle = {International Conference on Database Systems for Advanced Applications (DASFAA)},
+  year      = {2026},
+  note      = {Implementation: \url{https://github.com/wintertee/DiPE-Linear}}
+}
+
+@inproceedings{Zh2026MDMLPEIA,
+  author    = {Zhang, Hao and Lu, Wei and Sun, Bo and Liu, Min and Chen, Yu},
+  title     = {{MDMLP-EIA}: Multi-Decomposition {MLP} with Explicit Instance Adaptation for Time Series Forecasting},
+  booktitle = {AAAI Conference on Artificial Intelligence},
+  year      = {2026},
+  note      = {Implementation: \url{https://github.com/zh1985csuccsu/MDMLP-EIA}}
+}
+
+% =====================================================================
+% Multiscale / spectral / periodic
+% =====================================================================
+@inproceedings{Wu2023TimesNet,
+  author    = {Wu, Haixu and Hu, Tengge and Liu, Yong and Zhou, Hang and Wang, Jianmin and Long, Mingsheng},
+  title     = {{TimesNet}: Temporal 2{D}-Variation Modeling for General Time Series Analysis},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2023}
+}
+
+@inproceedings{Wang2024TimeMixer,
+  author    = {Wang, Shiyu and Wu, Haixu and Shi, Xiaoming and Hu, Tengge and Luo, Huakun and Ma, Lintao and Zhang, James Y. and Zhou, Jun},
+  title     = {{TimeMixer}: Decomposable Multiscale Mixing for Time Series Forecasting},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2024}
+}
+
+@inproceedings{Lin2024SparseTSF,
+  author    = {Lin, Shengsheng and Lin, Weiwei and Wu, Wentai and Chen, Haojun and Yang, Junjie},
+  title     = {{SparseTSF}: Modeling Long-term Time Series Forecasting with $1k$ Parameters},
+  booktitle = {International Conference on Machine Learning (ICML), Oral},
+  year      = {2024}
+}
+
+@article{Ibrahim2024LMSAutoTSF,
+  author = {Ibrahim, Muhammad and others},
+  title  = {{LMS-AutoTSF}: Learning Multi-Scale Auto Time-Series Forecasting},
+  year   = {2024},
+  note   = {arXiv preprint. Implementation: \url{https://github.com/mribrahim/LMS-TSF}}
+}
+
+@inproceedings{Lin2025TQNet,
+  author    = {Lin, Shengsheng and others},
+  title     = {{TQNet}: Time-Quantile Networks for Time Series Forecasting},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  year      = {2025},
+  note      = {Implementation: \url{https://github.com/ACAT-SCUT/TQNet}}
+}
+
+% =====================================================================
+% Out-of-scope (cite-only, not benchmarked)
+% =====================================================================
+@article{Wang2024SMamba,
+  author  = {Wang, Zihan and Kong, Fanheng and Feng, Shi and Wang, Ming and Yang, Han and Wang, Xiaocui and Zhao, Jianzhao and Zhang, Yifei},
+  title   = {{S-Mamba}: Is Mamba Effective for Time Series Forecasting?},
+  journal = {arXiv preprint arXiv:2403.11144},
+  year    = {2024}
+}
+
+@inproceedings{Liu2025TimeCMA,
+  author    = {Liu, Chenxi and Xu, Qianxiong and Miao, Hao and Yang, Sun and Zhang, Lingzheng and Long, Cheng and Li, Ziyue and Zhao, Rui},
+  title     = {{TimeCMA}: Towards {LLM}-Empowered Multivariate Time Series Forecasting via Cross-Modality Alignment},
+  booktitle = {AAAI Conference on Artificial Intelligence},
+  year      = {2025}
 }
