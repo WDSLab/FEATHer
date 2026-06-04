@@ -133,9 +133,164 @@ models, on-device inference, sensor robustness.
 % =====================================================================
 \section{Introduction}
 \label{sec:introduction}
-\textit{[Migrate from \texttt{feather\_raw.tex} lines 50--500. IoT-J
-emphasis: industrial edge (PLC, MCU), real-sensor noise, missing
-values. Tone down universal-SOTA framing.]}
+
+Time-series forecasting underpins critical functions in modern
+industrial systems: production scheduling, predictive maintenance,
+energy balancing, anomaly detection, and safety monitoring across
+manufacturing, logistics, and transportation infrastructure. As these
+domains shift toward cyber-physical and autonomous operation,
+forecasting models are increasingly required to run \emph{directly on
+edge platforms} --- programmable logic controllers (PLCs), embedded
+microcontrollers, industrial IoT sensor nodes, and low-power gateways
+--- under strict constraints on latency, memory, and energy. These
+platforms typically offer kilobyte-scale weight budgets, single-digit
+megahertz cores, and millisecond-level response deadlines, while
+operating under nonstationary conditions that include sensor noise,
+intermittent communication losses, and quantization-induced
+distortion. Large Transformer-based architectures, deep convolutional
+encoders, and even moderately sized state-space models are
+impractical in this regime; this motivates forecasting designs that
+maintain accuracy over long horizons under \emph{extreme} parameter
+budgets and that remain reliable under realistic sensor faults.
+
+% R4 #2/3: outdated baselines — both new families included below.
+Recent research has explored a range of lightweight forecasting
+architectures, including
+DLinear~\cite{Zeng2023DLinear}, TiDE~\cite{Das2024TiDE},
+TSMixer~\cite{Chen2023TSMixer}, FITS~\cite{Xu2024FITS},
+CycleNet~\cite{Lin2024CycleNet},
+SparseTSF~\cite{Lin2024SparseTSF}, and very recently
+DiPE-Linear~\cite{Wintertee2026DiPELinear} and
+MDMLP-EIA~\cite{Zh2026MDMLPEIA}. These methods demonstrate the value
+of linear decomposition, shallow temporal mixing, and period-aware
+projections. Three challenges nevertheless remain for industrial
+long-horizon forecasting. First, many designs rely on a
+\emph{single} temporal scale or a fixed periodic structure, which is
+insufficient to represent the hierarchical patterns observed in
+industrial signals where rapid fluctuations, medium-range
+transitions, and long-term seasonal drifts coexist. Second,
+lightweight architectures often lack an explicit mechanism for
+structured frequency decomposition, forcing heterogeneous temporal
+components into a single representational pathway and inducing
+cross-frequency interference. Third, despite being labeled
+``lightweight,'' many models still operate in the
+$10^{3}$--$10^{5}$ parameter range, which can exceed the budgets
+imposed by tightly constrained edge controllers
+(see Section~\ref{sec:related} for a detailed comparison).
+
+% R8 #2 tone-down: configuration-dependent ultra-light regime.
+% R8 #1 tone-down: "competitive" rather than "broadly SOTA".
+To address these gaps, we present \textbf{FEATHer}, a deployable
+forecasting system designed for accurate long-horizon forecasting
+under severe resource constraints. FEATHer follows a structured
+design in which representations are explicitly organized across
+temporal scales and adaptively fused based on the spectral
+characteristics of the input. The model consists of four lightweight
+components (Fig.~\ref{fig:overall}): a multiscale temporal
+decomposition that splits the instance-normalized input into point-,
+high-, mid-, and low-frequency pathways via depthwise 1D
+convolutions; a shared Dense Temporal Kernel (DTK) that mixes time
+information within each band using a projection-depthwise-projection
+sequence, without recurrence or self-attention; a frequency-aware
+branch gating module that fuses pathways by computing softmax
+weights from the FFT magnitude of the normalized input; and a
+Sparse-Period Kernel (SPK) that reconstructs long-horizon outputs
+through period-aligned reshaping and a shared linear projection.
+
+In aggregate, these choices place FEATHer in a
+\emph{configuration-dependent} ultra-light regime --- 453 parameters
+on ETTh1 and at most a few thousand parameters on higher-channel
+datasets --- with deployment validated on Cortex-M3 hardware under
+$16$--$64$\,KB RAM budgets in streaming batch-one inference
+(Section~\ref{sec:edge}). Beyond clean-input accuracy, we evaluate
+robustness against four classes of sensor faults that arise in field
+deployment --- additive Gaussian noise, missing values, impulse
+outliers, and quantization distortion --- across $19\,200$ corruption
+conditions, an evaluation axis previously underrepresented in the
+LTSF literature
+(Section~\ref{sec:robustness}). The contributions of this work are
+as follows:
+
+\begin{itemize}
+\item[\textbf{(C1)}] An ultra-lightweight \emph{multiscale
+  decomposition} that separates input dynamics into four
+  frequency-aligned pathways, enabling hierarchical temporal modeling
+  under extreme parameter budgets while suppressing cross-frequency
+  interference.
+
+\item[\textbf{(C2)}] A shared \emph{Dense Temporal Kernel} (DTK) that
+  captures temporal dependencies without recurrence or self-attention
+  and prevents parameter growth in multi-branch designs.
+
+\item[\textbf{(C3)}] A \emph{frequency-aware gating} mechanism that
+  adaptively fuses the multiscale pathways based on the FFT magnitude
+  of the input, providing structured adaptation to nonstationary
+  dynamics with negligible parameter overhead.
+
+\item[\textbf{(C4)}] A \emph{Sparse-Period Kernel} (SPK) for
+  phase-aligned long-horizon reconstruction that captures periodic
+  and seasonal structure with parameter count exactly
+  $nm = (L/P)(H/P)$ (Theorem~\ref{thm:spk-minimal}), without
+  increasing model depth.
+
+\item[\textbf{(C5)}] A comprehensive benchmark against eleven recent
+  baselines that span five orders of magnitude in parameter count
+  (from SparseTSF and DiPE-Linear at $\le\!10^{3}$ parameters to
+  MDMLP-EIA at $1.6\!\times\!10^{6}$), with paper-default
+  per-(method, dataset) hyperparameters, five random seeds, and
+  pairwise Wilcoxon signed-rank significance tests on every
+  reported comparison (Section~\ref{sec:results}).
+
+\item[\textbf{(C6)}] An IoT-J-targeted \emph{sensor-fault robustness}
+  evaluation: $19\,200$ corruption conditions across four fault axes
+  and four representative datasets, with the trained checkpoints
+  reused at inference time so the result reflects the deployed model
+  exactly (Section~\ref{sec:robustness}).
+
+\item[\textbf{(C7)}] A Cortex-M3 \emph{on-device measurement
+  protocol} reporting peak RAM, flash usage, activation arena, and
+  per-sample latency under $16$--$64$\,KB RAM budgets, making the
+  deployability claim verifiable rather than abstract
+  (Section~\ref{sec:edge}).
+\end{itemize}
+
+The remainder of the paper is organized as follows.
+Section~\ref{sec:related} surveys related work on lightweight LTSF
+and positions FEATHer with respect to contemporary 2024--2026
+baselines. Section~\ref{sec:method} details the four FEATHer
+components and the corrected Algorithm~\ref{alg:feather}.
+Section~\ref{sec:theory} presents the theoretical guarantees
+(DTK Lipschitz stability, SPK parameter minimality, energy-consistent
+gating). Section~\ref{sec:setup} states the experimental setup,
+Section~\ref{sec:results} the main forecasting results, and
+Section~\ref{sec:ablation} the ablation study covering all four
+modules across all horizons. Section~\ref{sec:robustness} reports the
+four-axis sensor-fault robustness sweep, and
+Section~\ref{sec:edge} the on-device measurements.
+Section~\ref{sec:conclusion} concludes with limitations and future
+directions.
+
+% =====================================================================
+% Fig. 1 overall architecture (wide, spans both columns).
+% Compiled separately from fig1_overall.tex (TikZ standalone) and
+% included here as a PDF inclusion.
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.95\textwidth]{fig1_overall.pdf}
+    \caption{Overall architecture of FEATHer. The input window
+    $X \in \mathbb{R}^{B \times L \times D}$ passes through (1) the
+    multiscale decomposition into point-, high-, mid-, and
+    low-frequency pathways; (2) the shared Dense Temporal Kernel (DTK)
+    that performs depthwise temporal mixing within each band;
+    (3) a frequency-aware branch gating module that derives softmax
+    weights from the FFT magnitude of the normalized input; and
+    (4) the Sparse-Period Kernel (SPK) that reconstructs the
+    long-horizon forecast through period-aligned reshaping with a
+    shared linear projection. The four module-detail figures
+    (Fig.~\ref{fig:multiscale}--\ref{fig:spk}) expand each component
+    in turn.}
+    \label{fig:overall}
+\end{figure*}
 
 % =====================================================================
 \section{Related Work}
@@ -266,6 +421,57 @@ R8 \#5 Algorithm 1 fixes: line 5 \(h^{(p)} \rightarrow h^{(h)}\),
 line 21 extra ')' removed, unify \(X^{(b)}\)/\(H^{(b)}\)/\(h^{(s)}\)
 notation throughout. Add R6 \#1d clarification of the Eq.~(6) to
 Eq.~(7) dimension transition.]}
+
+% --- Module-detail figures (Fig 2-5) included from standalone TikZ files ---
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.85\textwidth]{fig2_multiscale.pdf}
+    \caption{Multiscale Decomposition (FEATHer module \textbf{[1]},
+    Fig.~\ref{fig:overall}). Four parallel branches separate the
+    instance-normalized input $\widetilde{X}$ into point ($k{=}1$),
+    high ($k{=}3$), mid ($k{=}5$), and low (AvgPool $\to$ Linear
+    $\to$ Interp) frequency bands. The asymmetric Low branch obtains
+    a much coarser receptive field than a single $k{=}5$ convolution
+    could provide.}
+    \label{fig:multiscale}
+\end{figure*}
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.85\textwidth]{fig3_dtk.pdf}
+    \caption{Shared Dense Temporal Kernel (DTK, FEATHer module
+    \textbf{[2]}). The same DTK weights are reused across the four
+    frequency branches. Inside the DWConv block, $S$ parallel lanes
+    share the kernel $k_{\text{temp}}$ but are processed
+    \emph{independently per latent channel}: channel $s$'s output
+    uses only channel $s$'s input, with no cross-channel mixing.}
+    \label{fig:dtk}
+\end{figure*}
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.95\textwidth]{fig4_gate.pdf}
+    \caption{Frequency-Aware Branch Gating (FEATHer module
+    \textbf{[3]}). The gate weights are computed in seven steps:
+    FFT magnitude, mean over channels $D$, Conv1D into 4 bands, mean
+    over frequency bins $L_f$, and softmax, yielding a probability
+    vector $g \in \mathbb{R}^{4}$ that fuses the four DTK outputs.}
+    \label{fig:gate}
+\end{figure*}
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.95\textwidth]{fig5_spk.pdf}
+    \caption{Sparse-Period Kernel (SPK, FEATHer module \textbf{[4]}).
+    After a residual DWConv, the signal is reshaped into a
+    $P{\times}n$ grid of $P$ phases and $n{=}L/P$ periods. A
+    \emph{single} shared matrix $W \in \mathbb{R}^{n \times m}$ maps
+    each phase row to the corresponding $m{=}H/P$ output positions
+    via $\widehat{Y}_d(p,:) = H'_d(p,:)\,W$ (Eq.~\ref{eq:dtk} in
+    Sec.~\ref{sec:theory}). The result is interleaved back into a
+    one-dimensional forecast $\widehat{Y}$.}
+    \label{fig:spk}
+\end{figure*}
 
 % --- Algorithm 1 — corrected per R8 #5 audit (drafts/05_algorithms_word.md) ---
 % R8 #5 fixes applied inline (flagged in comments):
