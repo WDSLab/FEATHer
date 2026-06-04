@@ -140,11 +140,123 @@ values. Tone down universal-SOTA framing.]}
 % =====================================================================
 \section{Related Work}
 \label{sec:related}
-\textit{[Migrate Related Work. Add explicit scope-exclusion paragraph
-for S-Mamba (CUDA selective\_scan, no MCU port) and TimeCMA (frozen
-GPT-2, $\sim$124M params, 5 orders above sub-1K budget). Cite
-DiPE-Linear (DASFAA 2026) and MDMLP-EIA (AAAI 2026) — these address
-R4 \#2--\#3 "outdated baselines".]}
+
+Long-term time-series forecasting (LTSF) has been pursued from three
+broad angles: (i)~architectures that capture long-range dependencies,
+(ii)~efficiency-oriented models that reduce parameter and compute
+budgets, and (iii)~methods that introduce explicit temporal structure
+through multiscale decomposition, spectral modeling, or periodic
+reconstruction. This section reviews each direction, contrasts the
+gaps that remain in the ultra-light regime required by industrial
+edge deployment, and states which contemporary architectures we
+deliberately leave outside the comparison scope.
+
+\subsection{Modeling Long-Horizon Dependencies}
+A substantial body of LTSF research scales the Transformer to long
+sequences. Autoformer~\cite{Wu2021Autoformer} introduces
+decomposition-driven autocorrelation, FEDformer~\cite{Zhou2022FEDformer}
+performs attention in the frequency domain,
+PatchTST~\cite{Nie2023PatchTST} reformulates the input as channel-
+independent patches, and iTransformer~\cite{Liu2024iTransformer}
+inverts the attention to operate over variables instead of time steps.
+These models achieve strong benchmark accuracy, but their attention
+operations and deep stacks typically require $10^{5}$--$10^{6}$
+parameters, which is incompatible with the kilobyte-scale weight
+budgets of programmable logic controllers and Cortex-class
+microcontrollers.
+
+\subsection{Efficiency-Oriented Forecasting}
+A parallel line of work pursues competitive accuracy with reduced
+budgets. Linear and decomposition-based heads
+(DLinear, NLinear~\cite{Zeng2023DLinear}) show that well-structured
+linear mappings can match attention-based decoders on standard
+benchmarks. Compact MLP-mixing models such as TiDE~\cite{Das2024TiDE}
+and TSMixer~\cite{Chen2023TSMixer} push this direction further while
+adding shallow nonlinear blocks. Spectral and cycle-aware designs ---
+notably FITS~\cite{Xu2024FITS}, which projects the input to a low-rank
+frequency representation, and CycleNet~\cite{Lin2024CycleNet}, which
+exploits repeating temporal structure --- reduce the effective
+parameter count by exploiting compressible temporal regularities.
+
+Two very recent additions extend this lineage and we include both as
+contemporary baselines (Section~\ref{sec:results}):
+DiPE-Linear~\cite{Wintertee2026DiPELinear} (DASFAA 2026) achieves
+strong accuracy with $\sim$$10^{2}$ parameters by combining
+disentangled period embeddings with shallow linear heads, and
+MDMLP-EIA~\cite{Zh2026MDMLPEIA} (AAAI 2026) reaches sub-2M parameters
+through a multi-decomposition MLP with explicit instance adaptation.
+Despite this progress, models marketed as ``lightweight'' still
+routinely operate in the $10^{3}$--$10^{5}$ parameter range, which is
+two to four orders of magnitude above the budgets feasible on
+flash-constrained MCUs.
+
+\subsection{Structured Multiscale and Spectral Modeling}
+A complementary direction adds explicit temporal structure to improve
+long-horizon stability. Multi-resolution convolutional designs and
+hierarchical decompositions seek to disentangle temporal patterns
+through structured transformations. TimesNet~\cite{Wu2023TimesNet}
+folds the 1D signal into 2D representations along multiple periods and
+applies inception-style convolutions across them.
+TimeMixer~\cite{Wang2024TimeMixer} performs multi-scale MLP mixing
+along both time and channel axes.
+SparseTSF~\cite{Lin2024SparseTSF} introduces period-aware sparse
+projections that share linear weights across phases, achieving
+remarkable parameter efficiency under explicit periodicity.
+
+FEATHer overlaps with these methods in spirit but differs along three
+axes that matter under sub-1K budgets. (i)~Unlike
+TimesNet/TimeMixer, the FEATHer multiscale decomposition produces
+\emph{exactly four} band-specialized pathways (point, high, mid, low)
+with kernel sizes pinned to a fixed receptive-field schedule, removing
+the search over multiple periods or hierarchical levels.
+(ii)~Frequency-aware gating in FEATHer derives band weights from the
+FFT magnitude of the instance-normalized input rather than from
+attention or pooled statistics, which keeps the gating module to a
+single Conv1D and a softmax. (iii)~The SPK shares the
+phase-aligned-projection idea with SparseTSF but applies it
+\emph{after} a learnable temporal mixer rather than directly to the
+raw signal, which retains parameter minimality
+(Theorem~\ref{thm:spk-minimal}) while accommodating non-periodic
+fluctuations through the upstream DTK.
+
+\subsection{Architectures Outside the Edge-Deployment Scope}
+\label{subsec:scope-exclusion}
+Our benchmark deliberately excludes two contemporary families of
+LTSF architectures because their deployment profile is incompatible
+with our sub-1K, MCU-targeted setting.
+
+\emph{Selective-scan state-space models.}
+Mamba-family forecasters such as
+S-Mamba~\cite{Wang2024SMamba} achieve linear-time long-range modeling
+through the \texttt{selective\_scan\_cuda} and
+\texttt{causal\_conv1d\_cuda} kernels. These kernels are CUDA-specific
+and have, to our knowledge, no port to ARM Cortex-M or comparable
+embedded runtimes; the same model also operates two to three orders of
+magnitude above our parameter budget. We therefore cite this family
+here but do not include it in the on-device comparison.
+
+\emph{LLM-augmented forecasters.}
+TimeCMA~\cite{Liu2025TimeCMA} (AAAI 2025) and related approaches
+condition forecasting heads on features extracted from frozen large
+language models (e.g., GPT-2, $\sim$$1.2\!\times\!10^{8}$ parameters).
+The frozen backbone alone exceeds our parameter budget by five orders
+of magnitude and cannot be quantized or pruned away without altering
+the method. These approaches lie outside the deployment regime our
+work targets and are likewise cited but not benchmarked.
+
+\subsection{Positioning of FEATHer}
+The gap addressed by FEATHer is structural rather than incremental.
+High-capacity LTSF models capture long-range dependencies at the cost
+of deployability, while existing lightweight models reach a few
+thousand parameters but rarely integrate (i)~explicit band-wise
+separation, (ii)~spectrum-based adaptive scale selection, and
+(iii)~horizon-agnostic period-aligned reconstruction within a single
+ultra-compact design. FEATHer combines these three properties in a
+$\sim$$10^{2}$--$10^{3}$ parameter envelope deployable on Cortex-M3
+hardware under $16$--$64$\,KB RAM budgets
+(Section~\ref{sec:edge}), and we evaluate it not only on clean inputs
+but also under the four sensor-fault axes documented in
+Section~\ref{sec:robustness}.
 
 % =====================================================================
 \section{Methodology}
