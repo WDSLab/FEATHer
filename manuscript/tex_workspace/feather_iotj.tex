@@ -1,0 +1,450 @@
+%% feather_iotj.tex
+%% FEATHer manuscript — IEEE Internet of Things Journal (IoT-J) submission.
+%%
+%% Build:
+%%   pdflatex feather_iotj
+%%   bibtex   feather_iotj
+%%   pdflatex feather_iotj
+%%   pdflatex feather_iotj
+%%
+%% Companion files in this directory:
+%%   IEEEtran.cls       — journal class (CTAN, v1.8b)
+%%   IEEEtran.bst       — bibliography style (CTAN)
+%%   feather.bib        — bibliography database (to be populated)
+%%   media/             — figures extracted from the original .docx
+%%
+%% The original TPAMI submission was authored in Word. Body text + math
+%% were imported via pandoc from `IEEE_TPAMI_FEATHer_제출본.docx` into
+%% `feather_raw.tex` (sibling file) and then transferred section by
+%% section into this IEEEtran journal-mode skeleton.
+
+\documentclass[journal]{IEEEtran}
+
+% ---------------- packages ----------------
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{graphicx}
+\graphicspath{{../figures/}{media/media/}}  % renamed figures first, raw fallback
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{cite}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue,
+}
+
+% ---------------- theorem environments ----------------
+% R8 #4 audit: Section 4 defines Theorems 1-5 here as formal statements;
+% Section 6 references them via \ref/\autoref so numbering can never
+% drift again.
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}{Proposition} % independent counter -> Prop. 1, Thm. 1, 2
+\theoremstyle{remark}
+\newtheorem{remark}{Remark}
+
+% ---------------- title block ----------------
+% R2 #1 — old TPAMI title "FEATHer: Fourier-Efficient Adaptive Temporal
+% Hierarchy Forecaster for Time-Series Forecasting" repeats "Forecaster
+% for Forecasting" and over-promises "Hierarchy". IoT-J reframing
+% emphasizes deployment for industrial IoT instead of the method label.
+\title{FEATHer: A Deployable Sub-1K Parameter Forecaster for\\
+Industrial IoT Edge Devices}
+
+\author{
+    Jaehoon Lee,~Seungwoo Lee,~Younghwi Kim,~%
+    Dohee Kim,~\IEEEmembership{Member,~IEEE,}~and~%
+    Sunghyun Sim,~\IEEEmembership{Member,~IEEE}%
+    \thanks{This work was supported by the National Research Foundation
+    of Korea (NRF) grant funded by the Korean government (MSIT)
+    (No.~RS-2023-00218913) and the Basic Science Research Program
+    through the NRF funded by the Ministry of Education
+    (No.~RS-2025-25396743).}%
+    \thanks{J. Lee, S. Lee, and Y. Kim are with the Graduate School of
+    AI Convergence Engineering, Changwon National University, Changwon
+    51140, South Korea.}%
+    \thanks{D. Kim and S. Sim (corresponding authors) are with the
+    Department of AI Convergence, Changwon National University,
+    Changwon 51140, South Korea
+    (e-mail: \href{mailto:dynamic97312@naver.com}{dynamic97312@naver.com}).}%
+}
+
+\markboth{IEEE Internet of Things Journal,~Vol.~XX, No.~X, MONTH~YEAR}%
+{Lee \MakeLowercase{\textit{et al.}}: FEATHer — A Deployable Sub-1K
+Parameter Forecaster for Industrial IoT Edge Devices}
+
+% ---------------- document ----------------
+\begin{document}
+
+\maketitle
+
+% =====================================================================
+\begin{abstract}
+% R8 #1: "broadly SOTA" claim removed. We report wins honestly and
+%        explicitly flag the datasets where larger baselines win.
+% R8 #2: sub-1K parameter claim qualified as
+%        "configuration-dependent ultra-light regime".
+% IoT-J: edge deployment, 4-axis sensor-fault robustness,
+%        Wilcoxon significance testing on five seeds.
+Time-series forecasting on industrial edge devices --- programmable
+logic controllers, embedded microcontrollers --- must satisfy strict
+latency, memory, and energy budgets that constrain deployable models to
+at most a few thousand parameters. We present FEATHer, a deployable
+forecasting system built around four lightweight components: a
+multiscale temporal decomposition that splits the input into point-,
+high-, mid-, and low-frequency pathways via depthwise 1D convolutions;
+a shared Dense Temporal Kernel for temporal mixing without recurrence
+or attention; a frequency-aware branch gating that fuses the pathways
+using the spectral signature of the normalized input; and a
+Sparse-Period Kernel that reconstructs long-horizon outputs through
+period-wise reshaping and a shared linear projection. FEATHer operates
+in a \emph{configuration-dependent} ultra-light regime --- 453
+parameters on ETTh1 and a few thousand on higher-channel datasets ---
+and is deployable on Cortex-M3 hardware under $16$--$64$\,KB RAM in
+streaming batch-one inference. Across eight long-term benchmarks and
+four prediction horizons with five seeds per cell, FEATHer is
+competitive in the ultra-light regime against eleven baselines that
+span five orders of magnitude in parameter count, including DiPE-Linear
+(DASFAA~2026) and MDMLP-EIA (AAAI~2026); larger-capacity baselines
+remain stronger on high-channel datasets such as Solar, Traffic, and
+Electricity, which we report transparently rather than averaging over.
+Beyond clean-input accuracy, we evaluate robustness against four
+classes of sensor faults --- additive Gaussian noise, missing values,
+impulse outliers, and quantization distortion --- across $19\,200$
+corruption conditions, with pairwise Wilcoxon signed-rank tests over
+five seeds to support every reported comparison. The results identify a
+practical operating regime for next-generation industrial IoT systems
+that require continuous, low-power inference under sensor noise and
+missing data.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Time-series forecasting, edge AI, industrial IoT, ultra-lightweight
+models, on-device inference, sensor robustness.
+\end{IEEEkeywords}
+
+% =====================================================================
+\section{Introduction}
+\label{sec:introduction}
+\textit{[Migrate from \texttt{feather\_raw.tex} lines 50--500. IoT-J
+emphasis: industrial edge (PLC, MCU), real-sensor noise, missing
+values. Tone down universal-SOTA framing.]}
+
+% =====================================================================
+\section{Related Work}
+\label{sec:related}
+\textit{[Migrate Related Work. Add explicit scope-exclusion paragraph
+for S-Mamba (CUDA selective\_scan, no MCU port) and TimeCMA (frozen
+GPT-2, $\sim$124M params, 5 orders above sub-1K budget). Cite
+DiPE-Linear (DASFAA 2026) and MDMLP-EIA (AAAI 2026) — these address
+R4 \#2--\#3 "outdated baselines".]}
+
+% =====================================================================
+\section{Methodology}
+\label{sec:method}
+\textit{[Migrate Sec 3 from feather\_raw.tex lines 500--600. Apply
+R8 \#5 Algorithm 1 fixes: line 5 \(h^{(p)} \rightarrow h^{(h)}\),
+line 21 extra ')' removed, unify \(X^{(b)}\)/\(H^{(b)}\)/\(h^{(s)}\)
+notation throughout. Add R6 \#1d clarification of the Eq.~(6) to
+Eq.~(7) dimension transition.]}
+
+% --- Algorithm 1 — corrected per R8 #5 audit (drafts/05_algorithms_word.md) ---
+% R8 #5 fixes applied inline (flagged in comments):
+%   (a) line for the high branch: h^(p) was used in the TPAMI version,
+%       corrected here to h^(h).
+%   (b) "MeanChannel(M))" had a stray ')'; corrected to MeanChannel(M).
+%   (c) Body uses X^(b)/H^(b), algorithm uses h^(s)/h-tilde^(s); the
+%       notation table in the body Sec 3 maps the two.
+\begin{algorithm}[t]
+\caption{FEATHer training step.}
+\label{alg:feather}
+\begin{algorithmic}[1]
+\Require Input window $X \in \mathbb{R}^{L \times D}$;
+         branch count $B \in \{2,3,4\}$, active set
+         $\mathcal{B} \subseteq \{p,h,m,l\}$;
+         SPK period $P$; horizon $H$; parameters $\Theta$.
+\Ensure  Forecast $\widehat{Y} \in \mathbb{R}^{H \times D}$.
+
+\Statex \emph{Step 1 -- Structured multiscale temporal decomposition.}
+\State $\widetilde{X} \leftarrow \mathrm{InstanceNorm}(X)$
+\State $h^{(p)} \leftarrow \mathrm{DWConv}_{1\mathrm{D}}(\widetilde{X};\, k{=}1)$
+        \Comment{point branch}
+\If{$B = 4$}
+    \State $h^{(h)} \leftarrow \mathrm{DWConv}_{1\mathrm{D}}(\widetilde{X};\, k{=}3)$
+        \Comment{high branch \textbf{(R8 \#5: was $h^{(p)}$ in TPAMI)}}
+\EndIf
+\If{$B \ge 3$}
+    \State $h^{(m)} \leftarrow \mathrm{DWConv}_{1\mathrm{D}}(\widetilde{X};\, k{=}5)$
+        \Comment{mid branch}
+\EndIf
+\State $x_{\downarrow} \leftarrow \mathrm{AvgPool}_{1\mathrm{D}}(\widetilde{X};\, r{=}4)$
+\State $h^{(\ell)} \leftarrow \mathrm{Upsample}_{1\mathrm{D}}(x_{\downarrow};\, L)$
+        \Comment{low branch}
+
+\Statex \emph{Step 2 -- Shared Dense Temporal Kernel (DTK).}
+\For{each active branch $s \in \mathcal{B}$}
+    \State $z^{(s)} \leftarrow h^{(s)}\, W_{\mathrm{in}}$
+    \State $u^{(s)} \leftarrow \mathrm{DWConv}(z^{(s)};\, k_{\mathrm{temp}})$
+    \State $\widetilde{h}^{(s)} \leftarrow u^{(s)}\, W_{\mathrm{out}}$
+\EndFor
+
+\Statex \emph{Step 3 -- Frequency-aware branch gating.}
+\State $F \leftarrow \mathcal{F}(\widetilde{X})$,\quad $M \leftarrow |F|$
+\State $a \leftarrow \mathrm{MeanChannel}(M)$
+        \Comment{\textbf{R8 \#5: removed stray ')' from TPAMI ``MeanChannel(M))''}}
+\State $z_g \leftarrow \mathrm{Conv1D}(a)$
+\State $g \leftarrow \mathrm{softmax}(\mathrm{Pool}(z_g))$
+        \Comment{$g \in \mathbb{R}^{B}$, $\sum_s g_s = 1$}
+\State $h \leftarrow \sum_{s \in \mathcal{B}} g_s \, \widetilde{h}^{(s)}$
+
+\Statex \emph{Step 4 -- Sparse-Period Kernel (SPK).}
+\State $h_{\mathrm{agg}} \leftarrow h + \mathrm{DWConv}(h;\, k_{\mathrm{slide}})$
+\State Reshape each channel of $h_{\mathrm{agg}}$ into $\widetilde{H}_d \in \mathbb{R}^{P \times n}$,
+       where $n = L/P$.
+\For{each channel $d = 1,\ldots,D$ and phase $p = 1,\ldots,P$}
+    \State $Y_d(p, :) \leftarrow \widetilde{H}_d(p, :)\, W$
+        \Comment{$W \in \mathbb{R}^{n \times m}$, $m = H/P$}
+\EndFor
+\State Reassemble $\{Y_d\}_d$ into $\widehat{Y} \in \mathbb{R}^{H \times D}$
+       by phase interleaving.
+
+\Statex \emph{Step 5 -- Loss and parameter update.}
+\State $L \leftarrow \mathrm{MSE}(\widehat{Y}, Y) + \lambda_{\mathrm{spec}} L_{\mathrm{spec}}$
+\State $\Theta \leftarrow \Theta - \eta\, \nabla_\Theta L$
+\end{algorithmic}
+\end{algorithm}
+
+% =====================================================================
+\section{Theoretical Analysis}
+\label{sec:theory}
+
+% R8 #4 resolution: TPAMI body referenced Theorems 3/4/5 in Sections
+% 6.3-6.5 but only Theorems 1 and 2 were ever stated. Rather than
+% manufacture three new formal claims (which R2 #6/#7, R4 #4, R7 #2
+% already flagged as over-claiming relative to substance), this revision
+% retains only the two verifiable theorems plus a single proposition
+% covering the gate, and rewrites every Sec 6.x reference to point to
+% \ref{thm:dtk-lipschitz}, \ref{thm:spk-minimal}, \ref{prop:energy-gate},
+% or the empirical results in Sec 5.
+
+This section provides theoretical support for FEATHer by formalizing
+(i)~the stability of the shared DTK, (ii)~the parameter minimality of
+the period-aligned reconstruction in the SPK, and (iii)~an
+energy-consistent interpretation of the spectral gate. We deliberately
+restrict the analysis to guarantees that correspond directly to the
+implemented operators and that remain verifiable under sub-1K parameter
+budgets; stronger claims (e.g., strict spectral disjointness) would
+require assumptions that are not necessary to support FEATHer's
+contributions.
+
+\subsection{Preliminaries and Operator Notation}
+
+We view each temporal module in FEATHer as a linear operator acting
+along the temporal dimension and applied channel-wise unless stated
+otherwise. For $X \in \mathbb{R}^{L \times D}$, we denote the induced
+operator norm by $\|\cdot\|_2$. Let $\mathrm{DWConv}_t(\cdot;k)$ be a
+depthwise 1D convolution along time. In implementation, the DTK
+temporal convolution uses left padding followed by output trimming to
+preserve sequence length $L$, yielding a causal-style local mixing
+operator. The SPK aggregation uses a residual form
+$H + \mathrm{DWConv}_t(H; k_{\mathrm{slide}})$.
+
+\begin{remark}[Implementation faithfulness]
+\label{rem:impl-faithful}
+All statements below are written for the operators \emph{as
+implemented} (left padding + trimming in DTK; residual aggregation in
+SPK). This prevents theory-implementation mismatch and makes the
+analysis directly reproducible from the released code.
+\end{remark}
+
+\subsection{Stability of the DTK}
+DTK applies a linear projection, depthwise temporal filtering, and an
+inverse projection:
+\begin{equation}
+\label{eq:dtk}
+\mathrm{DTK}(H) = \mathrm{DWConv}_t(H\, W_{\mathrm{in}};\, k_{\mathrm{temp}})\,
+                  W_{\mathrm{out}},
+\end{equation}
+where $W_{\mathrm{in}} \in \mathbb{R}^{D \times S}$ and
+$W_{\mathrm{out}} \in \mathbb{R}^{S \times D}$.
+
+\begin{theorem}[Global Lipschitz stability of the shared DTK]
+\label{thm:dtk-lipschitz}
+Let $\mathcal{K}$ denote the linear operator induced by the implemented
+depthwise temporal convolution in DTK (left padding + trimming). Then,
+for any $H, H' \in \mathbb{R}^{L \times D}$,
+\begin{equation*}
+\|\mathrm{DTK}(H) - \mathrm{DTK}(H')\|_2 \;\le\;
+  \|W_{\mathrm{in}}\|_2 \, \|\mathcal{K}\|_2 \, \|W_{\mathrm{out}}\|_2 \,
+  \|H - H'\|_2.
+\end{equation*}
+Moreover, if each depthwise kernel satisfies
+$\|k_{\mathrm{temp}}\|_1 \le \kappa$, then
+$\|\mathcal{K}\|_2 \le \kappa$, so DTK is globally Lipschitz with
+constant $\|W_{\mathrm{in}}\|_2\, \kappa\, \|W_{\mathrm{out}}\|_2$.
+\end{theorem}
+
+\begin{proof}
+DTK is a composition of linear operators, and the induced-norm bound
+follows from submultiplicativity. For depthwise convolution, the
+operator norm is bounded by the $\ell_1$ norm of the kernel (standard
+discrete-time filtering bound). Left padding and trimming preserve
+sequence length and do not increase the induced operator norm beyond
+that of the corresponding convolution.
+\end{proof}
+
+\begin{remark}[Implications for long-horizon forecasting]
+\label{rem:dtk-impl}
+Theorem~\ref{thm:dtk-lipschitz} guarantees that the shared temporal
+mixer cannot arbitrarily amplify perturbations in the branch
+representations. This matters for industrial signals where sensor
+noise and operating-regime shifts may otherwise destabilize
+extrapolation. The bound also clarifies that stability is governed by a
+small set of parameters
+($W_{\mathrm{in}}, W_{\mathrm{out}}, k_{\mathrm{temp}}$), which is
+desirable in ultra-compact regimes.
+\end{remark}
+
+\subsection{Energy-consistent Interpretation of the Frequency Gate}
+FEATHer computes branch weights from the magnitude spectrum of the
+instance-normalized input. Let $\widetilde{X}$ be that input and let
+$a$ be a reduced spectral descriptor (e.g., channel-averaged
+magnitude). A lightweight gating network produces logits and weights
+$g \in \Delta^B$ (the $B$-simplex), and FEATHer fuses the branch
+outputs as $H = \sum_{s \in \mathcal{B}} g_s\, H^{(s)}$.
+
+\begin{proposition}[Energy-consistent soft selection]
+\label{prop:energy-gate}
+Let $E_s \ge 0$ denote a branch relevance score derived from the
+spectral energy captured by branch $s$. The entropy-regularized
+surrogate
+\begin{equation*}
+\max_{g \in \Delta^B} \;\sum_{s \in \mathcal{B}} g_s E_s
+       \;+\; \tau \sum_{s \in \mathcal{B}} g_s \log g_s
+\end{equation*}
+is solved by $g_s \propto \exp(E_s / \tau)$, a soft selection rule that
+is monotone in $E_s$ and approaches hard selection as $\tau \to 0$.
+\end{proposition}
+
+\begin{remark}[Why we use spectrum]
+\label{rem:gate-justify}
+Proposition~\ref{prop:energy-gate} gives a principled justification for
+the design choice \emph{without} overclaiming optimality. Using
+spectral features to compute $g$ is consistent with selecting the most
+relevant temporal scales for each instance, while the learned gating
+network keeps parameter overhead negligible.
+\end{remark}
+
+\subsection{Parameter Minimality of the SPK}
+SPK first applies a residual aggregation
+$H_{\mathrm{agg}} = H + \mathrm{DWConv}_t(H; k_{\mathrm{slide}})$,
+reshapes each channel into a phase-aligned representation with period
+$P$, and applies a shared linear map $W \in \mathbb{R}^{n \times m}$,
+where $n = L/P$ and $m = H/P$.
+
+\begin{theorem}[Parameter minimality of the SPK linear head]
+\label{thm:spk-minimal}
+Consider the class of functions that map, for each phase, the $n$
+observed cycle values to $m$ future cycle values using a
+phase-\emph{shared} linear map. Any linear operator realizing this
+mapping requires at least $nm$ scalar degrees of freedom. The SPK head
+uses exactly $nm$ parameters in $W$ and is therefore
+parameter-minimal within this class.
+\end{theorem}
+
+\begin{proof}
+A linear map from $\mathbb{R}^n$ to $\mathbb{R}^m$ has $nm$ degrees of
+freedom. SPK applies such a map in the phase-aligned space using a
+shared $W$, exactly matching this lower bound.
+\end{proof}
+
+\begin{remark}[Scope of the guarantee]
+\label{rem:spk-scope}
+Theorem~\ref{thm:spk-minimal} does \emph{not} claim that all time
+series are periodic. It states that when long-horizon structure is
+well explained by phase-aligned cycle dynamics, SPK allocates
+parameters exactly to the intrinsic degrees of freedom of that
+structure, thereby avoiding horizon-specific decoders. This inductive
+bias is particularly effective under sub-1K parameter budgets.
+\end{remark}
+
+\subsection{Complexity and the Sub-1K Regime}
+DTK parameters are $2DS + S\, k_{\mathrm{temp}}$; SPK parameters are
+$k_{\mathrm{slide}} + nm$. The decomposition filters and the gating
+module introduce only minor overhead, and because DTK is shared across
+branches, the parameter count does not grow with $|\mathcal{B}|$.
+Runtime complexity is linear in $L$ and $D$, up to small constants
+determined by $k_{\mathrm{temp}}$, $k_{\mathrm{slide}}$, and the
+latent width $S$.
+
+\begin{remark}[Why we avoid stronger theoretical claims]
+\label{rem:scope}
+Under compact designs, the most meaningful guarantees are those tied
+to the implemented operators and to measurable quantities: stability
+bounds, parameter minimality, and scaling behavior. Stronger claims
+such as strict spectral disjointness or near-orthogonality would
+require assumptions difficult to verify in practice and are not
+necessary to support FEATHer's core contributions.
+\end{remark}
+
+% =====================================================================
+\section{Experimental Setup}
+\label{sec:setup}
+\textit{[Datasets (8 darts + local CSV opt-in), baselines (12 — paper
+table from the registry's METHOD\_DEFAULTS and per-(method, dataset)
+overrides), HP protocol (sequence length 96, batch 32, 50 epochs, AMP
+off, 5 seeds 2025--2029, Adam + cosine LR, cuDNN deterministic),
+hardware. Address R8 \#3 reproducibility by listing every per-(method,
+dataset) learning rate / d-model / e-layers and citing the code repo.]}
+
+% =====================================================================
+\section{Results}
+\label{sec:results}
+\textit{[Main 5-seed table generated by \texttt{tools/paper/main\_table.py}
+once Phase 4 sweep finishes. Wilcoxon p-values from
+\texttt{tools/paper/wilcoxon.py}. R8 \#1: bold winners per row only,
+acknowledge Solar / Traffic / Electricity losses in text.]}
+
+% =====================================================================
+\section{Ablation Study}
+\label{sec:ablation}
+\textit{[All 5 ablation axes across all 4 horizons (R8 \#6). Tables
+generated by \texttt{tools/paper/ablation\_table.py} from rows tagged
+\texttt{exp\_tag=ablation\_*} in fcst\_results.csv.]}
+
+% =====================================================================
+\section{Robustness on Sensor Faults}
+\label{sec:robustness}
+\textit{[IoT-J selling point — direct response to R6 \#7a. 4-axis
+sweep (Gaussian noise, missing values, impulse, quantisation) on
+ETTh1 / Weather / Electricity / SML, generated by
+\texttt{tools/paper/robust\_summary.py}. Heatmaps in media/.]}
+
+% =====================================================================
+\section{Edge Deployment}
+\label{sec:edge}
+\textit{[R8 \#7 still partially open — need on-device bit-width,
+peak RAM, flash, activation arena, and energy. Report what exists
+now (Cortex-M3 LM3S6965EVB, RAM budgets 16/32/64 KB, batch 1)
+and explicitly flag what is reported separately in the
+supplementary measurement appendix.]}
+
+% =====================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+\textit{[Trim the TPAMI conclusion (R5/R6/R8 all said "should be more
+concise"). Add limitations: large-D datasets (Traffic, Electricity)
+trade accuracy for footprint; sub-1K is configuration-dependent.]}
+
+% =====================================================================
+\bibliographystyle{IEEEtran}
+\bibliography{feather}
+
+\end{document}
