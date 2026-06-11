@@ -330,9 +330,17 @@ actually use darts trigger the import.
 - **TQNet** receives `cycle_index = torch.zeros(B)` from the wrapper since
   our DataLoader does not expose per-sample cycle position. Sub-optimal vs
   paper but consistent across all batches.
-- **R2 metric** sometimes stays at the `-1e9` placeholder when batches
-  yield NaN R2 (very short series). Pre-existing legacy bug; MSE/MAE/RMSE
-  are unaffected. Triage later.
+- **R2 metric** can explode to extreme negatives (~-3e7 observed on
+  Traffic) when channels are near-constant within a window (SST≈0).
+  MSE/MAE/RMSE are unaffected; R2/CORR are supplementary only. The old
+  `-1e9` placeholder bug is gone (single-pass test evaluation since
+  2026-06-11). Triage later.
+- **FEATHer params scale as D²** (`in_proj = Linear(D, D)`): 453 @ D=7
+  (ETT), 866 @ D=14 (Volatility) — sub-1K holds only for D≤14. Weather
+  1.4K, Electricity 115K, Traffic 776K. Paper scopes the sub-1K claim
+  to edge-typical channel counts; Traffic/Electricity are framed as
+  scalability stress tests. A channel-independent variant is a possible
+  future ablation axis, not a pre-sweep change.
 
 ## Workflow phases
 
