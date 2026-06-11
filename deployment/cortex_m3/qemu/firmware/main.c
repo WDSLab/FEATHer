@@ -5,17 +5,22 @@
  * pass under QEMU emulation of the LM3S6965EVB. It is intentionally
  * minimal:
  *
- *   1. Initialize the DWT cycle counter so we can measure wall-clock
- *      cycles deterministically inside the emulator.
+ *   1. Initialize the DWT counter. NOTE: QEMU is an instruction-level
+ *      emulator, not cycle-accurate silicon — under `-icount shift=0`
+ *      the value read back is a deterministic instruction-proportional
+ *      count, NOT real Cortex-M3 cycles. Latency in the paper is
+ *      derived from this count via the CPI model in op_costs.py.
+ *      (If CYCCNT reads 0 on your QEMU version, fall back to the
+ *      semihosting SYS_ELAPSED call.)
  *   2. Run the inference function emitted by the codegen step.
- *   3. Print the cycle count and the high-water-mark of the
+ *   3. Print the instruction count and the high-water-mark of the
  *      activation arena via semihosting (BKPT 0xAB instruction).
  *
  * To build:
  *     make ELF
  * To run under QEMU:
  *     qemu-system-arm -M lm3s6965evb -kernel firmware.elf \
- *                     -nographic -semihosting
+ *                     -nographic -semihosting -icount shift=0
  *
  * The weights.h / arena.h headers are produced by
  *   python -m deployment.cortex_m3.qemu.codegen ...
@@ -80,9 +85,11 @@ int main(void)
 
     DWT_CYCCNT = 0;
     int rc = feather_inference(arena, ARENA_BYTES);
-    uint32_t cycles = DWT_CYCCNT;
+    /* Instruction-proportional count under QEMU -icount, not silicon
+     * cycles; see the file header. */
+    uint32_t icnt = DWT_CYCCNT;
 
-    printf("cycles    = %lu\n", (unsigned long)cycles);
+    printf("icount    = %lu\n", (unsigned long)icnt);
     printf("arena_max = %lu bytes\n", (unsigned long)ARENA_BYTES);
     printf("rc        = %d\n", rc);
 
