@@ -100,17 +100,6 @@ def metric(pred, true):
     return mse, mae, rmse, corr, r2
 
 
-# metric update
-def best(best_metric, metric):
-    # MSE, MAE, RMSE, COR, R2
-    if best_metric[0] > metric[0]: best_metric[0] = metric[0]
-    if best_metric[1] > metric[1]: best_metric[1] = metric[1]
-    if best_metric[2] > metric[2]: best_metric[2] = metric[2]
-    if best_metric[3] < metric[3]: best_metric[3] = metric[3]
-    if best_metric[4] < metric[4]: best_metric[4] = metric[4]
-    
-    return best_metric
-
 # prediction plot
 def plot(pred, true, data):
     idx = [0, pred.shape[0] * 1 // 4, pred.shape[0] * 1 // 2, pred.shape[0] * 3 // 4]

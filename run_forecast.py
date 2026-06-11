@@ -185,6 +185,7 @@ def dispatch(missing, args):
             "--exp_tag", exp_tag,
             "--results_csv", args.results_csv,
             "--num_epochs", str(args.num_epochs),
+            "--patience", str(args.patience),
             "--batch_size", str(args.batch_size),
             "--lr", str(lr_to_use),
             "--loss", loss_to_use,
@@ -234,6 +235,8 @@ def main():
 
     # Per-worker overrides (all forwarded)
     p.add_argument("--num_epochs", type=int,   default=50)
+    p.add_argument("--patience",   type=int,   default=10,
+                   help="Early-stopping patience on val loss (epochs).")
     p.add_argument("--batch_size", type=int,   default=32)
     # `--lr` / `--loss` default to None so we can detect "user did not set
     # this" and fall back to each method's paper default
