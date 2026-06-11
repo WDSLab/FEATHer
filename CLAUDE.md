@@ -139,6 +139,19 @@ python run_forecast.py --data ETTh1 --pred_len 96 --save_model           # one (
 python run_forecast.py --exclude TimesNet,MDMLP_EIA                      # skip heavy models for a fast pass
 python run_forecast.py --num_seeds 1 --num_epochs 2 --exp_tag smoke      # quick verify (no checkpoints)
 
+# 2-GPU split: no DDP — `--gpu N` picks a device index. Run two
+# processes with disjoint --exclude splits; sharing one results CSV is
+# fine (one append per finished run, collisions practically impossible).
+#   GPU0: python run_forecast.py --exp_tag main --save_model --gpu 0 \
+#           --exclude TimesNet,MDMLP_EIA,iTransformer,PatchTST,TimeMixer,TQNet
+#   GPU1: python run_forecast.py --exp_tag main --save_model --gpu 1 \
+#           --exclude FEATHer,DLinear,DiPE_Linear,SparseTSF,FITS,LMS_AutoTSF
+
+# SML is robustness-only: train its checkpoints under exp_tag=main
+# (240 runs, see Status) but it stays OUT of the main accuracy table —
+# the paper's main table is the 8 LTSF datasets; SML appears only in
+# Sec VIII (its clean rows double as accuracy there).
+
 # === Ablation sweep (after main; 30 FEATHer variants, 5 axes) ===
 # DECIDED SCOPE (2026-06-11): ETTh1 + Weather + Electricity x 4 horizons
 # x 5 seeds = 1,800 runs. Diversity (hourly-7ch / 10min-21ch / hourly-321ch)
