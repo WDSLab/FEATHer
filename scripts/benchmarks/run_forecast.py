@@ -32,7 +32,7 @@ import torch.optim as optim
 # Project root on path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from baselines import get_model, list_models
+from baselines import get_model, list_models, list_ablation_models
 from utils import data_factory
 from utils import metrics
 from utils import losses
@@ -305,7 +305,8 @@ def parse_args():
     p.add_argument("--features",  type=str, default="M")
 
     # Model
-    p.add_argument("--model", type=str, default="FEATHer", choices=list_models())
+    p.add_argument("--model", type=str, default="FEATHer",
+                   choices=list_models() + list_ablation_models())
     p.add_argument("--seq_len",   type=int, default=96)
     p.add_argument("--pred_len",  type=int, required=True)
     p.add_argument("--label_len", type=int, default=96)

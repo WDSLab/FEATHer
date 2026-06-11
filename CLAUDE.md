@@ -113,6 +113,11 @@ python run_forecast.py --data ETTh1 --pred_len 96 --save_model           # one (
 python run_forecast.py --exclude TimesNet,MDMLP_EIA                      # skip heavy models for a fast pass
 python run_forecast.py --num_seeds 1 --num_epochs 2 --exp_tag smoke      # quick verify (no checkpoints)
 
+# === Ablation sweep (after main; 30 FEATHer variants, 5 axes) ===
+python run_forecast.py --ablation_axis dtk --data ETTh1 --exp_tag ablation   # one axis, one dataset
+python run_forecast.py --ablation_axis all --data ETTh1 --exp_tag ablation   # all 30 variants
+# axes: ms (15) / gate (4) / dtk (4) / head (4) / complexity (3)
+
 # === FEATHer HP search (before Phase 4 — picks the single config) ===
 # OFAT around the canonical config; selection by val_loss only.
 # 16 configs × {ETTh1,ETTm1,Weather} × {96,720} × 2 seeds = 192 runs.

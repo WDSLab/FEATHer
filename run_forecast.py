@@ -25,7 +25,8 @@ import sys
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from baselines import list_models, get_method_defaults, get_dataset_overrides
+from baselines import (list_models, list_ablation_models,
+                       get_method_defaults, get_dataset_overrides)
 
 
 # -----------------------------------------------------------------------------
@@ -89,7 +90,20 @@ def enumerate_combos(args):
     """Generate (exp_tag, model, data, pred_len, seq_len, seed) tuples for
     the requested sweep."""
 
-    if args.model:
+    if args.ablation_axis:
+        # FEATHer ablation sweep — one axis (ms/gate/dtk/head/complexity)
+        # or "all" 30 variants. Combine with --data / --pred_len to scope.
+        if args.ablation_axis == "all":
+            models = list_ablation_models()
+        else:
+            prefix = f"FEATHer_{args.ablation_axis}_"
+            models = [m for m in list_ablation_models()
+                      if m.startswith(prefix)]
+            if not models:
+                raise SystemExit(
+                    f"Unknown ablation axis '{args.ablation_axis}' "
+                    f"(use ms, gate, dtk, head, complexity, or all)")
+    elif args.model:
         models = [args.model]
     elif args.exclude:
         excl = {s.strip() for s in args.exclude.split(",") if s.strip()}
@@ -220,6 +234,9 @@ def main():
     # What to run
     p.add_argument("--model",   type=str, default=None,
                    help="Single model; omit to run all registered.")
+    p.add_argument("--ablation_axis", type=str, default=None,
+                   help="FEATHer ablation sweep: ms, gate, dtk, head, "
+                        "complexity, or all (30 variants).")
     p.add_argument("--exclude", type=str, default=None,
                    help="Comma-separated models to skip.")
     p.add_argument("--data",    type=str, default=None,
