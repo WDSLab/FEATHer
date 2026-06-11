@@ -136,9 +136,14 @@ python run_forecast.py --exclude TimesNet,MDMLP_EIA                      # skip 
 python run_forecast.py --num_seeds 1 --num_epochs 2 --exp_tag smoke      # quick verify (no checkpoints)
 
 # === Ablation sweep (after main; 30 FEATHer variants, 5 axes) ===
-python run_forecast.py --ablation_axis dtk --data ETTh1 --exp_tag ablation   # one axis, one dataset
-python run_forecast.py --ablation_axis all --data ETTh1 --exp_tag ablation   # all 30 variants
+# DECIDED SCOPE (2026-06-11): ETTh1 + Weather + Electricity x 4 horizons
+# x 5 seeds = 1,800 runs. Diversity (hourly-7ch / 10min-21ch / hourly-321ch)
+# + answers R8 #6d (Electricity ablations promised but unreported in TPAMI).
+python run_forecast.py --ablation_axis all --data ETTh1       --exp_tag ablation
+python run_forecast.py --ablation_axis all --data Weather     --exp_tag ablation
+python run_forecast.py --ablation_axis all --data Electricity --exp_tag ablation
 # axes: ms (15) / gate (4) / dtk (4) / head (4) / complexity (3)
+# single axis: python run_forecast.py --ablation_axis dtk --data ETTh1 --exp_tag ablation
 
 # === FEATHer HP search (before Phase 4 — picks the single config) ===
 # OFAT around the canonical config; selection by val_loss only.
