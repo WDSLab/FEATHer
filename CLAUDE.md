@@ -34,7 +34,11 @@ the new worker. 13-page PDF compiles cleanly. Sections VI-VIII remain
 
 **Next action (server):** `run_hp_search.py` (192 runs, freeze FEATHer
 single config) → `run_forecast.py --save_model` (1,920 runs) →
-`run_robustness.py` (19,200 rows) → ablation → QEMU Layer 2 (WSL).
+`run_forecast.py --data SML --exp_tag main --save_model` (240 runs —
+**required**: Sec VIII promises SML robustness heatmaps, and the
+robustness worker loads `main` checkpoints; SML is not in the default
+LTSF-8 sweep) → `run_robustness.py` (19,200 rows) → ablation
+(decided scope: ETTh1+Weather+Electricity) → QEMU Layer 2 (WSL).
 After the main sweep: `check_progress.py --exp_tag main` for the
 cap-hit audit; after HP search: re-run FEATHer rows of
 `edge_estimates.csv` if the chosen config differs from base.
