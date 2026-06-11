@@ -10,13 +10,35 @@ parameter / edge-MCU constraints. It combines multi-scale frequency
 decomposition with a shared temporal kernel and a period-aware sparse
 forecasting head.
 
-**Status (2026-06-04):** IoT-J manuscript skeleton is feature-complete.
-Sections I-V, IX and X are written; Sections VI-VIII are structural
-skeletons with `\TODO{...}` markers waiting for Phase 4 / 4b sweep
-results. 12-page PDF compiles cleanly. 45 of ~60 reviewer attacks
-resolved (see `memory/project_reviewer_defenses.md`); the rest are
-either data-dependent (sweep) or external-infra-dependent (WSL +
-QEMU validation). Reject letter at `manuscript/notes/reject_mail.md`.
+**Status (2026-06-11):** Pre-sweep audit complete — the codebase is
+ready for the server runs. Locked this week:
+- **Evaluation protocol rewritten**: best-val-epoch selection with
+  early stopping (patience=10, 50-epoch cap), test evaluated once on
+  the selected model, checkpoint = that same model. The old worker did
+  test-oracle selection with element-wise metric mixing — every
+  pre-2026-06-11 result row (there were none in fcst_results.csv) is
+  incompatible with the new protocol.
+- **Traffic = full 862 channels** (was a legacy 162 slice in
+  data_factory only; manuscript and edge estimator already said 862).
+- **Sub-1K claim scoped to D≤14** (FEATHer params scale as D² via
+  `in_proj`; see Known issues).
+- **Ablation variants unblocked** (worker argparse choices excluded
+  them) + `--ablation_axis` orchestrator dispatch.
+- **run_hp_search.py added** (OFAT, val-only selection, 192 runs).
+- **QEMU framing fixed**: instruction-level emulation, verified
+  (memory fit, correctness, icount) vs modeled (latency, energy)
+  separation in Sec IX, README, and firmware skeleton.
+All 12 main models + 5 ablation axes smoke-tested end-to-end through
+the new worker. 13-page PDF compiles cleanly. Sections VI-VIII remain
+`\TODO{...}` skeletons waiting on sweep results.
+
+**Next action (server):** `run_hp_search.py` (192 runs, freeze FEATHer
+single config) → `run_forecast.py --save_model` (1,920 runs) →
+`run_robustness.py` (19,200 rows) → ablation → QEMU Layer 2 (WSL).
+After the main sweep: `check_progress.py --exp_tag main` for the
+cap-hit audit; after HP search: re-run FEATHer rows of
+`edge_estimates.csv` if the chosen config differs from base.
+Reject letter at `manuscript/notes/reject_mail.md`.
 
 **Build:** from `manuscript/tex_workspace/`,
 `pdflatex feather_iotj && bibtex feather_iotj && pdflatex feather_iotj && pdflatex feather_iotj`.
