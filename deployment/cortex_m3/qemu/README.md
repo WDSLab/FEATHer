@@ -1,9 +1,23 @@
 # Layer 2 — QEMU validation pipeline (WSL workflow)
 
-Cycle-accurate validation of the simulation-based estimator
+Instruction-level validation of the simulation-based estimator
 (`deployment/cortex_m3/estimator.py`) by running an actual 8-bit
 quantized FEATHer firmware on the QEMU emulation of the
 LM3S6965EVB target.
+
+**What this layer verifies vs. models** (keep the manuscript's
+Sec IX reporting policy in sync with this):
+
+- *Verified*: functional correctness of the int8 inference (outputs
+  match the PyTorch int8 reference), static memory fit (the linker
+  script hard-fails any image over 64 KB SRAM / 256 KB flash), and
+  the deterministic instruction count of one inference (run QEMU
+  with `-icount shift=0`; the counter read in `main.c` is an
+  instruction-proportional count under emulation, NOT silicon
+  cycles — QEMU is not cycle-accurate).
+- *Modeled*: latency = instruction count × CPI profile (anchored to
+  the CMSIS-NN 3 cycles/MAC figure); energy = latency × 3.3 V ×
+  90 mA. Label both as estimates everywhere they appear.
 
 This directory is intentionally *skeleton-only*. The actual build
 + run happens in WSL2 because the `arm-none-eabi-gcc` toolchain and
@@ -41,10 +55,10 @@ git clone --depth 1 https://github.com/ARM-software/CMSIS-NN.git \
   firmware.elf
      │
      │  WSL: qemu-system-arm -M lm3s6965evb -kernel firmware.elf \
-     │        -nographic -semihosting -d cpu_reset
+     │        -nographic -semihosting -icount shift=0
      ▼
   semihosted stdout:
-      cycles    = 412785
+      icount    = 412785   (instructions, deterministic)
       arena_max = 5832 bytes
       flash     = 8924 bytes
      │
@@ -58,7 +72,7 @@ git clone --depth 1 https://github.com/ARM-software/CMSIS-NN.git \
 | File | Status | Purpose |
 |---|---|---|
 | `codegen.py` | TODO | quantize a checkpoint to int8 + emit `weights.h` / `arena.h` |
-| `firmware/main.c` | TODO | inference loop with DWT cycle counter + semihosting print |
+| `firmware/main.c` | TODO | inference loop + deterministic instruction count (DWT read is instruction-proportional under `-icount`; fall back to semihosting `SYS_ELAPSED` if it reads 0) |
 | `firmware/Makefile` | TODO | cross-compile rules + linker flags |
 | `firmware/lm3s6965.ld` | TODO | linker script with 16/32/64 KB RAM variants |
 | `run_qemu.sh` | TODO | drive QEMU on each ELF and capture stdout |

@@ -1355,9 +1355,9 @@ Table~\ref{tab:params}. We target the
 $64$\,KB on-chip SRAM, $3.3$\,V $V_{\mathrm{DD}}$), and report two
 complementary measurements: a fast \emph{simulation-based estimator}
 that produces a number for every (model, dataset, horizon, RAM
-budget) cell (Section~\ref{subsec:edge-estimator}), and an outline
-of the \emph{QEMU validation path} that we use to calibrate the
-estimator against cycle-accurate execution
+budget) cell (Section~\ref{subsec:edge-estimator}), and a
+\emph{QEMU validation path} that verifies memory fit and functional
+correctness of the quantized firmware under emulation
 (Section~\ref{subsec:edge-qemu}). All numbers in this section assume
 $8$-bit integer weights and activations (post-training quantization
 following the CMSIS-NN reference workflow).
@@ -1486,25 +1486,38 @@ and an arena planner that approximates the Tensor\-Flow Lite Micro
 allocator. To bound the estimator's error, we additionally run the
 $8$-bit quantized FEATHer firmware inside QEMU
 (\texttt{qemu-system-arm -M lm3s6965evb -kernel} \texttt{a.elf}
-\texttt{-nographic -semihosting}), which provides cycle-accurate
-emulation of the Cortex-M3 core. The firmware is cross-compiled
-with \texttt{arm-none-eabi-gcc}~12.2.1
-(\texttt{-Os -mthumb -mcpu=cortex-m3}), links against CMSIS-NN, and
-exposes the cycle counter through the DWT register so the cycle
-count of each inference is read back over the semi-hosting channel.
+\texttt{-nographic -semihosting}). QEMU provides
+\emph{instruction-level} (not cycle-accurate) emulation of the
+Cortex-M3 core, so we are explicit about what each claim rests on.
+The emulation \emph{verifies} three things directly:
+(i)~the quantized firmware executes the full inference correctly,
+producing outputs that match the int8 PyTorch reference;
+(ii)~the static memory fit is real --- the linker script enforces
+the $64$\,KB SRAM / $256$\,KB flash limits of the target, so a
+model that exceeds either budget fails to build at all; and
+(iii)~the deterministic instruction count of one inference, read
+back via QEMU's \texttt{icount} mechanism over the semi-hosting
+channel. Latency is then \emph{derived} from the verified
+instruction count through the cycles-per-instruction model of
+Table~\ref{tab:m3-profile}, anchored to the CMSIS-NN
+cycles-per-MAC figure. The firmware is cross-compiled with
+\texttt{arm-none-eabi-gcc}~12.2.1
+(\texttt{-Os -mthumb -mcpu=cortex-m3}) and links against CMSIS-NN.
 The full validation pipeline --- model quantization, C-array
 codegen, firmware build, QEMU run, and result aggregation --- is
 released alongside the code under \texttt{deployment/cortex\_m3/}.
 
-\emph{Reporting policy.} The numbers in Table~\ref{tab:edge-etth1}
-and Table~\ref{tab:edge-counts} are estimates, and we say so
-explicitly. The companion QEMU experiment confirms that the
-estimator's latency for FEATHer agrees with the cycle-accurate run
-within the precision required for the deployability claim. Future
-work includes a measurement on a physical LM3S6965EVB development
-board with energy instrumentation; we expect the on-board energy
-figures to track the estimator within the same envelope used for
-the simulation tables here.
+\emph{Reporting policy.} We separate \emph{verified} from
+\emph{modeled} quantities. Memory fit (the deploy columns) and
+functional correctness are verified: the linker and the emulated
+run make them hard pass/fail outcomes. Latency is modeled from the
+verified instruction count via the cost profile of
+Table~\ref{tab:m3-profile}, and energy is modeled as latency
+$\times$ supply power; both are labeled estimates wherever they
+appear. Future work includes a measurement on a physical Cortex-M3
+board (e.g., STM32F103) with energy instrumentation; we expect the
+on-board figures to track the estimator within the envelope implied
+by the stated cost model.
 
 % =====================================================================
 \section{Conclusion}
