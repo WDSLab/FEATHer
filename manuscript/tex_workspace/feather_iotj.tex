@@ -1133,14 +1133,16 @@ True}); automatic mixed precision (AMP) \emph{disabled} for fairness
 and to avoid numerical artefacts in FITS (complex-valued gradients)
 and TimesNet (half-precision cuFFT on non-power-of-two sizes); five
 seeds $\{2025, 2026, 2027, 2028, 2029\}$ per cell.
-% R2 #16: justify epoch count + no early stopping.
-We keep the epoch budget fixed at $50$ rather than applying early
-stopping; this trades a small amount of compute for the guarantee
-that every (model, dataset, horizon) cell sees the same number of
-gradient updates, which we view as more reproducible than per-cell
-stopping decisions. All baselines retain their official validation
-schedule for learning-rate decay and final-checkpoint selection on
-the validation MSE.
+% R2 #16: epoch budget + early stopping.
+Within the $50$-epoch budget we apply early stopping on the
+validation loss with a uniform patience of $10$ epochs. Model
+selection follows the protocol used by every baseline's official
+implementation: the checkpoint of the best-validation epoch is
+retained, and the test split is evaluated \emph{exactly once} on
+that selected model; the test set never participates in model
+selection, hyperparameter choice, or stopping decisions. The same
+selected checkpoint is reused verbatim for the robustness
+evaluation of Section~\ref{sec:robustness}.
 
 \paragraph{Per-(method, dataset) axes.}
 Learning rate, training loss (MSE for baselines; $L_1 + \lambda
