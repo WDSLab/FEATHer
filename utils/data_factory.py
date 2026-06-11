@@ -90,13 +90,15 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         target = 'OT'
 
     elif data == 'Traffic':
-        df = _darts()["Traffic"]().load().to_dataframe().iloc[:, :162]
+        # Full native 862 channels — LTSF benchmark convention (every
+        # baseline's official script uses enc_in=862).
+        df = _darts()["Traffic"]().load().to_dataframe()
         df.insert(0, 'date', df.index)
         df = df.dropna()
         df = df.reset_index(drop=True)
         freq = 'h'
         embed = 'timeF'
-        target = '161'
+        target = df.columns[-1]
 
     elif data == 'PEMS_BAY':
         df = pd.read_csv(root_path + 'PEMS_BAY/pems_bay.csv', index_col=0)
@@ -361,7 +363,8 @@ def data_select(data, root_path):
         print(df.columns)
         print(f'freq: {freq} / embed: {embed}')
     elif data == 'Traffic':
-        df = _darts()["Traffic"]().load().to_dataframe().iloc[:, :162]
+        # Full native 862 channels — LTSF benchmark convention.
+        df = _darts()["Traffic"]().load().to_dataframe()
         df.insert(0, 'date', df.index)
         df = df.dropna()
         df = df.reset_index(drop=True)
