@@ -36,6 +36,42 @@ def load(csv_path):
     return df
 
 
+def report_epoch_budget(df, num_epochs, patience):
+    """Flag runs whose best-val epoch landed inside the final patience
+    window. Those runs ended at the epoch cap, NOT by early stopping —
+    val was still improving near the end, so the cell is potentially
+    undertrained and may deserve a re-run with a larger budget.
+    """
+    if "best_epoch" not in df.columns:
+        return
+    cap_threshold = num_epochs - patience  # 0-indexed best_epoch
+    flagged = df[df["best_epoch"] >= cap_threshold]
+
+    print("\n" + "-" * 90)
+    print(f"  Epoch-budget audit (cap-hit = best_epoch >= {cap_threshold} "
+          f"with budget {num_epochs}, patience {patience})")
+    print("-" * 90)
+    if flagged.empty:
+        print("  No cap-hit runs — the epoch budget was sufficient everywhere.")
+        return
+
+    stats = (df.assign(cap_hit=df["best_epoch"] >= cap_threshold)
+               .groupby(["exp_tag", "model"])
+               .agg(runs=("best_epoch", "size"), cap_hits=("cap_hit", "sum"),
+                    max_best_epoch=("best_epoch", "max"))
+               .reset_index())
+    stats = stats[stats.cap_hits > 0].sort_values(
+        "cap_hits", ascending=False)
+    for _, r in stats.iterrows():
+        share = 100.0 * r.cap_hits / r.runs
+        marker = " <-- CHECK" if share > 20 else ""
+        print(f"  [{r.exp_tag:>12}] {r.model:>15} | "
+              f"cap-hit {int(r.cap_hits)}/{int(r.runs)} runs ({share:.0f}%) | "
+              f"max best_epoch {int(r.max_best_epoch)}{marker}")
+    print("  Models marked CHECK were still improving near the cap on >20% "
+          "of runs;\n  consider re-running those cells with --num_epochs 100.")
+
+
 def report_forecast(df, csv_path):
     group_cols = ["exp_tag", "model", "data", "pred_len", "seq_len"]
     grp = (df.groupby(group_cols)["seed"]
@@ -125,6 +161,10 @@ def main():
     p.add_argument("--data",    type=str, default=None)
     p.add_argument("--robust",  action="store_true",
                    help="Audit robust_results.csv (fault_type / severity breakdown).")
+    p.add_argument("--num_epochs", type=int, default=50,
+                   help="Epoch budget used in the sweep (for the cap-hit audit).")
+    p.add_argument("--patience",   type=int, default=10,
+                   help="Early-stopping patience used in the sweep.")
     args = p.parse_args()
 
     if args.csv is None:
@@ -150,6 +190,7 @@ def main():
         report_robust(df, args.csv)
     else:
         report_forecast(df, args.csv)
+        report_epoch_budget(df, args.num_epochs, args.patience)
 
 
 if __name__ == "__main__":
