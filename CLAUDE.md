@@ -36,6 +36,7 @@ QEMU validation). Reject letter at `manuscript/notes/reject_mail.md`.
 FEATHer/
 ├── run_forecast.py                 user-facing orchestrator (--check, resume, dispatch)
 ├── run_robustness.py               robustness orchestrator (loads --save_model checkpoints)
+├── run_hp_search.py                FEATHer OFAT HP search (val-only selection → single config + R2 #23 sensitivity)
 ├── setup_baselines.sh              git-clone baseline upstream repos (idempotent)
 ├── scripts/
 │   └── benchmarks/
@@ -63,7 +64,7 @@ FEATHer/
 │   ├── data_factory.py             data_provider + data_select (lazy darts import)
 │   ├── data_loader.py              Dataset classes (ETT_hour/minute, Custom, PEMS)
 │   ├── losses.py                   spectral_separation_loss_scales (FEATHer-specific)
-│   ├── metrics.py                  metric() (MSE/MAE/RMSE/CORR/R2), best()
+│   ├── metrics.py                  metric() (MSE/MAE/RMSE/CORR/R2)
 │   ├── noise.py                    4-axis corruption (gauss/miss/impulse/quant)
 │   └── timefeatures.py
 ├── tools/
@@ -111,6 +112,13 @@ python run_forecast.py --model FEATHer --save_model                      # one m
 python run_forecast.py --data ETTh1 --pred_len 96 --save_model           # one (data, horizon) across all models
 python run_forecast.py --exclude TimesNet,MDMLP_EIA                      # skip heavy models for a fast pass
 python run_forecast.py --num_seeds 1 --num_epochs 2 --exp_tag smoke      # quick verify (no checkpoints)
+
+# === FEATHer HP search (before Phase 4 — picks the single config) ===
+# OFAT around the canonical config; selection by val_loss only.
+# 16 configs × {ETTh1,ETTm1,Weather} × {96,720} × 2 seeds = 192 runs.
+python run_hp_search.py --check
+python run_hp_search.py                    # run all missing (resumable)
+python run_hp_search.py --summary          # per-axis sensitivity + recommended config
 
 # === Robustness sweep (Phase 4b) ===
 # Requires `--save_model` to have populated results/checkpoints/<train_exp_tag>/.
@@ -217,6 +225,7 @@ Resolved 2026-06-02 via TFB-style per-(method, dataset) overrides. See
 | `seq_len` | 96 | LTSF benchmark convention (iTransformer/PatchTST conventions) |
 | `batch_size` | 32 | Memory protocol axis |
 | `num_epochs` | 50 | Epoch-budget protocol axis |
+| `patience` | 10 | Early stop on val loss; model selection = best-val epoch, test evaluated once on that model (matches every baseline's official protocol) |
 | Optimizer | Adam | Standard |
 | Scheduler | CosineAnnealingLR | Standard |
 | AMP | **OFF** | Fairness + FITS complex grads + TimesNet cuFFT half-precision |
@@ -285,8 +294,12 @@ Single source of truth: `results/fcst_results.csv`. Append-only.
 
 Columns (resume key in bold):
 **`exp_tag`**, **`model`**, **`data`**, **`pred_len`**, **`seq_len`**,
-**`seed`**, `MSE`, `MAE`, `RMSE`, `CORR`, `R2`, `best_epoch`, `num_params`,
-`timestamp`
+**`seed`**, `MSE`, `MAE`, `RMSE`, `CORR`, `R2`, `val_loss`, `best_epoch`,
+`num_params`, `timestamp`
+
+Test metrics are computed once on the best-val-epoch model (early stopping
+patience=10); `val_loss` is that epoch's validation loss and `best_epoch`
+its index. The saved checkpoint is the same best-val model.
 
 `exp_tag` partitions experiments — e.g. `main`, `robustness_gauss`,
 `ablation_dtk`, `smoke`. Use `--results_csv PATH` to redirect for

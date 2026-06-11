@@ -48,7 +48,7 @@ warnings.filterwarnings("ignore")
 CSV_FIELDS = [
     "exp_tag", "model", "data", "pred_len", "seq_len", "seed",
     "MSE", "MAE", "RMSE", "CORR", "R2",
-    "best_epoch", "num_params", "timestamp",
+    "val_loss", "best_epoch", "num_params", "timestamp",
 ]
 
 
@@ -98,6 +98,11 @@ def train_single(args, data_name, pred_len, device, seed):
         args.seq_len, args.label_len, pred_len, "train",
         starting_percent=args.starting_percent, percent=args.percent,
     )
+    val_data, val_loader = data_factory.data_provider(
+        args.root_path, data_name, args.features, args.batch_size,
+        args.seq_len, args.label_len, pred_len, "val",
+        starting_percent=args.starting_percent, percent=args.percent,
+    )
     test_data, test_loader = data_factory.data_provider(
         args.root_path, data_name, args.features, args.batch_size,
         args.seq_len, args.label_len, pred_len, "test",
@@ -132,8 +137,13 @@ def train_single(args, data_name, pred_len, device, seed):
     # baselines have no band structure to disentangle.
     use_spec_loss = args.model.startswith("FEATHer") and (args.lambda_spec > 0)
 
-    test_metric = [1e9, 1e9, 1e9, -1e9, -1e9]
+    # Validation-based model selection — same protocol as every baseline's
+    # official implementation: val loss picks the epoch (with early
+    # stopping), test is evaluated exactly once on the selected model.
+    best_val = float("inf")
+    best_state = None
     best_epoch = 0
+    patience_left = args.patience
 
     for epoch in range(args.num_epochs):
         # ---------- Train ----------
@@ -172,32 +182,58 @@ def train_single(args, data_name, pred_len, device, seed):
         avg_loss = total_loss / max(1, len(train_loader))
         scheduler.step()
 
-        # ---------- Test ----------
+        # ---------- Validate ----------
         model.eval()
-        sum_vector = np.zeros(num_metrics, dtype=np.float64)
-        cnt = 0
+        val_sum, val_cnt = 0.0, 0
         with torch.no_grad():
-            for batch_x, batch_y, _, _ in test_loader:
+            for batch_x, batch_y, _, _ in val_loader:
                 batch_x = batch_x.float().to(device)
                 batch_y = batch_y.float().to(device)
-                output = model(batch_x[:, :, :n_features])
-                y_true = batch_y[:, :, :n_features][:, -pred_len:].cpu().numpy()
-                y_pred = output[:, -pred_len:].cpu().numpy()
-                bs = y_true.shape[0]
-                m = np.array(metrics.metric(y_pred, y_true), dtype=np.float64)
-                sum_vector += m * bs
-                cnt += bs
+                output = model(batch_x[:, :, :n_features])[:, -pred_len:]
+                target = batch_y[:, :, :n_features][:, -pred_len:]
+                bs = batch_x.size(0)
+                val_sum += criterion(output, target).item() * bs
+                val_cnt += bs
+        val_loss = val_sum / max(1, val_cnt)
 
-        epoch_metric = sum_vector / cnt
-        prev_best = test_metric[0]
-        test_metric = metrics.best(test_metric, epoch_metric)
-        if epoch_metric[0] < prev_best:
+        if np.isfinite(val_loss) and val_loss < best_val:
+            best_val = val_loss
             best_epoch = epoch
+            best_state = {k: v.detach().cpu().clone()
+                          for k, v in model.state_dict().items()}
+            patience_left = args.patience
+        else:
+            patience_left -= 1
 
         print(f"  Epoch {epoch+1:3d}/{args.num_epochs} | "
               f"lr {scheduler.get_last_lr()[0]:.6f} | "
-              f"train {avg_loss:.4f} | test MSE {epoch_metric[0]:.4f} | "
-              f"best {test_metric[0]:.4f}")
+              f"train {avg_loss:.4f} | val {val_loss:.4f} | "
+              f"best val {best_val:.4f} (ep {best_epoch+1}) | "
+              f"patience {patience_left}/{args.patience}")
+
+        if patience_left <= 0:
+            print(f"  Early stop at epoch {epoch+1} "
+                  f"(no val improvement for {args.patience} epochs)")
+            break
+
+    # ---------- Test (once, on the best-val model) ----------
+    if best_state is not None:
+        model.load_state_dict(best_state)
+    model.eval()
+    sum_vector = np.zeros(num_metrics, dtype=np.float64)
+    cnt = 0
+    with torch.no_grad():
+        for batch_x, batch_y, _, _ in test_loader:
+            batch_x = batch_x.float().to(device)
+            batch_y = batch_y.float().to(device)
+            output = model(batch_x[:, :, :n_features])
+            y_true = batch_y[:, :, :n_features][:, -pred_len:].cpu().numpy()
+            y_pred = output[:, -pred_len:].cpu().numpy()
+            bs = y_true.shape[0]
+            m = np.array(metrics.metric(y_pred, y_true), dtype=np.float64)
+            sum_vector += m * bs
+            cnt += bs
+    test_metric = sum_vector / max(1, cnt)
 
     # ---------- Persist ----------
     timestamp = now.strftime("%Y%m%d_%H%M%S")
@@ -213,6 +249,7 @@ def train_single(args, data_name, pred_len, device, seed):
         "RMSE":      round(float(test_metric[2]), 6),
         "CORR":      round(float(test_metric[3]), 6),
         "R2":        round(float(test_metric[4]), 6),
+        "val_loss":  round(float(best_val), 6),
         "best_epoch": int(best_epoch),
         "num_params": int(num_params),
         "timestamp":  timestamp,
@@ -220,6 +257,8 @@ def train_single(args, data_name, pred_len, device, seed):
     append_result_row(args.results_csv, row)
 
     # Optional: deterministic checkpoint for downstream robustness eval.
+    # The model currently holds the best-val state, so the saved checkpoint
+    # is exactly the model whose test metrics were just reported.
     if args.save_model:
         ckpt = checkpoint_path(args.exp_tag, args.model, data_name,
                                pred_len, args.seq_len, seed)
@@ -227,8 +266,8 @@ def train_single(args, data_name, pred_len, device, seed):
         torch.save(model.state_dict(), ckpt)
         print(f"  -> checkpoint saved → {ckpt}")
 
-    print(f"  -> Best: MSE={test_metric[0]:.4f} MAE={test_metric[1]:.4f} "
-          f"saved → {args.results_csv}")
+    print(f"  -> Test (best-val ep {best_epoch+1}): MSE={test_metric[0]:.4f} "
+          f"MAE={test_metric[1]:.4f} saved → {args.results_csv}")
 
 
 # =============================================================================
@@ -283,6 +322,8 @@ def parse_args():
     p.add_argument("--batch_size",  type=int,   default=32)
     p.add_argument("--lr",          type=float, default=0.001)
     p.add_argument("--num_epochs",  type=int,   default=50)
+    p.add_argument("--patience",    type=int,   default=10,
+                   help="Early-stopping patience on val loss (epochs).")
     p.add_argument("--loss",        type=str,   default="l1", choices=["l1", "mse"])
     p.add_argument("--lambda_spec", type=float, default=0.01)
 

@@ -287,15 +287,16 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         
     timeenc = 0 if embed != 'timeF' else 1
 
-    if flag == 'test':
+    if flag in ('test', 'val'):
+        # Evaluation splits: deterministic order, keep every sample.
         shuffle_flag = False
         drop_last = False
-        batch_size = batch_size  # bsz=1 for evaluation
+        batch_size = batch_size
         freq = freq
     else:
         shuffle_flag = train_shuffle_flag
         drop_last = True
-        batch_size = batch_size  # bsz for train and valid
+        batch_size = batch_size  # bsz for train
         freq = freq
 
     data_set = Data(
