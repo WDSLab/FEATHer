@@ -42,8 +42,11 @@ done ETTh1/ETTm1/Weather runs carry over. No `fcst_results.csv` yet;
 `results/checkpoints/` still empty. On return: `run_hp_search.py
 --summary` → paste the per-dataset winners into
 `baselines/__init__.py` `_DATASET_OVERRIDES` (FEATHer rows) → proceed to
-main sweep below. **TODO:** update `feather_iotj.tex` — remove the
-single-config narrative / reviewer-defense line.
+main sweep below. The rescope is committed + pushed as `add1457` to both
+remotes; user is re-launching the 512-run search on the server (resume
+picks up the ~10 done runs) and will report results. **TODO:** update
+`feather_iotj.tex` — remove the single-config narrative / reviewer-defense
+line before the main sweep.
 
 **Next action (server):** `run_hp_search.py` (512 runs, per-dataset
 FEATHer configs) → `run_forecast.py --save_model` (1,920 runs) →
