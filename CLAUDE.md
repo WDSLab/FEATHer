@@ -42,11 +42,18 @@ done ETTh1/ETTm1/Weather runs carry over. No `fcst_results.csv` yet;
 `results/checkpoints/` still empty. On return: `run_hp_search.py
 --summary` → paste the per-dataset winners into
 `baselines/__init__.py` `_DATASET_OVERRIDES` (FEATHer rows) → proceed to
-main sweep below. The rescope is committed + pushed as `add1457` to both
-remotes; user is re-launching the 512-run search on the server (resume
-picks up the ~10 done runs) and will report results. **TODO:** update
-`feather_iotj.tex` — remove the single-config narrative / reviewer-defense
-line before the main sweep.
+main sweep below. The rescope (+ the `--no_save_data` checkpoint flag) is
+committed + pushed to both remotes; user is re-launching the 512-run
+search on the server (resume picks up the ~10 done runs) and will report
+results.
+
+Checkpoint policy (decided 2026-06-17): main sweep saves **all 8 datasets**
+(~42GB; TimesNet-on-Traffic alone ≈ 24GB). `--no_save_data` exists as an
+opt-in to skip Traffic's unused `.pth` (~16GB) if disk gets tight, but
+default is save-all.
+
+**TODO:** update `feather_iotj.tex` — remove the single-config narrative /
+reviewer-defense line before the main sweep.
 
 **Next action (server):** `run_hp_search.py` (512 runs, per-dataset
 FEATHer configs) → `run_forecast.py --save_model` (1,920 runs) →
