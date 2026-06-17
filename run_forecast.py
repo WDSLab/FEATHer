@@ -277,12 +277,12 @@ def main():
     p.add_argument("--gpu",         type=int, default=0)
     p.add_argument("--save_model",  action="store_true",
                    help="Save checkpoints (forwarded to worker).")
-    p.add_argument("--no_save_data", type=str, default="Traffic",
+    p.add_argument("--no_save_data", type=str, default="",
                    help="Comma-separated datasets to train+score normally "
-                        "but skip --save_model for (their checkpoints are "
-                        "unused by the robustness sweep — Traffic alone is "
-                        "~24GB of TimesNet weights). Default 'Traffic'; pass "
-                        "'' to save every dataset.")
+                        "but skip --save_model for. Default '' saves every "
+                        "dataset (~42GB). Pass 'Traffic' to skip its unused "
+                        "checkpoints (~24GB of TimesNet weights; Traffic is "
+                        "not a robustness dataset).")
 
     # Mode
     p.add_argument("--check", action="store_true",
