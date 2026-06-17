@@ -147,12 +147,10 @@ bash setup_baselines.sh           # clone all
 bash setup_baselines.sh DLinear   # clone one
 
 # === Main sweep (Phase 4) ===
-# Save checkpoints so robustness can reuse them. NOTE: --save_model skips
-# datasets in --no_save_data (default "Traffic") — Traffic still trains and
-# its accuracy row lands in the CSV, but its .pth is not written (Traffic
-# isn't a robustness dataset and its TimesNet checkpoints alone are ~24GB;
-# full 8-dataset save ≈ 42GB, Traffic-skipped ≈ 16GB). Pass
-# --no_save_data "" to save every dataset.
+# Save checkpoints so robustness can reuse them. --save_model saves ALL 8
+# datasets by default (~42GB; TimesNet-on-Traffic alone is ~24GB). If disk
+# gets tight, --no_save_data "Traffic" skips Traffic's .pth (still trained
+# + scored into the CSV; Traffic isn't a robustness dataset) → ~16GB.
 python run_forecast.py --check                                           # show what's missing
 python run_forecast.py --num_seeds 5 --num_epochs 50 --exp_tag main --save_model
 python run_forecast.py --model FEATHer --save_model                      # one model across all datasets/horizons
