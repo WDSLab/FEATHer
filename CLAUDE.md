@@ -32,8 +32,21 @@ All 12 main models + 5 ablation axes smoke-tested end-to-end through
 the new worker. 13-page PDF compiles cleanly. Sections VI-VIII remain
 `\TODO{...}` skeletons waiting on sweep results.
 
-**Next action (server):** `run_hp_search.py` (192 runs, freeze FEATHer
-single config) → `run_forecast.py --save_model` (1,920 runs) →
+**In progress (2026-06-17):** Step 1 — `run_hp_search.py` now scoped to
+**per-dataset FEATHer tuning** (decided 2026-06-17): all 8 main-table
+datasets × 16 OFAT configs × 2 horizons × 2 seeds = **512 runs** (was
+192 / single-config). FEATHer is tuned per-dataset like every baseline
+to maximize main-table numbers; the old "single configuration across all
+8 datasets" selling point is **dropped**. Resume-safe — the ~10 already-
+done ETTh1/ETTm1/Weather runs carry over. No `fcst_results.csv` yet;
+`results/checkpoints/` still empty. On return: `run_hp_search.py
+--summary` → paste the per-dataset winners into
+`baselines/__init__.py` `_DATASET_OVERRIDES` (FEATHer rows) → proceed to
+main sweep below. **TODO:** update `feather_iotj.tex` — remove the
+single-config narrative / reviewer-defense line.
+
+**Next action (server):** `run_hp_search.py` (512 runs, per-dataset
+FEATHer configs) → `run_forecast.py --save_model` (1,920 runs) →
 `run_forecast.py --data SML --exp_tag main --save_model` (240 runs —
 **required**: Sec VIII promises SML robustness heatmaps, and the
 robustness worker loads `main` checkpoints; SML is not in the default
@@ -162,12 +175,14 @@ python run_forecast.py --ablation_axis all --data Electricity --exp_tag ablation
 # axes: ms (15) / gate (4) / dtk (4) / head (4) / complexity (3)
 # single axis: python run_forecast.py --ablation_axis dtk --data ETTh1 --exp_tag ablation
 
-# === FEATHer HP search (before Phase 4 — picks the single config) ===
+# === FEATHer HP search (before Phase 4 — picks per-dataset configs) ===
 # OFAT around the canonical config; selection by val_loss only.
-# 16 configs × {ETTh1,ETTm1,Weather} × {96,720} × 2 seeds = 192 runs.
+# Per-dataset tuning (decided 2026-06-17): 16 configs × 8 datasets
+# × {96,720} × 2 seeds = 512 runs. FEATHer is tuned per-dataset like the
+# baselines (no more single-config narrative).
 python run_hp_search.py --check
 python run_hp_search.py                    # run all missing (resumable)
-python run_hp_search.py --summary          # per-axis sensitivity + recommended config
+python run_hp_search.py --summary          # per-dataset winners + _DATASET_OVERRIDES lines to paste
 
 # === Robustness sweep (Phase 4b) ===
 # Requires `--save_model` to have populated results/checkpoints/<train_exp_tag>/.
@@ -301,14 +316,22 @@ Routing implementation:
   sets each key on `args` before model construction; wrapper's
   `getattr(args, "key", default)` picks up the dataset-specific value.
 
-### FEATHer's protocol — single config across all 8 datasets
+### FEATHer's protocol — per-dataset config (revised 2026-06-17)
 
-Deliberate paper-narrative choice. Reviewer-defense line:
+**Superseded:** FEATHer originally used a single config across all 8
+datasets ("generalizes without tuning" narrative). Decided 2026-06-17 to
+tune FEATHer **per-dataset like every baseline** so the main table shows
+its best numbers — a single untuned config risked losing cells to
+per-dataset-tuned baselines. `run_hp_search.py --summary` emits the
+per-dataset winners; they go into `_DATASET_OVERRIDES` as `("FEATHer",
+<data>)` rows. The single-config sensitivity data still falls out of the
+search for free (the `hp_base` rows) if ever wanted as a side analysis.
 
-> *"Each baseline uses its original-paper per-dataset hyperparameters.
-> FEATHer uses a single configuration across all 8 datasets,
-> demonstrating that the proposed design generalizes without
-> dataset-specific tuning."*
+Fair-comparison framing (now symmetric):
+
+> *"Every method, including FEATHer, uses per-dataset hyperparameters
+> selected on the validation split, ensuring an apples-to-apples
+> comparison at each method's best operating point."*
 
 ## Architecture (FEATHer model)
 

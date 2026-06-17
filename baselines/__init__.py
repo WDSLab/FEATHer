@@ -273,11 +273,14 @@ def get_method_defaults(name):
 # (ETTh1 canonical config); the orchestrator then layers any CLI `--lr` /
 # `--loss` on top.
 #
-# Reviewer-defense framing:
-#   "Each baseline uses its original-paper per-dataset hyperparameters.
-#    FEATHer uses a single configuration across all 8 datasets,
-#    demonstrating that the proposed design generalizes without
-#    dataset-specific tuning."
+# Fair-comparison framing (revised 2026-06-17 — per-dataset for ALL):
+#   "Every method, including FEATHer, uses per-dataset hyperparameters
+#    selected on the validation split (FEATHer's via run_hp_search.py),
+#    ensuring an apples-to-apples comparison at each method's best
+#    operating point."
+# FEATHer ("FEATHer", <data>) rows are added below from
+# `run_hp_search.py --summary`; until then FEATHer falls back to
+# _METHOD_DEFAULTS (base config) on every dataset.
 #
 # Sources extracted from each repo's official ETTh1 / ETTh2 / ETTm1 / ETTm2
 # / Electricity / Exchange / Traffic / Weather script. SML / Volatility /

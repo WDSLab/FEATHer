@@ -2,9 +2,10 @@
 """
 FEATHer hyperparameter search orchestrator (OFAT — one factor at a time).
 
-Purpose: pick the ONE FEATHer configuration shared across all datasets
-(the paper's single-config narrative) and, as a by-product, produce the
-per-axis HP sensitivity analysis reviewers asked for (R2 #23).
+Purpose: pick FEATHer's PER-DATASET configuration for the main accuracy
+table (one best config per dataset, mirroring how each baseline uses its
+original-paper per-dataset hyperparameters) and, as a by-product, produce
+the per-axis HP sensitivity analysis reviewers asked for (R2 #23).
 
 Protocol:
   - Selection uses ONLY the `val_loss` column the worker writes (loss of
@@ -13,8 +14,11 @@ Protocol:
   - OFAT around the canonical config: one axis varies at a time, all
     other axes held at their defaults. The base config runs once as
     exp_tag="hp_base"; each variant as exp_tag="hp_<axis>_<value>".
-  - Scope: 3 datasets (hourly / 15-min / 10-min) x 2 horizons x 2 seeds.
-    FEATHer is ~453 params, so the full search is cheap.
+  - Scope: all 8 main-table datasets x 2 horizons x 2 seeds. FEATHer is
+    tiny (~453 params on ETT), so even the 8-dataset search is cheap on
+    the small-D sets; Traffic/Electricity carry most of the cost.
+  - `--summary` recommends one config PER DATASET (per-axis val winners
+    within each dataset), ready to paste into baselines._DATASET_OVERRIDES.
 
 Usage:
     python run_hp_search.py --check       # show pending runs
@@ -54,9 +58,11 @@ AXES = {
     "lr":          [5e-4, 1e-3, 5e-3],
 }
 
-# Hourly / 15-min / 10-min sampling — frequency diversity without paying
-# for the full 8-dataset sweep during search.
-HP_DATASETS = ["ETTh1", "ETTm1", "Weather"]
+# All 8 main-table datasets — FEATHer is tuned per-dataset (like every
+# baseline), so the search must cover every dataset the main table reports.
+# SML stays out (robustness-only; not in the main accuracy table).
+HP_DATASETS = ["ETTh1", "ETTh2", "ETTm1", "ETTm2",
+               "Weather", "Exchange", "Electricity", "Traffic"]
 HP_PREDS = [96, 720]
 HP_SEEDS = [2025, 2026]
 
@@ -149,6 +155,55 @@ def dispatch(missing, args):
 # Summary — rank configs by val_loss, recommend the single config
 # -----------------------------------------------------------------------------
 
+def _recommend_for_dataset(cell_d, axis_quiet=False):
+    """OFAT per-axis val winner for one dataset.
+
+    cell_d: rows for a single dataset, columns
+    [exp_tag, pred_len, val_loss, MSE]. Returns (recommended_cfg, lines)
+    where lines is the printable per-axis breakdown.
+    """
+    # Rank configs within each horizon by val_loss, average across horizons
+    # — scale-free so a high-loss horizon doesn't dominate selection.
+    cell_d = cell_d.copy()
+    cell_d["rank"] = cell_d.groupby("pred_len")["val_loss"].rank()
+    agg = (cell_d.groupby("exp_tag")
+                 .agg(mean_rank=("rank", "mean"),
+                      mean_val=("val_loss", "mean"),
+                      mean_mse=("MSE", "mean"),
+                      cells=("rank", "size")))
+    n_cells = cell_d["pred_len"].nunique()
+
+    recommended = dict(BASE_CONFIG)
+    lines = []
+    for axis, values in AXES.items():
+        best_rank, best_v = None, BASE_CONFIG[axis]
+        for v in values:
+            tag = "hp_base" if v == BASE_CONFIG[axis] else f"hp_{axis}_{v}"
+            if tag not in agg.index:
+                if not axis_quiet:
+                    lines.append(f"    {axis:>11}={v!s:<6} (no results)")
+                continue
+            r = agg.loc[tag]
+            flag = " (incomplete)" if r["cells"] < n_cells else ""
+            if not axis_quiet:
+                lines.append(f"    {axis:>11}={v!s:<6} "
+                             f"rank={r['mean_rank']:.2f} val={r['mean_val']:.4f} "
+                             f"testMSE={r['mean_mse']:.4f}{flag}")
+            if best_rank is None or r["mean_rank"] < best_rank:
+                best_rank, best_v = r["mean_rank"], v
+        recommended[axis] = best_v
+    return recommended, lines
+
+
+def _override_line(data, cfg):
+    """Format a recommended config as a baselines._DATASET_OVERRIDES line."""
+    # lr goes top-level in the override dict; the rest are arch HPs the
+    # orchestrator forwards via --model_overrides.
+    keys = ["d_state", "kernel_size", "period", "num_bands", "lambda_spec", "lr"]
+    body = ", ".join(f'"{k}": {cfg[k]}' for k in keys)
+    return f'    ("FEATHer", "{data}"): {{{body}}},'
+
+
 def summarize(args):
     if not os.path.exists(args.results_csv):
         print(f"No results yet: {args.results_csv}")
@@ -165,50 +220,33 @@ def summarize(args):
                    n_seeds=("seed", "nunique"))
               .reset_index())
 
-    # Rank configs within each (dataset, horizon) cell by val_loss, then
-    # average ranks across cells — scale-free aggregation across datasets.
-    cell["rank"] = cell.groupby(["data", "pred_len"])["val_loss"].rank()
-    overall = (cell.groupby("exp_tag")
-                   .agg(mean_rank=("rank", "mean"),
-                        mean_val=("val_loss", "mean"),
-                        mean_mse=("MSE", "mean"),
-                        cells=("rank", "size"))
-                   .sort_values("mean_rank"))
+    print("\n=== Per-dataset HP selection (OFAT, val_loss; "
+          "test MSE for reference only) ===")
+    override_lines = []
+    for data in HP_DATASETS:
+        cell_d = cell[cell["data"] == data]
+        if cell_d.empty:
+            print(f"\n--- {data}: (no results yet) ---")
+            continue
+        cfg, lines = _recommend_for_dataset(cell_d)
+        print(f"\n--- {data} ---")
+        print("\n".join(lines))
+        diff = {k: v for k, v in cfg.items() if v != BASE_CONFIG[k]}
+        tag = "  ".join(f"{k}={v}" for k, v in cfg.items())
+        delta = ("  [differs from base: "
+                 + ", ".join(f"{k}={v}" for k, v in diff.items()) + "]") \
+                if diff else "  [== base config]"
+        print(f"  recommended: {tag}{delta}")
+        override_lines.append(_override_line(data, cfg))
 
-    n_cells = cell.groupby("exp_tag").size().max()
-
-    print("\n=== Per-axis sensitivity (selection: val_loss mean rank; "
-          "test MSE shown for reference only) ===")
-    base_row = overall.loc["hp_base"] if "hp_base" in overall.index else None
-    recommended = dict(BASE_CONFIG)
-    for axis, values in AXES.items():
-        print(f"\n--- {axis} (base={BASE_CONFIG[axis]}) ---")
-        best_val, best_v = None, BASE_CONFIG[axis]
-        for v in values:
-            tag = "hp_base" if v == BASE_CONFIG[axis] else f"hp_{axis}_{v}"
-            if tag not in overall.index:
-                print(f"  {v!s:>8}  (no results)")
-                continue
-            r = overall.loc[tag]
-            flag = " (incomplete)" if r["cells"] < n_cells else ""
-            print(f"  {v!s:>8}  mean_rank={r['mean_rank']:6.2f}  "
-                  f"val={r['mean_val']:.4f}  testMSE={r['mean_mse']:.4f}"
-                  f"{flag}")
-            if best_val is None or r["mean_rank"] < best_val:
-                best_val, best_v = r["mean_rank"], v
-        recommended[axis] = best_v
-
-    print("\n=== Overall ranking (top 10) ===")
-    print(overall.head(10).to_string(
-        float_format=lambda x: f"{x:.4f}"))
-
-    print("\n=== Recommended single config (per-axis best by val rank) ===")
-    print("  " + "  ".join(f"{k}={v}" for k, v in recommended.items()))
-    if base_row is not None:
-        print(f"  (base config mean_rank={base_row['mean_rank']:.2f})")
-    print("\nNote: OFAT picks per-axis winners independently; before "
-          "freezing, run the combined config once under exp_tag="
-          "'hp_combined' if it differs from hp_base.")
+    print("\n=== Paste into baselines/__init__.py _DATASET_OVERRIDES ===")
+    print("    # ---- FEATHer (this work) — per-dataset val winners "
+          "from run_hp_search.py --summary ----")
+    print("\n".join(override_lines))
+    print("\nNote: OFAT picks per-axis winners independently per dataset; "
+          "before freezing a dataset whose recommendation differs from "
+          "base, confirm the combined config beats base on that dataset's "
+          "val_loss (axes can interact).")
 
 
 # -----------------------------------------------------------------------------
