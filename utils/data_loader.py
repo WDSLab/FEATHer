@@ -321,6 +321,81 @@ class Dataset_Custom(Dataset):
         return self.scaler.inverse_transform(data)
 
 
+class Dataset_CMAPSS(Dataset):
+    """Engine-aware loader for NASA C-MAPSS run-to-failure trajectories.
+
+    Unlike the continuous-stream datasets, C-MAPSS is a set of independent
+    short engine trajectories (~200 cycles). Two consequences, both handled
+    here and nowhere else:
+      * windows must NOT cross engine boundaries -> we enumerate valid window
+        starts WITHIN each engine (seq_len + pred_len must fit in the engine);
+      * train/val/test are split BY ENGINE id (70/10/20), so no trajectory is
+        shared across splits (no leakage). The scaler is fit on train engines.
+    Short horizons only (see run_forecast CMAPSS_PREDS). No real timestamps ->
+    zero time marks (cf. Dataset_PEMS). df columns: ['unit', <sensors..., target>].
+    """
+    def __init__(self, df, data_name, flag='train', size=None,
+                 features='M', data_path='', target='s11', scale=True,
+                 timeenc=0, freq='h', starting_percent=0, percent=100):
+        self.seq_len, self.label_len, self.pred_len = size[0], size[1], size[2]
+        assert flag in ['train', 'test', 'val']
+        self.set_type = {'train': 0, 'val': 1, 'test': 2}[flag]
+        self.features = features
+        self.target = target
+        self.scale = scale
+        self.df_raw = df
+        self.__read_data__()
+
+    def __read_data__(self):
+        self.scaler = StandardScaler()
+        df = self.df_raw
+        # channel columns = everything but the engine id; target kept last
+        chans = [c for c in df.columns if c != 'unit']
+        chans = [c for c in chans if c != self.target] + [self.target]
+        if self.features == 'S':
+            chans = [self.target]
+
+        units = sorted(df['unit'].unique())
+        n = len(units)
+        n_train, n_val = int(n * 0.7), int(n * 0.1)
+        split_units = [units[:n_train],
+                       units[n_train:n_train + n_val],
+                       units[n_train + n_val:]]
+
+        if self.scale:
+            train_rows = df[df['unit'].isin(split_units[0])]
+            self.scaler.fit(train_rows[chans].values)
+
+        xs, self.windows, offset = [], [], 0
+        for u in split_units[self.set_type]:
+            arr = df[df['unit'] == u][chans].values
+            if self.scale:
+                arr = self.scaler.transform(arr)
+            xs.append(arr)
+            last = len(arr) - self.seq_len - self.pred_len + 1
+            self.windows.extend(offset + s for s in range(max(0, last)))
+            offset += len(arr)
+        self.data_x = np.concatenate(xs, axis=0) if xs else np.empty((0, len(chans)))
+        self.data_y = self.data_x
+
+    def __getitem__(self, index):
+        s_begin = self.windows[index]
+        s_end = s_begin + self.seq_len
+        r_begin = s_end - self.label_len
+        r_end = r_begin + self.label_len + self.pred_len
+        seq_x = self.data_x[s_begin:s_end]
+        seq_y = self.data_y[r_begin:r_end]
+        seq_x_mark = np.zeros((seq_x.shape[0], 4), dtype=np.float32)
+        seq_y_mark = np.zeros((seq_y.shape[0], 4), dtype=np.float32)
+        return seq_x, seq_y, seq_x_mark, seq_y_mark
+
+    def __len__(self):
+        return len(self.windows)
+
+    def inverse_transform(self, data):
+        return self.scaler.inverse_transform(data)
+
+
 class Dataset_PEMS(Dataset):
     def __init__(self, df, data_name, flag='train', size=None,
                  features='S', data_path='ETTh1.csv',

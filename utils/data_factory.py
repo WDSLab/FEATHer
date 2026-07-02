@@ -1,4 +1,4 @@
-from utils.data_loader import Dataset_ETT_hour, Dataset_ETT_minute, Dataset_Custom, Dataset_PEMS
+from utils.data_loader import Dataset_ETT_hour, Dataset_ETT_minute, Dataset_Custom, Dataset_PEMS, Dataset_CMAPSS
 from torch.utils.data import DataLoader
 import pandas as pd
 import numpy as np
@@ -35,6 +35,13 @@ data_dict = {
     'AirQuality': Dataset_Custom,
     'Volatility': Dataset_Custom,
     'SML': Dataset_Custom,
+    'Steel': Dataset_Custom,
+    'GasTurbine': Dataset_Custom,
+    'TEP': Dataset_Custom,
+    'WindSCADA': Dataset_Custom,
+    'PMSM': Dataset_CMAPSS,   # rebuilt 2026-07-02: 69 sessions, unit-aware
+    'CMAPSS': Dataset_CMAPSS,
+    'CMAPSS3': Dataset_CMAPSS,
     'PM': Dataset_Custom,
     'Traffic': Dataset_Custom,
     'Electricity': Dataset_Custom,
@@ -206,6 +213,76 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         df = df.reset_index(drop=True)
         target = '3:Temperature_Comedor_Sensor'
         freq = 'm'
+        embed = 'timeF'
+
+    elif data == 'Steel':
+        # DAEWOO Steel Co. (Gwangyang, KR) — 15-min plant energy/power
+        # telemetry, 6 continuous channels, full year 2018 (UCI #851).
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        target = 'Usage_kWh'
+        freq = 'm'
+        embed = 'timeF'
+
+    elif data == 'GasTurbine':
+        # Combined-cycle gas turbine (Turkey, UCI #551) — 11 sensor channels,
+        # hourly aggregates 2011-2015. No native timestamp (synthetic hourly
+        # index in data.csv). Target = NOX emissions (PEMS forecasting).
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        target = 'NOX'
+        freq = 'h'
+        embed = 'timeF'
+
+    elif data == 'TEP':
+        # Tennessee Eastman Process — process-plant simulation, 52 vars
+        # (41 XMEAS + 11 XMV), 3-min sampling, continuous one-year run.
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        target = 'XMEAS(1)'
+        freq = 'm'
+        embed = 'timeF'
+
+    elif data == 'WindSCADA':
+        # Kelmarsh wind farm (UK, Senvion MM92), Turbine 1, 2017, 10-min
+        # SCADA. 14 physical channels (wind/power/drivetrain temps/speeds/
+        # pitch); short NaN gaps interpolated. Target = Power_kW.
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        target = 'Power_kW'
+        freq = 'm'
+        embed = 'timeF'
+
+    elif data == 'PMSM':
+        # Paderborn LEA PMSM test-bench, REBUILT 2026-07-02: all 69 drive-cycle
+        # sessions, 30-s mean aggregation, C-MAPSS-style ['unit', chans, pm]
+        # schema -> Dataset_CMAPSS windows within a session / splits by session.
+        # Short-horizon PdM section [24,48,96] (12/24/48 min). Target = pm
+        # (rotor permanent-magnet temperature, the canonical target).
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        target = 'pm'
+        freq = 'm'
+        embed = 'timeF'
+
+    elif data in ('CMAPSS', 'CMAPSS3'):
+        # NASA C-MAPSS FD001 / FD003 — turbofan run-to-failure trajectories
+        # (SEPARATE short-horizon PdM section, not the main [96..720] table).
+        # Engine-aware windowing + split-by-engine in Dataset_CMAPSS; the
+        # leading 'unit' column is the engine id (consumed by the loader, not
+        # a channel). Same 14 informative sensors in both subsets; target=s11.
+        # FD003 = same single operating condition as FD001 but two fault modes
+        # and longer trajectories. No real timestamps.
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        target = 's11'
+        freq = 'h'
         embed = 'timeF'
 
     elif data == 'PM':
@@ -487,6 +564,62 @@ def data_select(data, root_path):
         df = df.dropna()
         df = df.reset_index(drop=True)
         freq = 'm'
+        embed = 'timeF'
+        print(df)
+        print(df.columns)
+        print(f'freq: {freq} / embed: {embed}')
+    elif data == 'Steel':
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        freq = 'm'
+        embed = 'timeF'
+        print(df)
+        print(df.columns)
+        print(f'freq: {freq} / embed: {embed}')
+    elif data == 'GasTurbine':
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        freq = 'h'
+        embed = 'timeF'
+        print(df)
+        print(df.columns)
+        print(f'freq: {freq} / embed: {embed}')
+    elif data == 'TEP':
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        freq = 'm'
+        embed = 'timeF'
+        print(df)
+        print(df.columns)
+        print(f'freq: {freq} / embed: {embed}')
+    elif data == 'WindSCADA':
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        freq = 'm'
+        embed = 'timeF'
+        print(df)
+        print(df.columns)
+        print(f'freq: {freq} / embed: {embed}')
+    elif data == 'PMSM':
+        # 13 cols (unit + 12 channels) -> worker n_features = shape[1]-1 = 12.
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        freq = 'm'
+        embed = 'timeF'
+        print(df)
+        print(df.columns)
+        print(f'freq: {freq} / embed: {embed}')
+    elif data in ('CMAPSS', 'CMAPSS3'):
+        # 15 cols (unit + 14 sensors) -> worker n_features = shape[1]-1 = 14.
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        freq = 'h'
         embed = 'timeF'
         print(df)
         print(df.columns)

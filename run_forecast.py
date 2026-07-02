@@ -35,7 +35,33 @@ from baselines import (list_models, list_ablation_models,
 
 DEFAULT_MODELS = list_models()  # all registered
 
-# Long-term horizon datasets
+# Manufacturing datasets — MAIN table (JMS pivot, 2026-06-25).
+# 3 real continuous sensor streams, all D<=14 (sub-1K holds across the table).
+# TEP dropped 2026-06-26 (anomaly-detection benchmark, not forecasting; D=50
+# broke sub-1K). C-MAPSS replaces it but as a SEPARATE short-horizon section
+# (CMAPSS_DATASETS) — its run-to-failure trajectories are too short for the
+# [96..720] long horizons (see Dataset_CMAPSS / CMAPSS_PREDS).
+# PMSM dropped 2026-07-02: at native 2Hz the [96..720] horizons span only
+# 48s-6min of slow rotor-thermal drift — copy-last persistence already scores
+# MSE 0.004 (target) / 0.117 (all-channel mean) at H=96, so the cells are
+# trivially easy; a multi-session+downsample rebuild would only support short
+# horizons anyway. Data + prep recipe kept on disk like TEP.
+MFG_DATASETS = ["Steel", "GasTurbine", "WindSCADA"]
+MFG_PREDS = [96, 192, 336, 720]
+
+# SEPARATE short-horizon PdM forecasting section — unit-segmented datasets
+# (windows never cross a unit boundary; split by unit via Dataset_CMAPSS):
+#   CMAPSS  = NASA C-MAPSS FD001 (de-facto prognostics benchmark, 1 fault mode)
+#   CMAPSS3 = C-MAPSS FD003 (same single op-condition, 2 fault modes, longer
+#             trajectories -> ~3x the H=96 windows; added 2026-07-02)
+#   PMSM    = Paderborn motor test bench, REBUILT 2026-07-02 (69 sessions,
+#             30-s mean agg) — re-enters here after being dropped from the
+#             long-horizon main table (electric-drive domain preserved).
+CMAPSS_DATASETS = ["CMAPSS", "CMAPSS3", "PMSM"]
+CMAPSS_PREDS = [24, 48, 96]
+
+# Long-term horizon datasets — now the GENERALIZATION section (demoted from
+# main when the paper pivoted to manufacturing).
 LTSF_DATASETS = ["ETTh1", "ETTh2", "ETTm1", "ETTm2", "Weather", "Electricity",
                  "Traffic", "Exchange"]
 LTSF_PREDS = [96, 192, 336, 720]
@@ -64,6 +90,10 @@ def pred_lens_for(dataset):
         return SHORT_PREDS
     if dataset in ST_DATASETS:
         return ST_PREDS
+    if dataset in MFG_DATASETS:
+        return MFG_PREDS
+    if dataset in CMAPSS_DATASETS:
+        return CMAPSS_PREDS
     return LTSF_PREDS
 
 
@@ -113,8 +143,14 @@ def enumerate_combos(args):
 
     if args.data:
         datasets = [args.data]
+    elif args.group == "ltsf":
+        datasets = LTSF_DATASETS      # generalization section
+    elif args.group == "cmapss":
+        datasets = CMAPSS_DATASETS    # separate short-horizon PdM section
+    elif args.group == "all":
+        datasets = MFG_DATASETS + CMAPSS_DATASETS + LTSF_DATASETS
     else:
-        datasets = LTSF_DATASETS  # default sweep — short/ST opt-in only
+        datasets = MFG_DATASETS       # default: manufacturing MAIN table
 
     if args.pred_len > 0:
         pred_lens_override = [args.pred_len]
@@ -241,7 +277,13 @@ def main():
     p.add_argument("--exclude", type=str, default=None,
                    help="Comma-separated models to skip.")
     p.add_argument("--data",    type=str, default=None,
-                   help="Single dataset; omit for the LTSF sweep.")
+                   help="Single dataset; omit to sweep a --group.")
+    p.add_argument("--group",   type=str, default="mfg",
+                   choices=["mfg", "ltsf", "cmapss", "all"],
+                   help="Dataset group when --data is omitted: mfg (4 "
+                        "manufacturing, MAIN table [96..720]; default), cmapss "
+                        "(C-MAPSS short-horizon PdM section [24,48,96]), ltsf "
+                        "(8 LTSF generalization), or all.")
     p.add_argument("--pred_len", type=int, default=0,
                    help="Single horizon; 0 = use defaults per dataset.")
     p.add_argument("--seq_len",  type=int, default=DEFAULT_SEQ_LEN)
