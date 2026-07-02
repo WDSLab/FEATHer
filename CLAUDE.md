@@ -63,8 +63,13 @@ counts, physical horizon spans). Findings:
   **720** (12×3×4×5), PdM **540** (12×3×3×5), lr search **1,440** (12×5×6×2×2)
   — all verified via `--check`. Both tables get a naive persistence baseline
   row (cheap, defuses the "is this task trivial?" attack).
-- SML/LG_*/nrel/PM/TEP data NOT deleted — `data/` is gitignored (no repo cost);
-  SML may still serve the LTSF robustness section (scope decision pending).
+- **data/ cleanup (2026-07-02, user-directed):** DELETED LG_AC/LG_PAC_pool/
+  LG_RAC_pool (LG air-conditioner telemetry from an unrelated project, zero
+  code references), TEP (rejected; raw re-downloadable from the mirror in
+  `prep_manufacturing.py`, recipe still tracked), and PM (obsolete IoT-J-era
+  air-quality set). KEPT: the 6 active sets + their raws, **nrel (solar —
+  user explicitly keeps it)**, and SML (may still serve the LTSF robustness
+  section; scope decision pending).
 
 **Status (2026-06-26) — TEP dropped, C-MAPSS added (data validation):**
 Validated the manufacturing datasets against top-tier usage (web search, not
