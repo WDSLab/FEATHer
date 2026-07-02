@@ -352,6 +352,16 @@ routinely operate in the $10^{3}$--$10^{5}$ parameter range, which is
 two to four orders of magnitude above the budgets feasible on
 flash-constrained MCUs.
 
+% R1 #6: cite recent hybrid / broad-learning forecasters as
+% complementary directions outside the edge-deployment scope.
+A complementary line of recent work improves predictive accuracy by
+hybridizing broad learning systems or quantum-enhanced recurrent units
+with temporal convolution, reporting strong results on chaotic and
+financial series~\cite{Su2026BLSAttnTCN, Su2025BLSQLSTM}. These designs
+optimize accuracy on server-class hardware rather than the
+kilobyte-scale weight budgets that motivate FEATHer, and we note them
+as orthogonal advances outside our edge-deployment scope.
+
 \subsection{Structured Multiscale and Spectral Modeling}
 A complementary direction adds explicit temporal structure to improve
 long-horizon stability. Multi-resolution convolutional designs and
@@ -525,6 +535,8 @@ $n = L/P,\; m = H/P$             & cycles in input / horizon \\
 $W_{\mathrm{in}}, W_{\mathrm{out}}$ & DTK projections ($D{\to}S$, $S{\to}D$) \\
 $k_{\mathrm{temp}}, k_{\mathrm{slide}}$ & DTK / SPK depthwise kernels \\
 $g \in \Delta^{B}$               & gate weights (softmax over branches) \\
+$H_g$ (body) /\;$h$ (alg.)       & gate-fused representation ($L{\times}D$) \\
+$H_{\mathrm{agg}}$ /\;$h_{\mathrm{agg}}$ & residual-smoothed fusion \\
 $W \in \mathbb{R}^{n \times m}$  & SPK shared linear map \\
 $\lambda_{\mathrm{spec}}$        & spectral-separation loss weight \\
 \bottomrule
@@ -637,7 +649,7 @@ g = \mathrm{softmax}(u) \in \Delta^{B}.
 The fused representation is then
 \begin{equation}
 \label{eq:gate-fuse}
-H = \sum_{b \in \mathcal{B}} g_b\, H^{(b)} \in \mathbb{R}^{L \times D}.
+H_g = \sum_{b \in \mathcal{B}} g_b\, H^{(b)} \in \mathbb{R}^{L \times D}.
 \end{equation}
 
 % R6 #1d: dimension transition L_f -> B inside psi(.).
@@ -659,16 +671,17 @@ Proposition~\ref{prop:energy-gate}.
 To produce $\widehat Y$ efficiently, FEATHer employs a Sparse-Period
 Kernel that reconstructs periodic and seasonal structure through
 compact period-aligned transformations (Fig.~\ref{fig:spk}). Starting
-from $H \in \mathbb{R}^{L \times D}$, SPK applies a depthwise
+from $H_g \in \mathbb{R}^{L \times D}$, SPK applies a depthwise
 residual aggregation that smooths short-term fluctuations while
 preserving the input length $L$:
 \begin{equation}
 \label{eq:spk-residual}
-H' = H + \mathrm{DWConv}_t(H;\, k_{\mathrm{slide}}).
+H_{\mathrm{agg}} = H_g + \mathrm{DWConv}_t(H_g;\, k_{\mathrm{slide}}).
 \end{equation}
-SPK then reorganizes $H'$ into phase-aligned groups using a period
-$P$. When $L$ and $H$ are divisible by $P$, we define $n = L/P$ and
-$m = H/P$. For each variable $d$, the channel signal $H'_{:,d}$ is
+SPK then reorganizes $H_{\mathrm{agg}}$ into phase-aligned groups using
+a period $P$. When $L$ and $H$ are divisible by $P$, we define
+$n = L/P$ and $m = H/P$. For each variable $d$, the channel signal
+$(H_{\mathrm{agg}})_{:,d}$ is
 reshaped into a matrix $\widetilde H_d \in \mathbb{R}^{P \times n}$
 whose rows correspond to fixed phases within the period. A
 \emph{single} shared linear map $W \in \mathbb{R}^{n \times m}$ is
@@ -691,7 +704,7 @@ Given $X$, FEATHer first generates the multiscale signals
 $\{X^{(b)}\}_{b \in \mathcal{B}}$, processes each pathway through the
 shared DTK to obtain $\{H^{(b)}\}_{b \in \mathcal{B}}$, computes
 spectrum-conditioned weights $g$, and fuses the branch
-representations into $H$. The SPK then produces the final forecast
+representations into $H_g$. The SPK then produces the final forecast
 $\widehat Y$. The model is trained end-to-end by minimizing
 $\mathcal{L}(\widehat Y, Y) = \mathrm{MSE}(\widehat Y, Y) +
 \lambda_{\mathrm{spec}} \mathcal{L}_{\mathrm{spec}}$, where
@@ -1157,14 +1170,18 @@ table in the released code (\texttt{baselines/\_\_init\_\_.py},
 fields \texttt{\_METHOD\_DEFAULTS} and \texttt{\_DATASET\_OVERRIDES})
 and reproduced in the appendix.
 
-\paragraph{FEATHer's protocol --- a single configuration.}
-By deliberate paper-narrative choice, \emph{FEATHer uses one
-configuration across all eight datasets} ($S{=}8$,
-$k_{\mathrm{temp}}{=}7$, $P{=}12$, $\lambda_{\mathrm{spec}}{=}0.01$,
-$\mathrm{lr}{=}10^{-3}$, MAE + $\lambda_{\mathrm{spec}}$ spectral
-separation loss). This demonstrates that the proposed design
-generalizes without per-dataset tuning, in contrast to baselines
-that exploit dataset-specific hyperparameters.
+\paragraph{FEATHer's protocol --- per-dataset selection.}
+Like every baseline, \emph{FEATHer's hyperparameters are selected
+per dataset on the validation split}. Starting from a canonical
+configuration ($S{=}8$, $k_{\mathrm{temp}}{=}7$, $P{=}12$,
+$\lambda_{\mathrm{spec}}{=}0.01$, $\mathrm{lr}{=}10^{-3}$,
+MAE\,$+\,\lambda_{\mathrm{spec}}$ spectral-separation loss), a
+one-factor-at-a-time search over the validation set fixes the final
+per-dataset values, which are shipped in the same
+\texttt{\_DATASET\_OVERRIDES} table as the baselines. This ensures
+an apples-to-apples comparison: every method, FEATHer included, is
+evaluated at its own best validation operating point rather than a
+hand-picked configuration.
 
 \subsection{Evaluation Protocol}
 \label{subsec:evaluation}
@@ -1528,8 +1545,8 @@ long-horizon prediction on the kilobyte-scale weight budgets of
 industrial edge controllers. FEATHer combines four lightweight
 components --- multiscale temporal decomposition, a shared Dense
 Temporal Kernel, frequency-aware gating, and a parameter-minimal
-Sparse-Period Kernel --- inside a single configuration that
-generalizes across eight benchmarks without per-dataset tuning.
+Sparse-Period Kernel --- inside a compact architecture that holds a
+sub-1K parameter budget across edge-typical channel counts.
 
 \TODO{one-paragraph quantitative summary once Phase 4 lands.
 Expected shape: ``FEATHer reaches an average MSE of X across
@@ -1545,8 +1562,8 @@ them honestly:
 (i)~On high-channel datasets (Traffic with $D{=}862$, Electricity
 with $D{=}321$), capacity-rich Transformer baselines retain a
 measurable accuracy advantage that the ultra-light regime cannot
-close; this is the deliberate trade-off behind the single-config
-narrative.
+close; this is the deliberate trade-off behind the sub-1K
+parameter budget.
 (ii)~The ``sub-1K parameter'' framing is
 \emph{configuration-dependent} (Section~\ref{subsec:edge-estimator})
 --- the count holds for small-$D$ datasets but grows on Weather and
@@ -1560,10 +1577,10 @@ campaign with energy instrumentation remains future work.
 
 \paragraph{Future directions.}
 We see three productive extensions.
-First, lifting the single-configuration constraint --- letting
-$P$ and the gate spectrum bin count adapt to a dataset's
-dominant period --- without sacrificing the deployability
-guarantee. Second, multimodal sensor fusion: combining the
+First, replacing the validation-set search over $P$ and the gate
+spectrum bin count with a mechanism that adapts them
+\emph{automatically} to a dataset's dominant period --- without
+sacrificing the deployability guarantee. Second, multimodal sensor fusion: combining the
 DTK with a lightweight cross-sensor mixer would let FEATHer
 ingest heterogeneous industrial signals (vibration, temperature,
 voltage) without abandoning the sub-1K target. Third, hardware/
