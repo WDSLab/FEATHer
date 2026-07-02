@@ -10,6 +10,35 @@ parameter / edge-MCU constraints. It combines multi-scale frequency
 decomposition with a shared temporal kernel and a period-aware sparse
 forecasting head.
 
+**Status (2026-07-02b) — experiment protocol sequencing locked (same day,
+after the scope was closed):**
+- **FEATHer's canonical architecture for the MFG tables comes from the LTSF
+  OFAT** (the 512-run search on the server): aggregate `--summary` ACROSS the
+  8 LTSF datasets → if the base config (d_state=8, k=7, P=12, B=3) sits in the
+  flat region, keep it; if an axis value wins consistently (num_bands 3 vs 4
+  is the live question — tex line ~485 claims "B=4 default for industrial"
+  while code default is 3), update the canonical. Clean story: *architecture
+  fixed on independent LTSF data before any manufacturing experiment; on the
+  mfg datasets every method (FEATHer included) runs a fixed architecture +
+  lr-only search — fully symmetric.*
+- **Server order therefore**: (1) `run_hp_search.py --check` → if done,
+  `--summary` → confirm/update canonical FEATHer config; (2) `run_lr_search.py`
+  — baselines' 1,320 runs can start before (1) resolves; FEATHer's 120 lr rows
+  should run AFTER the canonical config is fixed (lr interacts with arch);
+  (3) paste both summaries into `_DATASET_OVERRIDES` (LTSF rows from OFAT,
+  mfg rows from lr search); (4) main sweeps 720 + 540.
+- **Ablation extended to manufacturing datasets — CONFIRMED** (the ms axis
+  provides the B=2/3/4 evidence on mfg data as analysis, without breaking
+  main-table symmetry; also settles the tex "B=4 industrial" sentence).
+- **Robustness swap to manufacturing datasets — decided in principle**, code
+  change pending (`run_robustness.py:ROBUSTNESS_DATASETS`); settles SML.
+- Freq-tied HPs (SparseTSF `period_len`, TQNet `cycle`, FEATHer `period`) —
+  if adjusted later, adjust ALL THREE by the same deterministic
+  sampling-rate rule (no model-specific favors).
+- Docs updated: `manuscript/drafts/intro_jms.md` + `manuscript/notes/
+  PAPER_CONTEXT.md` now carry the final scope (intro Para 4 / C5 rewritten:
+  two-tier benchmark, sub-1K everywhere, persistence rows).
+
 **Status (2026-07-02) — PMSM dropped after task-fit audit; main table = 3
 datasets:** Ran a quantitative task-fit audit on the actual local data (channel-
 level naive-persistence baselines, timestamp continuity, per-split window
