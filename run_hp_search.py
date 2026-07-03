@@ -19,15 +19,23 @@ Protocol:
     the small-D sets; Traffic/Electricity carry most of the cost.
   - `--summary` recommends one config PER DATASET (per-axis val winners
     within each dataset), ready to paste into baselines._DATASET_OVERRIDES.
+  - `--validate` runs each dataset's COMBINED recommendation once (the
+    per-axis winners were never trained together — axes can interact).
+    After it finishes, `--summary` picks the final per-dataset config as
+    the best-ranked among {base, every single-axis variant, the combo},
+    so no dataset can end up worse than an actually-observed config.
 
 Usage:
     python run_hp_search.py --check       # show pending runs
     python run_hp_search.py               # run all missing (resumable)
     python run_hp_search.py --summary     # rank configs by val_loss
+    python run_hp_search.py --validate    # run the combined recommendations
+    python run_hp_search.py --summary     # final verdict (combo vs observed)
 """
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 
@@ -86,6 +94,65 @@ def enumerate_configs():
             cfg[axis] = v
             configs.append((f"hp_{axis}_{v}", cfg))
     return configs
+
+
+def _combo_tag(cfg):
+    """Deterministic exp_tag for a combined config — the config is encoded
+    in the tag, so a changed recommendation gets a new tag (and re-runs)
+    while an unchanged one resumes from the CSV."""
+    return ("hp_combo_ds{d_state}_k{kernel_size}_p{period}"
+            "_B{num_bands}_ls{lambda_spec}_lr{lr}").format(**cfg)
+
+
+_COMBO_RE = re.compile(
+    r"^hp_combo_ds(\d+)_k(\d+)_p(\d+)_B(\d+)_ls([0-9.e+-]+)_lr([0-9.e+-]+)$")
+
+
+def _tag_to_cfg(tag):
+    """Recover the full config from any exp_tag this script emits."""
+    if tag == "hp_base":
+        return dict(BASE_CONFIG)
+    m = _COMBO_RE.match(tag)
+    if m:
+        ds, k, p, b, ls, lr = m.groups()
+        return {"d_state": int(ds), "kernel_size": int(k), "period": int(p),
+                "num_bands": int(b), "lambda_spec": float(ls), "lr": float(lr)}
+    for axis in AXES:
+        prefix = f"hp_{axis}_"
+        if tag.startswith(prefix):
+            cfg = dict(BASE_CONFIG)
+            cfg[axis] = type(BASE_CONFIG[axis])(float(tag[len(prefix):]))
+            return cfg
+    raise ValueError(f"unrecognized exp_tag: {tag}")
+
+
+def enumerate_validation_runs(args):
+    """Combined-recommendation runs: one combo config per dataset whose
+    OFAT recommendation differs from base, at the same horizons/seeds."""
+    cell = _load_cells(args.results_csv)
+    if cell is None:
+        print(f"No results yet in {args.results_csv} — "
+              "--validate needs the finished OFAT rows.")
+        return []
+    runs = []
+    for data in HP_DATASETS:
+        cell_d = cell[cell["data"] == data]
+        if cell_d.empty:
+            print(f"  [skip] {data}: no OFAT rows yet")
+            continue
+        cfg, _ = _recommend_for_dataset(cell_d, axis_quiet=True)
+        if cfg == BASE_CONFIG:
+            print(f"  [skip] {data}: recommendation == base, nothing to validate")
+            continue
+        tag = _combo_tag(cfg)
+        for h in HP_PREDS:
+            if args.seq_len % cfg["period"] or h % cfg["period"]:
+                print(f"  [skip] {tag} on H={h}: period "
+                      f"{cfg['period']} does not divide both lengths")
+                continue
+            for s in HP_SEEDS:
+                runs.append((tag, cfg, data, h, args.seq_len, s))
+    return runs
 
 
 def enumerate_runs(args):
@@ -155,15 +222,23 @@ def dispatch(missing, args):
 # Summary — rank configs by val_loss, recommend the single config
 # -----------------------------------------------------------------------------
 
-def _recommend_for_dataset(cell_d, axis_quiet=False):
-    """OFAT per-axis val winner for one dataset.
+def _load_cells(csv_path):
+    """Per-(config, dataset, horizon) cells, seed-averaged. None if empty."""
+    if not os.path.exists(csv_path):
+        return None
+    df = pd.read_csv(csv_path)
+    df = df[df["model"] == "FEATHer"]
+    if df.empty:
+        return None
+    return (df.groupby(["exp_tag", "data", "pred_len"])
+              .agg(val_loss=("val_loss", "mean"), MSE=("MSE", "mean"),
+                   n_seeds=("seed", "nunique"))
+              .reset_index())
 
-    cell_d: rows for a single dataset, columns
-    [exp_tag, pred_len, val_loss, MSE]. Returns (recommended_cfg, lines)
-    where lines is the printable per-axis breakdown.
-    """
-    # Rank configs within each horizon by val_loss, average across horizons
-    # — scale-free so a high-loss horizon doesn't dominate selection.
+
+def _rank_agg(cell_d):
+    """Rank configs within each horizon by val_loss, average across
+    horizons — scale-free so a high-loss horizon doesn't dominate."""
     cell_d = cell_d.copy()
     cell_d["rank"] = cell_d.groupby("pred_len")["val_loss"].rank()
     agg = (cell_d.groupby("exp_tag")
@@ -171,7 +246,19 @@ def _recommend_for_dataset(cell_d, axis_quiet=False):
                       mean_val=("val_loss", "mean"),
                       mean_mse=("MSE", "mean"),
                       cells=("rank", "size")))
-    n_cells = cell_d["pred_len"].nunique()
+    return agg, cell_d["pred_len"].nunique()
+
+
+def _recommend_for_dataset(cell_d, axis_quiet=False):
+    """OFAT per-axis val winner for one dataset.
+
+    cell_d: rows for a single dataset, columns
+    [exp_tag, pred_len, val_loss, MSE]. Returns (recommended_cfg, lines)
+    where lines is the printable per-axis breakdown. Ranking is restricted
+    to the OFAT tags so hp_combo_* validation rows never skew it.
+    """
+    ofat_tags = {t for t, _ in enumerate_configs()}
+    agg, n_cells = _rank_agg(cell_d[cell_d["exp_tag"].isin(ofat_tags)])
 
     recommended = dict(BASE_CONFIG)
     lines = []
@@ -205,24 +292,15 @@ def _override_line(data, cfg):
 
 
 def summarize(args):
-    if not os.path.exists(args.results_csv):
-        print(f"No results yet: {args.results_csv}")
+    cell = _load_cells(args.results_csv)
+    if cell is None:
+        print(f"No FEATHer rows yet: {args.results_csv}")
         return
-    df = pd.read_csv(args.results_csv)
-    df = df[df["model"] == "FEATHer"]
-    if df.empty:
-        print("No FEATHer rows in the CSV.")
-        return
-
-    # Mean over seeds per (config, dataset, horizon) cell.
-    cell = (df.groupby(["exp_tag", "data", "pred_len"])
-              .agg(val_loss=("val_loss", "mean"), MSE=("MSE", "mean"),
-                   n_seeds=("seed", "nunique"))
-              .reset_index())
 
     print("\n=== Per-dataset HP selection (OFAT, val_loss; "
           "test MSE for reference only) ===")
     override_lines = []
+    unvalidated = []
     for data in HP_DATASETS:
         cell_d = cell[cell["data"] == data]
         if cell_d.empty:
@@ -237,16 +315,43 @@ def summarize(args):
                  + ", ".join(f"{k}={v}" for k, v in diff.items()) + "]") \
                 if diff else "  [== base config]"
         print(f"  recommended: {tag}{delta}")
-        override_lines.append(_override_line(data, cfg))
+
+        # ---- Combo validation verdict (final config for the overrides) ----
+        final_cfg = cfg
+        if diff:
+            combo_tag = _combo_tag(cfg)
+            agg_all, n_cells = _rank_agg(cell_d)
+            complete = agg_all[agg_all["cells"] == n_cells]
+            if combo_tag in complete.index:
+                final_tag = complete["mean_rank"].idxmin()
+                final_cfg = _tag_to_cfg(final_tag)
+                c, b = complete.loc[combo_tag], complete.loc["hp_base"]
+                print(f"  validated:   combo rank={c['mean_rank']:.2f} "
+                      f"val={c['mean_val']:.4f} vs base rank={b['mean_rank']:.2f} "
+                      f"val={b['mean_val']:.4f}"
+                      f" -> final = {final_tag}"
+                      + ("" if final_tag == combo_tag
+                         else " (combo NOT adopted; best observed config wins)"))
+            else:
+                unvalidated.append(data)
+                print("  validated:   NO — combined config has no (complete) "
+                      "runs yet; run `python run_hp_search.py --validate`")
+        override_lines.append(_override_line(data, final_cfg))
 
     print("\n=== Paste into baselines/__init__.py _DATASET_OVERRIDES ===")
     print("    # ---- FEATHer (this work) — per-dataset val winners "
           "from run_hp_search.py --summary ----")
     print("\n".join(override_lines))
-    print("\nNote: OFAT picks per-axis winners independently per dataset; "
-          "before freezing a dataset whose recommendation differs from "
-          "base, confirm the combined config beats base on that dataset's "
-          "val_loss (axes can interact).")
+    if unvalidated:
+        print("\nWARNING: the combined recommendation is UNVALIDATED for: "
+              + ", ".join(unvalidated)
+              + ". OFAT combines per-axis winners that were never trained "
+                "together (axes can interact). Run `--validate` (then "
+                "`--summary` again) before freezing these overrides.")
+    else:
+        print("\nAll non-base recommendations validated — overrides above are "
+              "the best-ranked among {base, single-axis variants, combo} per "
+              "dataset; safe to freeze.")
 
 
 # -----------------------------------------------------------------------------
@@ -263,20 +368,32 @@ def main():
     p.add_argument("--gpu",         type=int, default=0)
     p.add_argument("--check",   action="store_true", help="show pending runs")
     p.add_argument("--summary", action="store_true", help="rank finished runs")
+    p.add_argument("--validate", action="store_true",
+                   help="run each dataset's combined OFAT recommendation "
+                        "(per-axis winners trained together, combo vs base)")
     args = p.parse_args()
 
     if args.summary:
         summarize(args)
         return
 
-    runs = enumerate_runs(args)
+    if args.validate:
+        runs = enumerate_validation_runs(args)
+        if not runs:
+            return
+        n_combos = len({r[0] for r in runs})
+        print(f"\nCombo validation: {n_combos} combined configs "
+              f"x {len(HP_PREDS)} horizons x {len(HP_SEEDS)} seeds")
+    else:
+        runs = enumerate_runs(args)
+        n_configs = len(enumerate_configs())
+        print(f"\nHP search: {n_configs} configs x {len(HP_DATASETS)} datasets "
+              f"x {len(HP_PREDS)} horizons x {len(HP_SEEDS)} seeds")
+
     done = load_done_set(args.results_csv)
     missing = [r for r in runs
                if (r[0], r[2], r[3], r[4], r[5]) not in done]
 
-    n_configs = len(enumerate_configs())
-    print(f"\nHP search: {n_configs} configs x {len(HP_DATASETS)} datasets "
-          f"x {len(HP_PREDS)} horizons x {len(HP_SEEDS)} seeds")
     print(f"Total: {len(runs)} runs | Done: {len(runs) - len(missing)} "
           f"| Missing: {len(missing)}")
 

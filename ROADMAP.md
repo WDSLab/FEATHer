@@ -26,6 +26,26 @@ python run_hp_search.py --summary
   (num_bands 3 vs 4 여기서 종결; tex ~485행 "B=4 산업 기본값" 문장과 정합 확인)
 - 붙여넣고 커밋 → 서버 pull
 
+**①-진행 (2026-07-03): 횡단 집계 완료 — 표준 아키텍처 = base 유지
+(d8/k7/p12/B3).** d_state=16(7/8 승)·period=6(일관 승)은 성능상 이기지만
+sub-1K 예산 초과로 기각(d16 @D=14/H96=1,146p; p6 @H720=2,638p); k/λ/B는
+flat — **num_bands 3 vs 4 종결: 완전 flat → 3 유지, tex "B=4 산업" 문장
+근거 없음**. 단, LTSF 8행의 OFAT 추천 조합은 미학습 조합이라 동결 보류 →
+서버에서 조합 검증 후 확정:
+
+```bash
+python run_hp_search.py --validate   # 데이터셋별 추천 조합 실행 (≤32런, 몇 시간)
+python run_hp_search.py --summary    # 최종 판정: 조합 채택 or 최고 관측 설정 fallback
+```
+
+검증이 끝난 `--summary`의 paste 블록이 최종 LTSF 8행. 블록 관계:
+- **③ lr 서치는 전부(1,440런) 지금 시작 가능** — 표준 아키텍처가 base로
+  확정됐으므로 FEATHer 120런도 더 기다릴 이유 없음 (LTSF 조합 검증은 제조
+  쪽과 무관).
+- **② FEATHer LTSF 160런만 검증 완료를 기다림** — per-dataset LTSF 행이
+  `_DATASET_OVERRIDES`에 들어가야 돌 수 있으므로, `--validate` → `--summary`
+  → 붙여넣기 → 커밋 → 서버 pull 후 실행.
+
 ## ② FEATHer의 LTSF 본 실험 160런 (하루 안팎)
 
 LTSF 스윕에서 FEATHer만 빠져 있었음(HP 없어서 블록). ①에서 설정이 들어갔으니:

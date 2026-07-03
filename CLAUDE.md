@@ -10,6 +10,35 @@ parameter / edge-MCU constraints. It combines multi-scale frequency
 decomposition with a shared temporal kernel and a period-aware sparse
 forecasting head.
 
+**Status (2026-07-03) — OFAT 512 done; cross-dataset verdict = KEEP base
+canonical; combo validation pending on server:**
+- User brought back `run_hp_search.py --summary` (all 512 runs finished).
+  Cross-dataset mean-rank aggregation (8 LTSF sets): **d_state 16 wins 7/8**
+  (5.8 vs 8.5) and **period 6 wins consistently** (4.8 vs 12's 8.5), BUT both
+  are blocked by the sub-1K budget — verified with real param counts:
+  d16 @D=14/H96 = **1,146 ✗**; p6 @D=14/H720 = 2,638 (2× base). k/λ flat,
+  **num_bands PERFECTLY flat (2→8.44 / 3→8.50 / 4→8.38) → B=3 stays; the tex
+  ~485 "B=4 industrial default" sentence has NO LTSF support** (mfg ms-axis
+  ablation gives the final word). lr=5e-3 sweeps 8/8 (lr comes from lr-search
+  on mfg anyway). → **Canonical arch for mfg = base d8/k7/p12/B3 unchanged.**
+  Sensitivity narrative for the paper: "d_state shows mild monotone gains but
+  16 exceeds the 1K budget at D=14; within budget 8 is optimal" (R2 #23).
+- **Per-dataset LTSF rows are NOT frozen yet**: the OFAT "recommended" combos
+  were never trained (axes interact; ETTh1 changes 6 axes at once). Added
+  **`run_hp_search.py --validate`** (combo runs, exp_tag=`hp_combo_<cfg>`,
+  config encoded in tag → resume-safe) + `--summary` now prints a per-dataset
+  verdict: final = best mean-rank among {base, single-axis variants, combo},
+  so no dataset can end worse than an observed config. Offline-tested
+  (synthetic CSV: adopt/fallback/no-pollution all pass). **Server next:
+  `git pull` → `python run_hp_search.py --validate` (≤32 runs) → `--summary`
+  → paste the final 8 FEATHer LTSF rows.** ② (FEATHer LTSF 160) waits on this;
+  ③ baselines' lr search can start now.
+- ⚠ Side-finding: FEATHer's param count grows with pred_len (SPK backbone
+  n×m): quoted 402/677/866 are H=96 values; at H=720 base already exceeds 1K
+  for D≥11 (GasTurbine 1,093 / WindSCADA 1,282). Check how the manuscript
+  quotes params — sub-1K must be scoped to H=96 (or per-horizon counts shown)
+  before the claim ships.
+
 **Status (2026-07-02b) — experiment protocol sequencing locked (same day,
 after the scope was closed):**
 - **FEATHer's canonical architecture for the MFG tables comes from the LTSF
@@ -408,7 +437,10 @@ python run_lr_search.py --summary           # best lr per (method,dataset) + _DA
 # generalization configs + the R2 #23 sensitivity curves.
 python run_hp_search.py --check
 python run_hp_search.py
-python run_hp_search.py --summary
+python run_hp_search.py --summary     # per-dataset OFAT recommendation
+python run_hp_search.py --validate    # run the combined recommendations (≤32 runs)
+python run_hp_search.py --summary     # final verdict: combo adopted, or best
+                                      #   observed single-change config as fallback
 
 # === Robustness sweep (Phase 4b) ===
 # Requires `--save_model` to have populated results/checkpoints/<train_exp_tag>/.
@@ -646,6 +678,11 @@ Manufacturing datasets (JMS pivot): each `data/<name>/` holds the raw source
   to edge-typical channel counts; Traffic/Electricity are framed as
   scalability stress tests. A channel-independent variant is a possible
   future ablation axis, not a pre-sweep change.
+- **FEATHer params also scale with pred_len** (SPK `backbone = Linear(n, m)`,
+  n=seq/P, m=H/P): all quoted counts (402/677/738/866) are **H=96** values.
+  At H=720 with the base config, D≥11 exceeds 1K (GasTurbine 1,093 / PMSM
+  1,154 / WindSCADA 1,282). The manuscript's sub-1K claim must be scoped to
+  H=96 or report per-horizon counts (flagged 2026-07-03, unresolved).
 
 ## Workflow phases
 
