@@ -393,13 +393,16 @@ python run_forecast.py --data ETTh1 --pred_len 96 --save_model           # one (
 python run_forecast.py --exclude TimesNet,MDMLP_EIA                      # skip heavy models for a fast pass
 python run_forecast.py --num_seeds 1 --num_epochs 2 --exp_tag smoke      # quick verify (no checkpoints)
 
-# 2-GPU split: no DDP — `--gpu N` picks a device index. Run two
-# processes with disjoint --exclude splits; sharing one results CSV is
-# fine (one append per finished run, collisions practically impossible).
-#   GPU0: python run_forecast.py --exp_tag main --save_model --gpu 0 \
-#           --exclude TimesNet,MDMLP_EIA,iTransformer,PatchTST,TimeMixer,TQNet
-#   GPU1: python run_forecast.py --exp_tag main --save_model --gpu 1 \
-#           --exclude FEATHer,DLinear,DiPE_Linear,SparseTSF,FITS,LMS_AutoTSF
+# Multi-GPU (2026-07-03): all four orchestrators (run_forecast / run_hp_search
+# / run_lr_search / run_robustness) take `--ngpu N` — a CF-JEPA-style DYNAMIC
+# job queue (utils/dispatch_queue.py): one worker subprocess per GPU (indices
+# --gpu .. --gpu+N-1); a free GPU grabs the next job, so fast models never
+# idle a GPU. No torchrun/DDP/file locks — the orchestrator owns an in-memory
+# queue. ngpu=1 (default) = old sequential behavior.
+#   python run_forecast.py --exp_tag main --save_model --ngpu 2
+# Manual alternative (two processes, disjoint --exclude splits, one per
+# --gpu) still works; sharing one results CSV is fine either way (one
+# append per finished run).
 
 # SML is robustness-only: train its checkpoints under exp_tag=main
 # (240 runs, see Status) but it stays OUT of the main accuracy table —

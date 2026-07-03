@@ -36,12 +36,12 @@ Usage:
 import argparse
 import os
 import re
-import subprocess
 import sys
 
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from utils.dispatch_queue import run_on_gpus  # noqa: E402
 
 
 # -----------------------------------------------------------------------------
@@ -190,8 +190,9 @@ def dispatch(missing, args):
     for exp_tag, cfg, d, h, sl, s in missing:
         groups.setdefault((exp_tag, d, h, sl), (cfg, []))[1].append(s)
 
+    jobs = []
     for (exp_tag, d, h, sl), (cfg, seeds) in sorted(groups.items()):
-        print(f"\n>>> {exp_tag} | {d} | H={h} | seeds={sorted(seeds)} | {cfg}")
+        label = f"{exp_tag} | {d} | H={h} | seeds={sorted(seeds)} | {cfg}"
         cmd = [
             sys.executable, WORKER,
             "--model", "FEATHer",
@@ -211,11 +212,13 @@ def dispatch(missing, args):
             "--period", str(cfg["period"]),
             "--num_bands", str(cfg["num_bands"]),
             "--lambda_spec", str(cfg["lambda_spec"]),
-            "--gpu", str(args.gpu),
         ]
-        ret = subprocess.run(cmd)
-        if ret.returncode != 0:
-            print(f"  [WARN] worker returned {ret.returncode}; continuing")
+        jobs.append((label, cmd))
+
+    failed = run_on_gpus(jobs, args.ngpu, base_gpu=args.gpu)
+    if failed:
+        print(f"\n[WARN] {len(failed)} group(s) exited non-zero; their runs "
+              "stay missing — re-run to retry.")
 
 
 # -----------------------------------------------------------------------------
@@ -365,7 +368,11 @@ def main():
     p.add_argument("--patience",    type=int, default=10)
     p.add_argument("--batch_size",  type=int, default=32)
     p.add_argument("--results_csv", type=str, default=RESULTS_CSV)
-    p.add_argument("--gpu",         type=int, default=0)
+    p.add_argument("--gpu",         type=int, default=0,
+                   help="GPU index (with --ngpu N: the FIRST of N indices)")
+    p.add_argument("--ngpu",        type=int, default=1,
+                   help="Number of GPUs; N>1 = dynamic job queue across "
+                        "GPUs gpu..gpu+N-1 (CF-JEPA-style load balancing)")
     p.add_argument("--check",   action="store_true", help="show pending runs")
     p.add_argument("--summary", action="store_true", help="rank finished runs")
     p.add_argument("--validate", action="store_true",

@@ -15,11 +15,15 @@ Usage:
     python run_forecast.py --data ETTh1 --pred_len 96    # one combo
     python run_forecast.py --num_seeds 5 --exp_tag main  # main 5-seed sweep
     python run_forecast.py --exclude TimesNet,S_Mamba    # skip heavy models
+    python run_forecast.py --ngpu 2                      # dynamic 2-GPU queue
+
+Multi-GPU: `--ngpu N` runs a CF-JEPA-style dynamic queue — one worker
+subprocess per GPU (indices --gpu .. --gpu+N-1); a free GPU grabs the next
+(model, dataset, pred_len) job, so fast models never leave a GPU idle.
 """
 
 import argparse
 import os
-import subprocess
 import sys
 
 import pandas as pd
@@ -27,6 +31,7 @@ import pandas as pd
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from baselines import (list_models, list_ablation_models,
                        get_method_defaults, get_dataset_overrides)
+from utils.dispatch_queue import run_on_gpus
 
 
 # -----------------------------------------------------------------------------
@@ -204,6 +209,7 @@ def dispatch(missing, args):
     keys_sorted = sorted(groups.keys(),
                          key=lambda k: (method_order.get(k[1], 999), k[2], k[3]))
 
+    jobs = []
     for (exp_tag, m, d, h, sl) in keys_sorted:
         seeds = sorted(groups[(exp_tag, m, d, h, sl)])
 
@@ -220,9 +226,9 @@ def dispatch(missing, args):
         hp_overrides = {k: v for k, v in merged.items() if k not in ("lr", "loss")}
         overrides_str = ";".join(f"{k}={v}" for k, v in sorted(hp_overrides.items()))
 
-        print(f"\n>>> {m} | {d} | H={h} | seeds={seeds} | lr={lr_to_use} | "
-              f"loss={loss_to_use}"
-              + (f" | overrides={overrides_str}" if overrides_str else ""))
+        label = (f"{m} | {d} | H={h} | seeds={seeds} | lr={lr_to_use} | "
+                 f"loss={loss_to_use}"
+                 + (f" | overrides={overrides_str}" if overrides_str else ""))
 
         cmd = [
             sys.executable,
@@ -239,7 +245,6 @@ def dispatch(missing, args):
             "--batch_size", str(args.batch_size),
             "--lr", str(lr_to_use),
             "--loss", loss_to_use,
-            "--gpu", str(args.gpu),
         ]
         no_save = {x.strip() for x in (args.no_save_data or "").split(",") if x.strip()}
         if args.save_model and d not in no_save:
@@ -254,11 +259,12 @@ def dispatch(missing, args):
             "--num_bands", str(args.num_bands),
             "--lambda_spec", str(args.lambda_spec),
         ]
-        print("  CMD:", " ".join(cmd))
-        ret = subprocess.run(cmd)
-        if ret.returncode != 0:
-            print(f"  [WARN] worker returned non-zero exit ({ret.returncode}); "
-                  f"continuing")
+        jobs.append((label, cmd))
+
+    failed = run_on_gpus(jobs, args.ngpu, base_gpu=args.gpu)
+    if failed:
+        print(f"\n[WARN] {len(failed)} group(s) exited non-zero; their runs "
+              "stay missing — re-run to retry.")
 
 
 # -----------------------------------------------------------------------------
@@ -316,7 +322,11 @@ def main():
 
     # Output / system
     p.add_argument("--results_csv", type=str, default=RESULTS_CSV)
-    p.add_argument("--gpu",         type=int, default=0)
+    p.add_argument("--gpu",         type=int, default=0,
+                   help="GPU index (with --ngpu N: the FIRST of N indices)")
+    p.add_argument("--ngpu",        type=int, default=1,
+                   help="Number of GPUs; N>1 = dynamic job queue across "
+                        "GPUs gpu..gpu+N-1 (CF-JEPA-style load balancing)")
     p.add_argument("--save_model",  action="store_true",
                    help="Save checkpoints (forwarded to worker).")
     p.add_argument("--no_save_data", type=str, default="",
