@@ -28,6 +28,12 @@ Usage:
     python run_lr_search.py --check        # show pending runs
     python run_lr_search.py                # run all missing (resumable)
     python run_lr_search.py --summary      # per-(method,dataset) best lr + paste lines
+
+2-GPU split (no DDP — same convention as run_forecast.py): run two processes
+with DISJOINT --exclude/--model splits, one per --gpu. Sharing one results CSV
+is fine (one append per finished run); disjoint splits never race.
+    python run_lr_search.py --gpu 0 --exclude TimesNet,MDMLP_EIA,iTransformer,PatchTST,TimeMixer,TQNet
+    python run_lr_search.py --gpu 1 --model TimesNet,MDMLP_EIA,iTransformer,PatchTST,TimeMixer,TQNet
 """
 
 import argparse
@@ -72,10 +78,30 @@ def loss_for(model):
     return "l1" if model == "FEATHer" else "mse"
 
 
-def enumerate_runs(args):
+def select_models(args):
+    """Apply --model / --exclude to the registry list (run_forecast.py
+    convention). Both take comma-separated names; unknown names are fatal
+    so a typo can't silently shrink the sweep."""
+    models = list(MODELS)
+    if args.model:
+        want = [m.strip() for m in args.model.split(",") if m.strip()]
+        unknown = sorted(set(want) - set(MODELS))
+        if unknown:
+            sys.exit(f"Unknown --model name(s) {unknown}; known: {MODELS}")
+        models = [m for m in MODELS if m in want]
+    if args.exclude:
+        drop = {m.strip() for m in args.exclude.split(",") if m.strip()}
+        unknown = sorted(drop - set(MODELS))
+        if unknown:
+            sys.exit(f"Unknown --exclude name(s) {unknown}; known: {MODELS}")
+        models = [m for m in models if m not in drop]
+    return models
+
+
+def enumerate_runs(args, models):
     """(model, lr, data, pred_len, seq_len, seed) for the full grid."""
     runs = []
-    for m in MODELS:
+    for m in models:
         for lr in LR_GRID:
             for d in LR_DATASETS:
                 for h in _lr_preds(d):
@@ -192,18 +218,23 @@ def main():
     p.add_argument("--gpu",         type=int, default=0)
     p.add_argument("--check",   action="store_true", help="show pending runs")
     p.add_argument("--summary", action="store_true", help="rank finished runs")
+    p.add_argument("--model",   type=str, default="",
+                   help="comma-separated subset of models to run")
+    p.add_argument("--exclude", type=str, default="",
+                   help="comma-separated models to skip (for disjoint GPU splits)")
     args = p.parse_args()
 
     if args.summary:
         summarize(args)
         return
 
-    runs = enumerate_runs(args)
+    models = select_models(args)
+    runs = enumerate_runs(args, models)
     done = load_done_set(args.results_csv)
     missing = [r for r in runs
                if (_exp_tag(r[1]), r[0], r[2], r[3], r[4], r[5]) not in done]
 
-    print(f"\nlr search: {len(MODELS)} models x {len(LR_GRID)} lr x "
+    print(f"\nlr search: {len(models)}/{len(MODELS)} models x {len(LR_GRID)} lr x "
           f"{len(LR_DATASETS)} datasets x ~{len(LR_PREDS)} horizons x "
           f"{len(LR_SEEDS)} seeds (short-horizon PdM sets use {LR_PREDS_SHORT})")
     print(f"Total: {len(runs)} runs | Done: {len(runs) - len(missing)} "
