@@ -29,22 +29,24 @@ Usage:
     python run_lr_search.py                # run all missing (resumable)
     python run_lr_search.py --summary      # per-(method,dataset) best lr + paste lines
 
-2-GPU split (no DDP — same convention as run_forecast.py): run two processes
-with DISJOINT --exclude/--model splits, one per --gpu. Sharing one results CSV
-is fine (one append per finished run); disjoint splits never race.
-    python run_lr_search.py --gpu 0 --exclude TimesNet,MDMLP_EIA,iTransformer,PatchTST,TimeMixer,TQNet
-    python run_lr_search.py --gpu 1 --model TimesNet,MDMLP_EIA,iTransformer,PatchTST,TimeMixer,TQNet
+Multi-GPU: `--ngpu 2` runs a CF-JEPA-style dynamic queue (one worker
+subprocess per GPU; a free GPU grabs the next job) — preferred, auto
+load-balancing:
+    python run_lr_search.py --ngpu 2
+Manual disjoint --exclude/--model splits across separate processes still
+work (one per --gpu); sharing one results CSV is fine either way (one
+append per finished run).
 """
 
 import argparse
 import os
-import subprocess
 import sys
 
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from baselines import list_models  # noqa: E402
+from utils.dispatch_queue import run_on_gpus  # noqa: E402
 
 
 # Learning-rate grid spanning the range baselines use across their papers
@@ -136,8 +138,9 @@ def dispatch(missing, args):
     for m, lr, d, h, sl, s in missing:
         groups.setdefault((m, lr, d, h, sl), []).append(s)
 
+    jobs = []
     for (m, lr, d, h, sl), seeds in sorted(groups.items()):
-        print(f"\n>>> {m} | {d} | H={h} | lr={lr:g} | seeds={sorted(seeds)}")
+        label = f"{m} | {d} | H={h} | lr={lr:g} | seeds={sorted(seeds)}"
         cmd = [
             sys.executable, WORKER,
             "--model", m,
@@ -152,11 +155,13 @@ def dispatch(missing, args):
             "--batch_size", str(args.batch_size),
             "--loss", loss_for(m),
             "--lr", str(lr),
-            "--gpu", str(args.gpu),
         ]
-        ret = subprocess.run(cmd)
-        if ret.returncode != 0:
-            print(f"  [WARN] worker returned {ret.returncode}; continuing")
+        jobs.append((label, cmd))
+
+    failed = run_on_gpus(jobs, args.ngpu, base_gpu=args.gpu)
+    if failed:
+        print(f"\n[WARN] {len(failed)} group(s) exited non-zero; their runs "
+              "stay missing — re-run to retry.")
 
 
 def summarize(args):
@@ -215,7 +220,11 @@ def main():
     p.add_argument("--patience",    type=int, default=10)
     p.add_argument("--batch_size",  type=int, default=32)
     p.add_argument("--results_csv", type=str, default=RESULTS_CSV)
-    p.add_argument("--gpu",         type=int, default=0)
+    p.add_argument("--gpu",         type=int, default=0,
+                   help="GPU index (with --ngpu N: the FIRST of N indices)")
+    p.add_argument("--ngpu",        type=int, default=1,
+                   help="Number of GPUs; N>1 = dynamic job queue across "
+                        "GPUs gpu..gpu+N-1 (CF-JEPA-style load balancing)")
     p.add_argument("--check",   action="store_true", help="show pending runs")
     p.add_argument("--summary", action="store_true", help="rank finished runs")
     p.add_argument("--model",   type=str, default="",

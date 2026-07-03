@@ -22,7 +22,6 @@ Usage:
 
 import argparse
 import os
-import subprocess
 import sys
 
 import pandas as pd
@@ -30,6 +29,7 @@ import pandas as pd
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from baselines import list_models
 from utils import noise as noise_mod
+from utils.dispatch_queue import run_on_gpus
 from scripts.benchmarks.run_forecast import checkpoint_path
 
 
@@ -169,13 +169,14 @@ def dispatch(combos, done, args, fault_types):
     runnable = [c for c in combos if c not in done]
     runnable.sort(key=lambda c: (method_order.get(c[2], 999), c[3], c[4], c[6]))
 
+    jobs = []
     for combo in runnable:
         _, train_tag, m, d, h, L, s = combo
         ckpt = checkpoint_path(train_tag, m, d, h, L, s)
         if not os.path.exists(ckpt):
             continue  # surfaced by print_status already
 
-        print(f"\n>>> {m} | {d} | H={h} | seed={s}")
+        label = f"{m} | {d} | H={h} | seed={s}"
         cmd = [
             sys.executable,
             "scripts/benchmarks/run_robustness.py",
@@ -187,7 +188,6 @@ def dispatch(combos, done, args, fault_types):
             "--train_exp_tag", train_tag,
             "--exp_tag", args.exp_tag,
             "--results_csv", args.results_csv,
-            "--gpu", str(args.gpu),
             "--batch_size", str(args.batch_size),
             # FEATHer hyperparameters — needed to reconstruct architecture
             "--d_state", str(args.d_state),
@@ -197,10 +197,12 @@ def dispatch(combos, done, args, fault_types):
         ]
         if args.fault_types:
             cmd += ["--fault_types", args.fault_types]
-        print("  CMD:", " ".join(cmd))
-        ret = subprocess.run(cmd)
-        if ret.returncode != 0:
-            print(f"  [WARN] worker exit {ret.returncode}; continuing")
+        jobs.append((label, cmd))
+
+    failed = run_on_gpus(jobs, args.ngpu, base_gpu=args.gpu)
+    if failed:
+        print(f"\n[WARN] {len(failed)} job(s) exited non-zero; their rows "
+              "stay missing — re-run to retry.")
 
 
 def main():
@@ -222,7 +224,11 @@ def main():
 
     p.add_argument("--results_csv", type=str, default=RESULTS_CSV)
     p.add_argument("--batch_size",  type=int, default=32)
-    p.add_argument("--gpu",         type=int, default=0)
+    p.add_argument("--gpu",         type=int, default=0,
+                   help="GPU index (with --ngpu N: the FIRST of N indices)")
+    p.add_argument("--ngpu",        type=int, default=1,
+                   help="Number of GPUs; N>1 = dynamic job queue across "
+                        "GPUs gpu..gpu+N-1 (CF-JEPA-style load balancing)")
 
     # FEATHer architecture HPs (forwarded; harmless for others)
     p.add_argument("--d_state",     type=int, default=8)
