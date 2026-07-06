@@ -10,6 +10,32 @@ parameter / edge-MCU constraints. It combines multi-scale frequency
 decomposition with a shared temporal kernel and a period-aware sparse
 forecasting head.
 
+**Status (2026-07-06) — ① CLOSED: combo validation done, FEATHer LTSF 8 rows
+FROZEN into `_DATASET_OVERRIDES`:**
+- User brought back `run_hp_search.py --summary` AFTER the 32-run `--validate`
+  finished (512 OFAT + 32 combo all complete). Verdict per dataset (final =
+  best mean-rank among {base, single-axis, combo}): **7/8 adopt the combo**
+  (rank 1.00), **Exchange falls back** to `hp_d_state_16` (combo rank 7.5 lost
+  to the single-axis d16 rank 3.5 — the "no dataset ends worse than an observed
+  config" guard working as designed). The 8 rows are pasted into
+  `baselines/__init__.py` `_DATASET_OVERRIDES` (FEATHer LTSF block) + committed.
+- **Param re-check before freezing (this session)**: d_state=16 does NOT break
+  sub-1K for D≤14 sets at H=96 — measured ETTh1 643 / ETTh2 691 / ETTm1 755 /
+  ETTm2 803 / Exchange 690, all OK. The H=720 overflow (1,579+) is the
+  pre-existing SPK pred_len scaling that hits the BASE config too → sub-1K claim
+  stays **H=96-scoped** (unchanged story, not a new problem). Weather(D=21)/
+  Electricity/Traffic already >1K as documented stress tests.
+- These 8 rows feed the **LTSF generalization section only**. The MFG main-table
+  canonical arch stays FROZEN at base **d8/k7/p12/B3** (cross-dataset aggregate
+  verdict from 2026-07-03 below — d16/p6 win val but break sub-1K budget).
+- **Also committed this session (were uncommitted from 07-03)**: `--jobs_per_gpu`
+  in all four orchestrators + `dispatch_queue.py`; `main_table.py` persistence-
+  column integration; `tools/paper/persistence_baseline.py`.
+- **Server next**: `git pull` → ▶ ② `run_forecast.py --model FEATHer --group
+  ltsf --exp_tag main --save_model` (160, completes the 1,920 generalization
+  table). ③ lr search (1,440) still running → when done, bring back
+  `run_lr_search.py --summary` for the MFG rows.
+
 **Status (2026-07-03) — OFAT 512 done; cross-dataset verdict = KEEP base
 canonical; combo validation pending on server:**
 - User brought back `run_hp_search.py --summary` (all 512 runs finished).
@@ -37,7 +63,31 @@ canonical; combo validation pending on server:**
   n×m): quoted 402/677/866 are H=96 values; at H=720 base already exceeds 1K
   for D≥11 (GasTurbine 1,093 / WindSCADA 1,282). Check how the manuscript
   quotes params — sub-1K must be scoped to H=96 (or per-horizon counts shown)
-  before the claim ships.
+  before the claim ships. Full tex audit in `manuscript/notes/
+  PAPER_CONTEXT.md` ("tex 감사 결과" section): 3 spots to fix in the JMS
+  rewrite (Abstract/Limitations D-only framing; ~486 "B=4 industrial";
+  ~494 "fix P=12 across all eight datasets" vs per-dataset LTSF rows).
+- **`--ngpu N` multi-GPU (2026-07-03, later same day)**: all four
+  orchestrators now take `--ngpu N` — CF-JEPA-style DYNAMIC job queue
+  (`utils/dispatch_queue.py`; no torchrun/DDP/fcntl — orchestrator owns an
+  in-memory queue, one worker subprocess per GPU, free GPU grabs next job).
+  ngpu=1 default = old sequential. run_lr_search also got --model/--exclude.
+  Commits: cd687f0 (--validate) / 63b1312 (lr split flags) / f9c8dea (ngpu),
+  all pushed to both remotes.
+- **Server launch state (2026-07-03 evening, user's server = 2×94.5GB GPU,
+  128GB RAM; a CF-JEPA anomaly sweep shares the box, near-done)**: T1
+  `run_hp_search.py --validate --ngpu 2` (32) · T2 `run_forecast.py
+  --exclude FEATHer --group ltsf --num_seeds 5 --num_epochs 50 --exp_tag
+  main --save_model --ngpu 2` (resume of the 1,760; `--group ltsf` is
+  MANDATORY post-pivot) · T3 `run_lr_search.py --ngpu 2` (1,440).
+- Low GPU util diagnosed as EXPECTED: sub-1K..100K models can't saturate
+  94.5GB cards + `num_workers=0` (data_factory.py:399) serializes batch
+  prep with compute. Bottleneck is host-bound per-job critical path, not
+  GPU or total CPU. Fix = `--jobs_per_gpu N` (IMPLEMENTED 2026-07-03 in all
+  four orchestrators: ngpu×jobs_per_gpu workers, gpu = base + i%ngpu, auto
+  OMP/MKL pinning to cpu_count//total_workers; offline-tested; uncommitted
+  pending user go). E.g. `run_lr_search.py --ngpu 2 --jobs_per_gpu 3` = 6
+  workers, 3 per GPU, OMP threads 24//6=4 each.
 
 **Status (2026-07-02b) — experiment protocol sequencing locked (same day,
 after the scope was closed):**

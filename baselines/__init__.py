@@ -400,6 +400,23 @@ _DATASET_OVERRIDES: Dict = {
     # publish dataset-specific d_model only via CLI flags at run time, not
     # via committed config files. Entries omitted (falls back to
     # _METHOD_DEFAULTS).
+
+    # ---- FEATHer (this work) — per-dataset val winners from
+    # run_hp_search.py --summary (OFAT + --validate combo verdict, 512+32
+    # runs). Best-ranked among {base, single-axis variants, combo} per
+    # dataset; safe to freeze. Note: d_state=16 keeps D<=14 sets sub-1K at
+    # H=96 (ETT 643-803, Exchange 690); the H=720 overflow is the pre-existing
+    # SPK pred_len scaling (affects base too) — sub-1K claim stays H=96-scoped.
+    # These feed the LTSF *generalization* section; the MFG main-table
+    # canonical arch stays frozen at base (d8/k7/p12/B3).
+    ("FEATHer", "ETTh1"):       {"d_state": 16, "kernel_size": 3, "period": 8,  "num_bands": 4, "lambda_spec": 0.001, "lr": 0.005},
+    ("FEATHer", "ETTh2"):       {"d_state": 16, "kernel_size": 5, "period": 6,  "num_bands": 2, "lambda_spec": 0.0,   "lr": 0.005},
+    ("FEATHer", "ETTm1"):       {"d_state": 16, "kernel_size": 9, "period": 6,  "num_bands": 2, "lambda_spec": 0.0,   "lr": 0.005},
+    ("FEATHer", "ETTm2"):       {"d_state": 16, "kernel_size": 9, "period": 6,  "num_bands": 3, "lambda_spec": 0.0,   "lr": 0.005},
+    ("FEATHer", "Weather"):     {"d_state": 16, "kernel_size": 9, "period": 6,  "num_bands": 4, "lambda_spec": 0.0,   "lr": 0.005},
+    ("FEATHer", "Exchange"):    {"d_state": 16, "kernel_size": 7, "period": 12, "num_bands": 3, "lambda_spec": 0.01,  "lr": 0.001},
+    ("FEATHer", "Electricity"): {"d_state": 16, "kernel_size": 7, "period": 6,  "num_bands": 3, "lambda_spec": 0.01,  "lr": 0.005},
+    ("FEATHer", "Traffic"):     {"d_state": 8,  "kernel_size": 3, "period": 12, "num_bands": 3, "lambda_spec": 0.001, "lr": 0.005},
 }
 
 
