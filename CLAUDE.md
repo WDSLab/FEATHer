@@ -31,10 +31,24 @@ FROZEN into `_DATASET_OVERRIDES`:**
 - **Also committed this session (were uncommitted from 07-03)**: `--jobs_per_gpu`
   in all four orchestrators + `dispatch_queue.py`; `main_table.py` persistence-
   column integration; `tools/paper/persistence_baseline.py`.
-- **Server next**: `git pull` → ▶ ② `run_forecast.py --model FEATHer --group
-  ltsf --exp_tag main --save_model` (160, completes the 1,920 generalization
-  table). ③ lr search (1,440) still running → when done, bring back
-  `run_lr_search.py --summary` for the MFG rows.
+- **Raw CSV verified (this session)**: user synced `hp_search.csv` via Dropbox
+  (`WDSLab/05. 실험/FEATHer/results/`). Cross-checked against the pasted
+  overrides: 544 rows = 512 OFAT + 32 combo (all 8 combos complete, 4 cells
+  each); zero NaN/inf in MSE/MAE/val_loss (R2 min -3.5e11 = the documented
+  Traffic near-constant explosion, supplementary only); re-ran the real
+  `--summary` logic on the raw CSV → the 8 override rows byte-match the
+  committed `_DATASET_OVERRIDES` (8/8 `get_dataset_overrides` MATCH). Overrides
+  are raw-verified, not summary-text-only. Windows gotcha: run `--summary` with
+  `PYTHONUTF8=1 PYTHONIOENCODING=utf-8` (em-dash breaks cp949).
+- **Three result streams still outstanding** (user's mental model confirmed):
+  (a) ① lr search 1,440 → `lr_search.csv` (running); (b) ② LTSF baseline ~1,760
+  → `fcst_results.csv` (running, T2); (c) ③ FEATHer LTSF 160 → **NOT launched
+  yet** — was blocked on the override paste, now unblocked. (b)+(c) together =
+  the 1,920 generalization table. After (a): `run_lr_search.py --summary` →
+  MFG rows → ⑤ main sweeps 720+540 (still ahead, separate from the above).
+- **Server next**: `git pull` → ▶ launch (c) `run_forecast.py --model FEATHer
+  --group ltsf --exp_tag main --save_model --ngpu 2` (160). Bring back
+  `run_lr_search.py --summary` when (a) finishes.
 
 **Status (2026-07-03) — OFAT 512 done; cross-dataset verdict = KEEP base
 canonical; combo validation pending on server:**

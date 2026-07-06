@@ -10,10 +10,10 @@
 
 | # | 실험 | 단계 | 규모 | 상태 |
 |---|---|---|---|---|
-| 1 | FEATHer 콤보 검증 (`run_hp_search.py --validate --ngpu 2`) | ① | 32 | ✅ 완료 → summary 받음, 8행 붙여넣기 완료 (2026-07-06) |
-| 2 | LTSF 베이스라인 잔여 (`run_forecast.py --group ltsf ... --ngpu 2`) | 일반화표 | 1,760 중 잔여 | 🔄 진행 중 |
-| 3 | 제조 lr 서치 (`run_lr_search.py --ngpu 2`) | ③ | 1,440 | 🔄 진행 중 (summary 대기) |
-| 4 | FEATHer LTSF 본실험 | ② | 160 | ▶ 실행 가능 (오버라이드 들어감; pull 후 발사) |
+| 1 | FEATHer 콤보 검증 (`run_hp_search.py --validate --ngpu 2`) | ① | 32 | ✅ 완료 → hp_search.csv **raw 검증 통과**, 8행 붙여넣기+커밋 (2026-07-06) |
+| 2 | LTSF 베이스라인 잔여 (`run_forecast.py --group ltsf ... --ngpu 2`) | 일반화표(베이스라인) | 1,760 중 잔여 | 🔄 진행 중 → `fcst_results.csv` |
+| 3 | 제조 lr 서치 (`run_lr_search.py --ngpu 2`) | ③ | 1,440 | 🔄 진행 중 (summary 대기) → `lr_search.csv` |
+| 4 | FEATHer LTSF 본실험 | ②(일반화표 FEATHer 몫) | 160 | ▶ **아직 발사 안 함** — pull 후 실행 필요 |
 | 5 | 제조 본 스윕 (`--save_model`) | ⑤ | 720+540 | ⏳ #3 → 붙여넣기 후 |
 | 6 | Robustness (추론) | ⑥ | 스왑 후 확정 | ⏳ #5 + SML 결정 |
 | 7 | Ablation (30변형 × mfg) | ⑦ | ⑤때 확정 | ⏳ 체인 맨뒤 |
@@ -83,7 +83,10 @@ python run_hp_search.py --summary    # 최종 판정: 조합 채택 or 최고 �
 ```
 
 **①-완료 (2026-07-06): `--validate` 32런 완주 → `--summary` 최종 판정 받음
-→ FEATHer LTSF 8행을 `_DATASET_OVERRIDES`에 붙여넣기 완료.** 7개 데이터셋은
+→ FEATHer LTSF 8행을 `_DATASET_OVERRIDES`에 붙여넣기 완료 + raw CSV 검증까지 통과.**
+raw `hp_search.csv`(Dropbox sync) 크로스체크: 544행=OFAT 512+combo 32, NaN/inf 0,
+combo 8개 전부 완주; raw에 실제 `--summary` 재실행 → 8행 글자단위 동일(8/8 MATCH).
+7개 데이터셋은
 combo가 rank 1.00으로 채택, Exchange만 combo(rank 7.5)가 단일축 승자
 `hp_d_state_16`(rank 3.5)에 밀려 fallback(설계대로: 관측된 최고 설정 보장).
 파라미터 검증: d_state=16이어도 D≤14 세트는 H=96에서 sub-1K 유지
