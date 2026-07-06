@@ -215,7 +215,8 @@ def dispatch(missing, args):
         ]
         jobs.append((label, cmd))
 
-    failed = run_on_gpus(jobs, args.ngpu, base_gpu=args.gpu)
+    failed = run_on_gpus(jobs, args.ngpu, base_gpu=args.gpu,
+                         jobs_per_gpu=args.jobs_per_gpu)
     if failed:
         print(f"\n[WARN] {len(failed)} group(s) exited non-zero; their runs "
               "stay missing — re-run to retry.")
@@ -373,6 +374,9 @@ def main():
     p.add_argument("--ngpu",        type=int, default=1,
                    help="Number of GPUs; N>1 = dynamic job queue across "
                         "GPUs gpu..gpu+N-1 (CF-JEPA-style load balancing)")
+    p.add_argument("--jobs_per_gpu", type=int, default=1,
+                   help="Concurrent workers per GPU (oversubscription for "
+                        "tiny host-bound models; OMP threads auto-pinned)")
     p.add_argument("--check",   action="store_true", help="show pending runs")
     p.add_argument("--summary", action="store_true", help="rank finished runs")
     p.add_argument("--validate", action="store_true",

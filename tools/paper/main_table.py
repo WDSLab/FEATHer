@@ -16,6 +16,13 @@ Directly addresses reviewer comments:
   R1 #5, R2 #11, R8 #3   — "mean +/- std, not just means"
   R8 #1                  — "broadly SOTA overstated" (table makes wins visible)
 
+Persistence row (JMS, decided 2026-07-02): if results/persistence_baseline.csv
+exists (built by tools/paper/persistence_baseline.py), a "Persistence"
+reference column is prepended automatically for MSE/MAE/RMSE tables.
+Persistence never participates in winner-bolding — bold marks the best
+LEARNED model; the persistence column is the task-difficulty reference.
+Disable with --no_persistence.
+
 Usage:
     python tools/paper/main_table.py
     python tools/paper/main_table.py --exp_tag main --metric MSE --format latex
@@ -30,19 +37,51 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-# Canonical column order — matches paper convention (ultra-light first).
+# Canonical column order — persistence reference first, then models
+# ultra-light -> heavy (paper convention).
 MODEL_ORDER = [
+    "Persistence",
     "SparseTSF", "DiPE_Linear", "FEATHer", "FITS",
     "DLinear", "PatchTST", "TimeMixer", "TQNet",
     "LMS_AutoTSF", "TimesNet", "iTransformer", "MDMLP_EIA",
 ]
 
+# JMS two-tier benchmark first (main mfg table, short-horizon PdM section),
+# then the LTSF-8 generalization datasets.
 DATASET_ORDER = [
+    "Steel", "GasTurbine", "WindSCADA",
+    "CMAPSS", "CMAPSS3", "PMSM",
     "ETTh1", "ETTh2", "ETTm1", "ETTm2",
     "Weather", "Exchange", "Electricity", "Traffic",
 ]
 
 LOWER_IS_BETTER = {"MSE", "MAE", "RMSE"}
+
+PERSISTENCE_CSV = "results/persistence_baseline.csv"
+
+
+def load_persistence_rows(path, metric):
+    """Persistence reference rows in the aggregate schema, or None.
+
+    The persistence CSV carries all-channel MSE/MAE (the scale models are
+    scored on); RMSE is derived. Other metrics have no persistence analog.
+    """
+    if not os.path.exists(path):
+        return None
+    per = pd.read_csv(path)
+    if per.empty:
+        return None
+    if metric in ("MSE", "MAE"):
+        vals = per[metric]
+    elif metric == "RMSE":
+        vals = per["MSE"] ** 0.5
+    else:
+        return None
+    return pd.DataFrame({
+        "data": per["data"], "pred_len": per["pred_len"],
+        "model": "Persistence", "mean": vals,
+        "std": float("nan"), "n": 1, "is_best": False,
+    })
 
 
 def aggregate(df, metric):
@@ -150,6 +189,10 @@ def main():
     p.add_argument("--format", default="md", choices=["md", "latex", "csv"])
     p.add_argument("--output", default=None,
                    help="Write to file; default stdout.")
+    p.add_argument("--no_persistence", action="store_true",
+                   help="Skip the Persistence reference column even if "
+                        f"{PERSISTENCE_CSV} exists.")
+    p.add_argument("--persistence_csv", default=PERSISTENCE_CSV)
     args = p.parse_args()
 
     if not os.path.exists(args.csv):
@@ -167,7 +210,17 @@ def main():
         sys.exit(1)
 
     agg = aggregate(df, args.metric)
-    agg = pick_winners(agg, args.metric)
+    agg = pick_winners(agg, args.metric)   # bold = best LEARNED model
+
+    if not args.no_persistence:
+        per = load_persistence_rows(args.persistence_csv, args.metric)
+        if per is not None:
+            # Only rows for (data, pred_len) cells present in the results —
+            # keeps LTSF-only tables free of dangling persistence rows.
+            cells = set(zip(agg["data"], agg["pred_len"]))
+            per = per[[(d, h) in cells
+                       for d, h in zip(per["data"], per["pred_len"])]]
+            agg = pd.concat([agg, per], ignore_index=True)
 
     renderers = {"md": render_markdown, "latex": render_latex, "csv": render_csv}
     out = renderers[args.format](agg, args.metric)

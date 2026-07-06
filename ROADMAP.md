@@ -4,6 +4,50 @@
 > 진행 순서. 세부 배경은 `CLAUDE.md` 상태 블록(2026-07-02/02b) 참고.
 > 각 단계 사이의 사람 루프: **summary 가져오기 → 붙여넣기 → 커밋 → 서버 pull**.
 
+## 현재 상태 보드 (2026-07-06 기준)
+
+### A. 서버 실험 (자동 진행 — 기다리면 됨)
+
+| # | 실험 | 단계 | 규모 | 상태 |
+|---|---|---|---|---|
+| 1 | FEATHer 콤보 검증 (`run_hp_search.py --validate --ngpu 2`) | ① | 32 | ✅ 완료 → summary 받음, 8행 붙여넣기 완료 (2026-07-06) |
+| 2 | LTSF 베이스라인 잔여 (`run_forecast.py --group ltsf ... --ngpu 2`) | 일반화표 | 1,760 중 잔여 | 🔄 진행 중 |
+| 3 | 제조 lr 서치 (`run_lr_search.py --ngpu 2`) | ③ | 1,440 | 🔄 진행 중 (summary 대기) |
+| 4 | FEATHer LTSF 본실험 | ② | 160 | ▶ 실행 가능 (오버라이드 들어감; pull 후 발사) |
+| 5 | 제조 본 스윕 (`--save_model`) | ⑤ | 720+540 | ⏳ #3 → 붙여넣기 후 |
+| 6 | Robustness (추론) | ⑥ | 스왑 후 확정 | ⏳ #5 + SML 결정 |
+| 7 | Ablation (30변형 × mfg) | ⑦ | ⑤때 확정 | ⏳ 체인 맨뒤 |
+
+페이스 확인 (플래그 필수):
+```bash
+python run_hp_search.py --validate --check
+python run_forecast.py --check --group ltsf --exp_tag main
+python run_lr_search.py --check
+```
+
+### B. 결과 도착 시 (사람 루프는 딱 2번)
+
+| 순서 | 트리거 | 사용자 | 그다음 (Claude/서버) |
+|---|---|---|---|
+| 1 | #1 완료 | ~~`run_hp_search.py --summary` 출력 전달~~ | ✅ LTSF 8행 붙여넣기+커밋 완료 (2026-07-06) → pull → #4 |
+| 2 | #3 완료 | `run_lr_search.py --summary` 출력 전달 | lr 72칸 붙여넣기+커밋 → pull → #5 |
+| 3 | #5 완료 | `check_progress.py --exp_tag main` 확인 | #6 + #7 발사 |
+| 4 | 전부 완료 | `results/*.csv` 로컬 복사 | 표 생성 체인 (C) |
+
+### C. 표 생성 체인 (전부 로컬, Claude가 함)
+
+| 순서 | 커맨드 | 산출물 | 준비 상태 |
+|---|---|---|---|
+| 1 | `main_table.py --metric MSE/MAE --format latex` | 메인+PdM표, 퍼시스턴스 열 자동 | ✅ 통합·테스트 완료 (07-03) |
+| 2 | `wilcoxon.py --reference FEATHer` | 유의성 | 기존 |
+| 3 | `robust_summary.py` | 노이즈 히트맵+표 | 기존 |
+| 4 | `ablation_table.py` | ablation 표 | 기존 |
+| 5 | `deployment/cortex_m3/run.py` | 엣지 비용 (mfg 행) | 기존 |
+
+퍼시스턴스 수치는 계산 완료: `results/persistence_baseline.csv` (21행,
+프로토콜 동일 파이프라인; `tools/paper/persistence_baseline.py`).
+루프 작업 보드는 `.claude/kanban.json`.
+
 ## 두 실험이 끝나면 손에 쥐는 것
 
 1. **FEATHer OFAT 512런 완료** → `results/hp_search.csv`
@@ -37,6 +81,15 @@ flat — **num_bands 3 vs 4 종결: 완전 flat → 3 유지, tex "B=4 산업" �
 python run_hp_search.py --validate   # 데이터셋별 추천 조합 실행 (≤32런, 몇 시간)
 python run_hp_search.py --summary    # 최종 판정: 조합 채택 or 최고 관측 설정 fallback
 ```
+
+**①-완료 (2026-07-06): `--validate` 32런 완주 → `--summary` 최종 판정 받음
+→ FEATHer LTSF 8행을 `_DATASET_OVERRIDES`에 붙여넣기 완료.** 7개 데이터셋은
+combo가 rank 1.00으로 채택, Exchange만 combo(rank 7.5)가 단일축 승자
+`hp_d_state_16`(rank 3.5)에 밀려 fallback(설계대로: 관측된 최고 설정 보장).
+파라미터 검증: d_state=16이어도 D≤14 세트는 H=96에서 sub-1K 유지
+(ETT 643~803, Exchange 690); H=720 초과는 base도 겪는 기존 SPK pred_len
+스케일링 → sub-1K 주장은 계속 H=96 스코프. 8행은 **일반화 섹션용**이며 제조
+메인표 표준 아키텍처는 base(d8/k7/p12/B3) 그대로 동결.
 
 검증이 끝난 `--summary`의 paste 블록이 최종 LTSF 8행. 블록 관계:
 - **③ lr 서치는 전부(1,440런) 지금 시작 가능** — 표준 아키텍처가 base로
