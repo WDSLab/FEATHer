@@ -36,11 +36,16 @@ from scripts.benchmarks.run_forecast import checkpoint_path
 # Defaults — mirror run_forecast.py
 DEFAULT_MODELS = list_models()
 
-# IoT-J robustness is reported on 4 representative datasets, not the full
-# 8-dataset main sweep — keeps the experiment tractable while covering the
-# canonical (ETTh1), real-sensor (Weather), smart-grid (Electricity), and
-# smart-home (SML) regimes.
-ROBUSTNESS_DATASETS = ["ETTh1", "Weather", "Electricity", "SML"]
+# JMS robustness is the paper's core sensor-fault story, so it leads with the
+# 3 manufacturing main-table datasets (Steel / GasTurbine / WindSCADA) and
+# keeps 2 standard-LTSF anchors (ETTh1 canonical, Weather real-sensor) as a
+# cross-domain comparison — "robust on both standard and manufacturing data".
+# 5 datasets x 4 horizons x 5 seeds x 20 conditions keeps the sweep tractable;
+# PdM sets (CMAPSS/CMAPSS3/PMSM, short-horizon) are a revision-time extension.
+# The ETTh1/Weather checkpoints already come from the LTSF main sweep; the 3
+# mfg ones come from the mfg main sweep (both under --save_model).
+# (Superseded IoT-J set was ETTh1/Weather/Electricity/SML.)
+ROBUSTNESS_DATASETS = ["Steel", "GasTurbine", "WindSCADA", "ETTh1", "Weather"]
 LTSF_PREDS = [96, 192, 336, 720]
 SHORT_PREDS = [24, 48, 96, 192]      # SML
 SHORT_DATASETS = {"SML", "Volatility"}
