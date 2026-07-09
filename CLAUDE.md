@@ -10,6 +10,92 @@ parameter / edge-MCU constraints. It combines multi-scale frequency
 decomposition with a shared temporal kernel and a period-aware sparse
 forecasting head.
 
+**Status (2026-07-09) — ⚑ NEXT SESSION = WRITE ROBUSTNESS ANALYSIS CODE.
+Robustness is now FEATHer's PRIMARY param-justification (why 453p > SparseTSF
+41p), NOT accuracy:**
+- **Why the pivot**: OFAT found num_bands FLAT (2/3/4) so "multi-scale lowers
+  MSE" has no support. 3 literature agents confirmed the field justifies extra
+  params via ROBUSTNESS + component-ablation, not clean accuracy. Full protocol
+  + citations in `manuscript/notes/robustness_justification_evidence.md`
+  (ETFA'25/arXiv:2504.03494 CPS = train-clean/test-corrupt, "simplest DLinear =
+  LEAST robust" direct precedent; FIRE 2510.10145 adaptive-gate helps
+  robustness 17.5% vs 1.4% clean; N-HiTS AAAI'23 component-removal; TimesNet
+  ICLR'23 Fig8 "k-insensitivity = generality"; Hendrycks&Dietterich ICLR'19
+  mCE). Memory: [[project-robustness-justification]].
+- **Framing guard**: NOT "more params = more robust" (monotone, gets
+  counter-attacked — ETFA shows accuracy≠robustness). YES "41-param linear
+  lacks representational headroom to absorb sensor faults; FEATHer's
+  multi-band+FFT-gate inductive bias buys graceful degradation at still-sub-1K."
+- **DONE this session (committed)**: `run_robustness.py:ROBUSTNESS_DATASETS`
+  IoT-J `[ETTh1,Weather,Electricity,SML]` → **`[Steel,GasTurbine,WindSCADA,
+  ETTh1,Weather]`** (3 mfg main + 2 LTSF anchors; user picked balanced scope;
+  PdM deferred to revision). `--check` = 1,200 ckpt × 20 cond = 24,000 rows,
+  all No-checkpoint until mfg-main + FEATHer-LTSF sweeps finish w/ --save_model.
+  Also added `tools/audit/check_duplicates.py` (resume-key dup audit + --fix;
+  ran on server → fcst_results.csv 769 rows, 0 dups, FEATHer clean on LTSF).
+- **▶ NEXT SESSION CODE TASKS (GPU results not needed — pure code, sweeps still
+  running)**:
+  1. `tools/paper/robust_summary.py` → add **relative degradation
+     μ_rel=MSE_clean/MSE_corrupt**, **AUC robustness score** (severity
+     integral), **mCE normalized to SparseTSF**, and a **FEATHer-vs-SparseTSF
+     degradation-curve** generator (error vs severity, slope). Reuse
+     `tools/paper/wilcoxon.py` for top-severity per-window test.
+  2. FFT **gate-under-corruption logging**: dump FEATHer's per-band gate
+     weights under each noise axis → show re-allocation (interpretability =
+     "gate does what claimed"). Feeds the ablation section.
+  3. (after sweeps) component ablation (bands on/off, gate on/off) on mfg +
+     Pareto plot (MSE-vs-params, cell-pinned, robustness 3rd axis).
+- **Honest risk**: protocol/citations secured but the robustness sweep is
+  UNRUN — must ACTUALLY show FEATHer degrades more gracefully than SparseTSF;
+  if not, rethink positioning. ETFA/FIRE/CPS are preprints → our own sweep
+  corroborates. Don't cite the phantom "FEATHer" arXiv (26xx) from search.
+- **Sweeps still running (unchanged)**: (a) mfg lr search 1,440 → lr_search.csv;
+  (b)+(c) LTSF 1,920 → fcst_results.csv (was 769/1,920). After (a):
+  run_lr_search.py --summary → paste MFG rows → mfg main 720 + PdM 540 (those
+  --save_model runs produce the mfg robustness checkpoints).
+
+**Status (2026-07-06b) — dataset re-verification + candidate hunt (web
+agents, no deep-research): all 6 datasets CONFIRMED, scope unchanged:**
+- **Precedent audit (5 parallel search agents, one per dataset)**: every
+  dataset has a peer-reviewed pedigree (no "obscure dataset" attack), and
+  NONE has ever been used with the 96–720 / fixed-24–96 multivariate LTSF
+  protocol → the "first to cast as edge PdM LTSF" framing survives for all
+  6. WindSCADA is the only one with genuine forecasting precedent — ≥4
+  peer-reviewed Kelmarsh forecasting papers, all short-horizon (≤6h/36
+  steps). Full per-dataset citations + suggested phrasing in
+  `manuscript/notes/dataset_precedent_audit.md` (incl. ~12 new bib entries).
+- **Wording guards discovered** (must-follow in the JMS rewrite):
+  * CMAPSS: NOT "first to forecast C-MAPSS" (Wang et al. ICPHM 2020
+    forecasts raw sensors on FD001, arXiv:2006.03729) → "first to cast as a
+    fixed-horizon multivariate sensor forecasting BENCHMARK". Bonus:
+    ICPHM'20 excluded FD003 because 2 fault modes break single-distribution
+    HI assumptions — our unit-aware forecasting doesn't need that → FD003
+    adoption justification.
+  * PMSM: cite AIP Advances 16(4):045101 (Apr 2026, seq2seq multi-step
+    thermal forecasting on the same Kaggle set) as nearest precedent;
+    differentiate on 12-model benchmark + unknown-future-load + sub-1K.
+    Add one sentence: most prior "prediction" work is same-timestamp
+    ESTIMATION (virtual sensor) — pre-empts title-skimming reviewers.
+  * GasTurbine: operating-hours-axis framing is NECESSARY (timestamps
+    stripped, non-continuous), not optional honesty. All prior use = PEMS
+    same-timestamp regression (Fuel Q1 ×3).
+  * Steel: prior use = single-target Usage_kWh regression/next-step; our
+    all-channels-jointly forecast is a departure — state it explicitly.
+- **Candidate hunt (4 agents: process industry / machinery PdM / factory
+  energy / catalogs)**: the 07-01 structural wall independently reconfirmed.
+  **Gap evidence for Intro/RW**: Monash, GIFT-Eval, TFB, LOTSA/Chronos,
+  TSLib contain ZERO manufacturing datasets; the TIME benchmark (arXiv
+  2602.12147, 2026) created an "Industry" domain and could only fill it
+  with 1 SYNTHETIC set + MetroPT-3; PHM challenges 2019–2024 have no
+  continuous forecasting stream. **Decision: no scope change** (6 datasets
+  stay; sweeps already running). Shelf candidates for a reviewer-driven
+  revision (priority order): Blast furnace (Mendeley 6d7jbc7tb5/1, Data in
+  Brief 2025, hourly 29.6K rows, forecasting-native, main-table grade) >
+  MetroPT-2/3 (compressor PdM, D=7-8 analog, TIME already casts it as
+  forecasting; persistence audit MANDATORY first — PMSM-at-2Hz trap) >
+  SPARK (KIT 7yr factory energy) > Korean 10-factory (Sci Data 2022).
+  Full shelf list + rejections in `manuscript/notes/dataset_candidate_hunt.md`.
+
 **Status (2026-07-06) — ① CLOSED: combo validation done, FEATHer LTSF 8 rows
 FROZEN into `_DATASET_OVERRIDES`:**
 - User brought back `run_hp_search.py --summary` AFTER the 32-run `--validate`
