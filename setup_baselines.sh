@@ -29,7 +29,6 @@ declare -A REPOS=(
   ["LMS_AutoTSF/LMS_AutoTSF-main"]="https://github.com/mribrahim/LMS-TSF.git"
   ["DiPE_Linear/DiPE_Linear-main"]="https://github.com/wintertee/DiPE-Linear.git"
   ["MDMLP_EIA/MDMLP_EIA-main"]="https://github.com/zh1985csuccsu/MDMLP-EIA.git"
-  ["SCINet/SCINet-main"]="https://github.com/cure-lab/SCINet.git"
 )
 
 # Out-of-scope (cited in paper, not benchmarked):

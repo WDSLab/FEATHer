@@ -94,11 +94,6 @@ def _build_mdmlp_eia(args, n_features, seq_len, pred_len):
     return build(args, n_features, seq_len, pred_len)
 
 
-def _build_scinet(args, n_features, seq_len, pred_len):
-    from baselines.SCINet.wrapper import build
-    return build(args, n_features, seq_len, pred_len)
-
-
 # NOTE — deliberately excluded from the benchmark (cite in Related Work only):
 #   S-Mamba: selective-scan CUDA kernels have no Cortex-M / STM32 port.
 #   TimeCMA: frozen GPT-2 features blow past the sub-1K parameter budget by
@@ -118,8 +113,6 @@ _BUILDERS: Dict[str, Callable] = {
     # R4-requested 2025-2026 SOTA — addresses "outdated baselines" critique
     "DiPE_Linear":  _build_dipe_linear,    # DASFAA 2026
     "MDMLP_EIA":    _build_mdmlp_eia,      # AAAI 2026
-    # R2 #4-requested multi-scale conv baseline (added 2026-07-13)
-    "SCINet":       _build_scinet,         # NeurIPS 2022
 }
 
 
@@ -217,8 +210,6 @@ _METHOD_DEFAULTS: Dict[str, Dict] = {
     "DiPE_Linear":  {"lr": 1e-3, "loss": "mse"},
     # MDMLP-EIA: run.py default lr=1e-4
     "MDMLP_EIA":    {"lr": 1e-4, "loss": "mse"},
-    # SCINet: run_ETTh.py-style long-horizon config; lr moderate for Adam+CosLR
-    "SCINet":       {"lr": 1e-3, "loss": "mse"},
 }
 
 
@@ -426,6 +417,38 @@ _DATASET_OVERRIDES: Dict = {
     ("FEATHer", "Exchange"):    {"d_state": 16, "kernel_size": 7, "period": 12, "num_bands": 3, "lambda_spec": 0.01,  "lr": 0.001},
     ("FEATHer", "Electricity"): {"d_state": 16, "kernel_size": 7, "period": 6,  "num_bands": 3, "lambda_spec": 0.01,  "lr": 0.005},
     ("FEATHer", "Traffic"):     {"d_state": 8,  "kernel_size": 3, "period": 12, "num_bands": 3, "lambda_spec": 0.001, "lr": 0.005},
+
+    # ---- Manufacturing freq-tied period/cycle (data-driven, 2026-07-13) ------
+    # FFT-detected dominant period on each train split (detrended). Applied by
+    # the SAME rule to all three period-models, each per its own constraint —
+    # exactly mirroring the LTSF convention (SparseTSF small period_len vs TQNet
+    # daily cycle on the same data):
+    #   FEATHer/SparseTSF: period must divide seq_len(96)/pred_len -> usable
+    #                      range <=48 (detected dominant period in [2,48]).
+    #   TQNet:             cycle unconstrained -> the daily cycle (samples/day;
+    #                      BlastFurnace hourly->24, MetroPT3 detected ~5h=298).
+    # This is the data-FREQUENCY-TIED axis (NOT the frozen mfg arch d8/k7/B3);
+    # it gives SparseTSF a fair period instead of a crippling hourly default.
+    # NOTE: lr for these mfg cells is MERGED IN later from run_lr_search.py
+    # --summary — EDIT these dicts to add "lr", do NOT paste duplicate keys.
+    ("SparseTSF", "Steel"):        {"sparsetsf_period_len": 24},
+    ("SparseTSF", "GasTurbine"):   {"sparsetsf_period_len": 24},
+    ("SparseTSF", "WindSCADA"):    {"sparsetsf_period_len": 48},
+    ("SparseTSF", "BlastFurnace"): {"sparsetsf_period_len": 48},
+    ("SparseTSF", "MetroPT3"):     {"sparsetsf_period_len": 24},
+    ("SparseTSF", "N2O"):          {"sparsetsf_period_len": 24},
+    ("TQNet", "Steel"):        {"tqnet_cycle": 96},
+    ("TQNet", "GasTurbine"):   {"tqnet_cycle": 24},
+    ("TQNet", "WindSCADA"):    {"tqnet_cycle": 144},
+    ("TQNet", "BlastFurnace"): {"tqnet_cycle": 24},
+    ("TQNet", "MetroPT3"):     {"tqnet_cycle": 298},
+    ("TQNet", "N2O"):          {"tqnet_cycle": 288},
+    ("FEATHer", "Steel"):        {"period": 24},
+    ("FEATHer", "GasTurbine"):   {"period": 24},
+    ("FEATHer", "WindSCADA"):    {"period": 48},
+    ("FEATHer", "BlastFurnace"): {"period": 48},
+    ("FEATHer", "MetroPT3"):     {"period": 24},
+    ("FEATHer", "N2O"):          {"period": 24},
 }
 
 
