@@ -10,6 +10,116 @@ parameter / edge-MCU constraints. It combines multi-scale frequency
 decomposition with a shared temporal kernel and a period-aware sparse
 forecasting head.
 
+**Status (2026-07-13c) — ⚑ DATASET SCOPE RESHAPED: short-horizon PdM DROPPED,
+manufacturing expanded 3→6 (read FIRST; all UNCOMMITTED).**
+- **Big decision — short-horizon PdM section (CMAPSS/CMAPSS3/PMSM) DROPPED from
+  the paper.** It was the one experiment block attaching to NEITHER pillar: (a)
+  contradicts the long-term "frequency forecaster" identity (short horizon =
+  where the multi-scale/FFT inductive bias is weakest), (b) not in the
+  robustness anchors (Steel/GT/Wind/ETTh1/Weather), (c) created a grid-asymmetry
+  attack ("why short horizons only there? why not H=24 on ETTh1?"). Dropping it
+  unifies every dataset to [96..720] + keeps identity sharp. **Kept as SHELF**:
+  loader (`Dataset_CMAPSS`), prep recipes, and lr search all retained; reachable
+  via `run_forecast --group cmapss`. Archived from `--group all` + `main_table.py`
+  + `persistence_baseline.py` (`all`→mfg only). **lr search STILL runs CMAPSS**
+  on purpose (cheap insurance — if a reviewer asks, lr is banked, just run the
+  540 main sweep).
+- **Manufacturing datasets 3→6** (all downloaded to gitignored `data/`, wired in
+  `prep_manufacturing.py`+`data_factory.py`, smoke-tested end-to-end, persistence
+  -audited non-trivial). **5 sub-1K CORE + 1 stress**:
+  * **MetroPT3** (UCI #791, metro-train APU air compressor) — 7 analog channels
+    @ 1-min mean, D=7 → 453p CORE. Persistence 0.80-1.14 (native 10-s also
+    passes; compressor duty-cycle defeats copy-last → NOT the 2Hz-PMSM trap).
+    Native anomaly set cast as forecasting (TIME benchmark precedent).
+    target=Oil_temperature.
+  * **N2O** (Avedore WWTP, Mendeley xmbxhscgpr; arXiv:2407.05959) — 14 continuous
+    sensor channels @ 5-min mean (raw 1-min was ~40% NaN → 5.8% after 5-min agg,
+    interpolated), D=14 → 866p CORE. Persistence 1.10-1.53. Forecasting-native.
+    ⚠ FRAMING: wastewater = "continuous INDUSTRIAL PROCESS monitoring", the one
+    non-strict-manufacturing set (defensible, but note it). target=N2O.
+  * **BlastFurnace** (MISIS, Mendeley 6d7jbc7tb5, Data in Brief 2025) — 27 hourly
+    process channels + Si (hot-metal silicon = product-quality target, asof-merged
+    from the irregular per-cast Si sheet), D=28 → 1,986p **STRESS tier** (breaks
+    sub-1K like Weather/Electricity; the user's own "big data OK as stress test"
+    logic). Winsorize[0.5,99.5] tail-clip (raw has a ~3311 temp error-sentinel);
+    persistence Si-only 3.7-5.0 (staircase concern REFUTED — Si genuinely hard at
+    long horizons). Needs `openpyxl` to regenerate from xlsx.
+- **Rejected candidates**: SPARK/KIT (best manufacturing fit but access WALL —
+  RADAR4KIT ships one 71GB tar, no per-file API); Korean 10-factory (univariate);
+  gas-sensor-drift (batch classification). N2O was the SPARK fallback.
+- **New run counts**: mfg main **1,440** (12×6×4×5) · lr search **2,160** (9
+  datasets = 6 mfg + 3 PdM shelf) · `--group all` **3,360** (mfg6 + LTSF8).
+- **▶ NEXT (uncommitted → commit first)**: (1) commit this dataset work;
+  (2) transfer the 3 new `data/*/data.csv` to the server (+`pip install openpyxl`
+  only if regenerating BlastFurnace); (3) `manuscript/notes/EXPERIMENT_OVERVIEW.md`
+  updated to 6-mfg — re-read it; (4) THEN the robustness analysis code
+  (Thread A, unchanged goal below).
+
+**Status (2026-07-13b) — ⚑ SESSION RECAP + CLEAN START POINT (read this
+first).** Two open threads; recommended order is (B) then (A):
+- **What's DONE this session (all committed + pushed both remotes)**:
+  * `tools/audit/check_duplicates.py` — resume-key dup audit + `--fix`. Ran on
+    server → `fcst_results.csv` = 769 rows, **0 dups**, FEATHer clean on LTSF.
+  * **Strategy decision** (the big one): FEATHer's 453p > SparseTSF 41p is now
+    justified by **ROBUSTNESS, not accuracy** (OFAT num_bands FLAT → can't sell
+    on MSE). 3 lit-agents secured protocol+citations →
+    `manuscript/notes/robustness_justification_evidence.md`; memory
+    [[project-robustness-justification]]. Framing guard: NOT "more params = more
+    robust" (monotone, counter-attackable) but "41p linear lacks headroom;
+    FEATHer inductive bias buys graceful degradation at sub-1K."
+  * `run_robustness.py:ROBUSTNESS_DATASETS` → `[Steel,GasTurbine,WindSCADA,
+    ETTh1,Weather]` (3 mfg main + 2 LTSF anchors; PdM deferred). `--check` =
+    1,200 ckpt × 20 cond = 24,000 rows (all need checkpoints from mfg-main +
+    FEATHer-LTSF sweeps first).
+  * `utils/noise.py` docstring citations fixed (commit 8f819ac) → verified
+    Windmann ETFA'25 / Hendrycks&Dietterich ICLR'19 / RobustTSF ICLR'24.
+  * `manuscript/notes/EXPERIMENT_OVERVIEW.md` — full data/baseline/experiment
+    summary (datasets 6 mfg + LTSF-8, 12 baselines, HP protocol, run counts).
+- **▶ THREAD B (do FIRST — data integrity)**: the 4 reformer/MDMLP-affected
+  models are likely MISSING from `fcst_results.csv`(769) + `lr_search.csv` (see
+  the 2026-07-13 server-bug block just below). Server: `git pull` →
+  `pip install reformer_pytorch==1.4.4` → `python tools/audit/check_progress.py`
+  (measure gap) → resume sweeps. Must close this before any table/analysis or
+  numbers will be wrong.
+- **▶ THREAD A (then — code, GPU not needed)**: write the robustness ANALYSIS
+  code. `tools/paper/robust_summary.py` → μ_rel=MSE_clean/MSE_corrupt + AUC
+  robustness score + mCE-normalized-to-SparseTSF + FEATHer-vs-SparseTSF
+  degradation-curve (reuse `tools/paper/wilcoxon.py` at top severity); then FFT
+  gate-under-corruption logging; then (after sweeps) component ablation +
+  Pareto plot. Detail in the 2026-07-09 block below.
+- **Honest risk (unchanged)**: robustness sweep is UNRUN — must ACTUALLY show
+  FEATHer degrades more gracefully than SparseTSF; if not, rethink positioning.
+
+**Status (2026-07-13) — TWO server sweep bugs found + fixed (commit 40bcf34,
+pushed BOTH remotes). `run_lr_search.py --ngpu 2` was silently dropping 4
+models; must re-run sweeps after these fixes:**
+- **Bug 1 — `reformer_pytorch` missing on server `lee` env**: 4 baselines
+  (iTransformer, LMS_AutoTSF, TimeMixer, TimesNet) share
+  `layers/SelfAttention_Family.py` which does `from reformer_pytorch import
+  LSHSelfAttention` at IMPORT time (LSH never used). Server `lee` env lacked it
+  → those 4 die on import. Failed worker runs write NO csv row → orchestrator
+  SILENTLY skips them (look "not yet run"). Fix: `setup_baselines.sh` now
+  `pip install reformer_pytorch==1.4.4`. Manual on server:
+  `pip install reformer_pytorch==1.4.4`.
+- **Bug 2 — `--ngpu 2` device mismatch**: upstream MDMLP_EIA
+  (`layers/ema.py:19`, `dema.py:12-13`) hardcode `.to('cuda')` → default cuda:0.
+  A worker on cuda:1 crashes *"Expected all tensors on same device, cuda:1 and
+  cuda:0"*. Fix: both workers (`run_forecast.py`, `run_robustness.py`) call
+  `torch.cuda.set_device(args.gpu)` at startup so bare-`cuda` resolves to the
+  worker GPU — fixes the whole class WITHOUT sed-ing the gitignored/re-cloned
+  `baselines/*/*-main/` files. Both documented in "Known issues".
+- **⚠ IMPLICATION — existing CSVs likely have these 4 models MISSING**: the
+  LTSF baseline sweep (`fcst_results.csv`, was 769/1,920) + the mfg lr search
+  (`lr_search.csv`) both ran on the same `lee` env → iTransformer/LMS_AutoTSF/
+  TimeMixer/TimesNet cells were probably skipped all along. **▶ NEXT on server**:
+  `git pull` → `pip install reformer_pytorch==1.4.4` → `python
+  tools/audit/check_progress.py` (measure the gap) → re-run
+  `run_lr_search.py --ngpu 2` + the LTSF sweeps (resume fills the missing
+  cells). FEATHer itself is unaffected by both bugs (no reformer, not MDMLP).
+- **Push policy (this session)**: user confirmed OK to leave 40bcf34 on BOTH
+  remotes (personal=ijaehun + origin=WDSLab), consistent with prior "pushed
+  both remotes" habit. Default `git push` still tracks personal.
+
 **Status (2026-07-09) — ⚑ NEXT SESSION = WRITE ROBUSTNESS ANALYSIS CODE.
 Robustness is now FEATHer's PRIMARY param-justification (why 453p > SparseTSF
 41p), NOT accuracy:**

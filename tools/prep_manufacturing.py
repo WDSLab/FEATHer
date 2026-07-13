@@ -7,7 +7,6 @@ re-running regenerates data.csv from raw without touching the raw files.
 RAW PROVENANCE (download once, place in data/<name>/):
   Steel       UCI #851  -> Steel_industry_data.csv   (direct UCI zip)
   GasTurbine  UCI #551  -> gt_2011.csv .. gt_2015.csv (direct UCI zip)
-  TEP         github.com/anasouzac/new_tep_datasets/matlab_data_1year.csv -> raw.csv
   WindSCADA   Zenodo rec 5841834, Kelmarsh_SCADA_2017_3083.zip
               -> Turbine_Data_Kelmarsh_1_2017-..csv (saved as turbine1_2017.csv)
               (Zenodo Cloudflare-blocks scripted downloads -> download via browser)
@@ -56,18 +55,6 @@ def gasturbine():
     df.insert(0, "date", pd.date_range("2011-01-01 00:00:00", periods=len(df), freq="h")
               .strftime("%Y-%m-%d %H:%M:%S"))
     _w(df, "GasTurbine")  # NOX already last column in source
-
-
-def tep():
-    # Tennessee Eastman Process, continuous 1-yr sim, 3-min. Drop index+STATUS
-    # and the 2 zero-variance manipulated vars XMV(5)/XMV(9). target=XMEAS(1).
-    df = pd.read_csv(os.path.join(DATA, "TEP", "raw.csv"))
-    df = df.drop(columns=["Unnamed: 0", "STATUS", "XMV(5)", "XMV(9)"])
-    df.insert(0, "date", pd.date_range("2020-01-01 00:00:00", periods=len(df), freq="3min")
-              .strftime("%Y-%m-%d %H:%M:%S"))
-    # move XMEAS(1) to last as target
-    cols = [c for c in df.columns if c not in ("date", "XMEAS(1)")]
-    _w(df[["date"] + cols + ["XMEAS(1)"]], "TEP")
 
 
 def windscada():
@@ -138,6 +125,109 @@ def cmapss3():
     _w(df[["unit"] + keep].copy(), "CMAPSS3")
 
 
+def blastfurnace():
+    # MISIS blast-furnace process sensors (Mendeley 6d7jbc7tb5, Data in Brief
+    # 2025, DOI 10.1016/j.dib.2025.112159). Two sheets in the raw .xlsx:
+    #   'data' = 27 CONTINUOUS hourly process channels (blast flow/pressures,
+    #            hot/cold-blast + top/peripheral-gas temps, CO2/H2, ore-to-coke
+    #            ratio), gapless 2013-01-01..2016-05-18 (29,602 rows, 0 NaN).
+    #   'Si'   = hot-metal silicon content (= PRODUCT QUALITY, the source
+    #            paper's forecasting target), measured PER-CAST -> irregular
+    #            (~every 1.8 h, 16,589 rows).
+    # Build one multivariate hourly series:
+    #   (1) winsorize each process channel to its [0.5, 99.5] pct — the raw
+    #       carries gross sensor faults (a shared ~3311 temperature error
+    #       SENTINEL, physical-impossible negatives, zero-dropouts); tail-clip
+    #       touches 0.84% of cells and DELETES nothing (a MAD rule over-flagged
+    #       low-variance channels e.g. Pt 48%). Cleaned copy-last persistence
+    #       MSE 1.37->3.40 over H=96..720 = non-trivial (cf. GasTurbine 1.3-1.6).
+    #   (2) asof-merge the most recent Si cast onto each hour (forward-carry;
+    #       leading pre-first-cast hours back-filled). Si placed LAST -> target.
+    # D=27 -> above sub-1K (STRESS/breadth tier like Weather/Electricity; the
+    # sub-1K claim stays on the D<=14 core Steel/GasTurbine/WindSCADA).
+    xl = pd.ExcelFile(os.path.join(DATA, "BlastFurnace", "raw",
+                                   "1_blast_furnace_data_first_dataset.xlsx"))
+    proc = xl.parse("data")
+    si = xl.parse("Si")
+    proc["dt"] = pd.to_datetime(proc["dt"])
+    si["dt"] = pd.to_datetime(si["dt"])
+    chans = [c for c in proc.columns if c != "dt"]
+    for c in chans:
+        lo, hi = proc[c].quantile(0.005), proc[c].quantile(0.995)
+        proc[c] = proc[c].clip(lo, hi)
+    proc = proc.sort_values("dt").reset_index(drop=True)
+    si = si.sort_values("dt").reset_index(drop=True)
+    merged = pd.merge_asof(proc, si[["dt", "Si"]], on="dt", direction="backward")
+    merged["Si"] = merged["Si"].bfill()  # leading hours before the first cast
+    merged["date"] = merged["dt"].dt.strftime("%Y-%m-%d %H:%M:%S")
+    _w(merged[["date"] + chans + ["Si"]].copy(), "BlastFurnace")
+
+
+def n2o():
+    # Full-scale wastewater-treatment plant (Avedore, DK) process + N2O
+    # emission monitoring (Mendeley 10.17632/xmbxhscgpr.1; arXiv:2407.05959,
+    # 2024, "...Modeling and Forecasting of N2O..."). SCADA export = 24 value
+    # channels + 24 quality flags on a 1-min grid, but each sensor reports only
+    # every ~2-4 min -> ~40% NaN at 1-min. Keep the 14 CONTINUOUS sensor
+    # channels (blower + per-tank airflow, N2O/NH4/NO3/O2/SS/temperature/PO4,
+    # inlet flow); DROP the quality flags, O2/phase SETPOINTS, PROCESSPHASE /
+    # PHASECODE (categorical), valve PCT, inlet STATE. Resample to 5-min MEAN
+    # -> residual NaN 40%->5.8% (interpolate), ~210k rows over 2 yr
+    # (2022-06..2024-06). Standardized copy-last persistence 1.10->1.53 over
+    # H=96..720 = non-trivial. D=14 -> sub-1K CORE. Continuous INDUSTRIAL
+    # PROCESS monitoring (bio-chemical); target = N2O (the source paper's
+    # forecasting target = greenhouse-gas emission / process-quality variable).
+    ren = {"BIOLOGY.BLOWERSTATION 1.Q.AIRFLOW value": "Blower_airflow",
+           "BIOLOGY.LINE 3 TANK 1.NH4 value": "T1_NH4",
+           "BIOLOGY.LINE 3 TANK 1.NO3 value": "T1_NO3",
+           "BIOLOGY.LINE 3 TANK 1.O2 value": "T1_O2",
+           "BIOLOGY.LINE 3 TANK 1.Q.AIRFLOW value": "T1_airflow",
+           "BIOLOGY.LINE 3 TANK 1.SS value": "T1_SS",
+           "BIOLOGY.LINE 3 TANK 1.TEMPERATURE value": "T1_temp",
+           "BIOLOGY.LINE 3 TANK 2.O2 value": "T2_O2",
+           "BIOLOGY.LINE 3 TANK 2.Q.AIRFLOW value": "T2_airflow",
+           "BIOLOGY.LINE 3 TANK 2.SS value": "T2_SS",
+           "BIOLOGY.LINE 3 TANK 2.TEMPERATURE value": "T2_temp",
+           "BIOLOGY.LINE 3 TANK 1.PO4 value": "T1_PO4",
+           "INLET.Q value": "Inlet_Q",
+           "BIOLOGY.LINE 3 TANK 1.N2O value": "N2O"}   # N2O last = target
+    df = pd.read_csv(os.path.join(DATA, "N2O", "raw", "aved_raw.csv"))
+    df["time"] = pd.to_datetime(df["time"], utc=True)
+    g = (df.set_index("time")[list(ren)].rename(columns=ren)
+           .resample("5min").mean().interpolate(limit_direction="both"))
+    g = g.reset_index().rename(columns={"time": "date"})
+    g["date"] = g["date"].dt.tz_localize(None).dt.strftime("%Y-%m-%d %H:%M:%S")
+    _w(g[["date"] + [c for c in ren.values() if c != "N2O"] + ["N2O"]].copy(), "N2O")
+
+
+def metropt3():
+    # MetroPT-3 (UCI #791; Veloso et al., Scientific Data 9:764, 2022) —
+    # metro-train Air Production Unit (APU) reciprocating air compressor. UCI
+    # ships a ~10-s decimated stream (1,516,948 rows, 2020-02-01..2020-09-01,
+    # 0 NaN). Keep the 7 ANALOG sensor channels (TP2/TP3/H1/DV_pressure/
+    # Reservoirs pressures, Motor_current, Oil_temperature); DROP the 8 digital/
+    # binary status signals (COMP/DV_eletric/Towers/MPG/LPS/Pressure_switch/
+    # Oil_level/Caudal_impulses) — not continuous. Resample to 1-min MEAN (mild
+    # anti-aliasing aggregation, same convention as the rebuilt PMSM / SCADA):
+    # ~307k rows; standardized copy-last persistence 0.80->1.14 over H=96..720
+    # = non-trivial (native 10-s also passes at ~1.4; the compressor duty-cycle
+    # makes copy-last poor -> NOT the flat-plateau triviality trap that killed
+    # PMSM-at-2Hz). D=7 -> sub-1K CORE (like ETT). Native task = anomaly
+    # detection; the TIME benchmark casts it as forecasting (cite as precedent).
+    # target = Oil_temperature (compressor thermal-health indicator).
+    analog = ["TP2", "TP3", "H1", "DV_pressure", "Reservoirs",
+              "Motor_current", "Oil_temperature"]
+    df = pd.read_csv(os.path.join(DATA, "MetroPT3", "raw",
+                                  "MetroPT3(AirCompressor).csv"))
+    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    g = (df.set_index("timestamp")[analog].resample("1min").mean()
+           .interpolate(limit_direction="both"))
+    g = g.reset_index().rename(columns={"timestamp": "date"})
+    g["date"] = g["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
+    chans = [c for c in analog if c != "Oil_temperature"]
+    _w(g[["date"] + chans + ["Oil_temperature"]].copy(), "MetroPT3")
+
+
 def cmapss():
     # NASA C-MAPSS FD001 (turbofan run-to-failure sim, single operating
     # condition). 100 engines, ~200 cycles each. SEPARATE short-horizon PdM
@@ -155,9 +245,10 @@ def cmapss():
     _w(df[["unit"] + keep].copy(), "CMAPSS")
 
 
-RECIPES = {"Steel": steel, "GasTurbine": gasturbine, "TEP": tep,
+RECIPES = {"Steel": steel, "GasTurbine": gasturbine,
            "WindSCADA": windscada, "PMSM": pmsm, "CMAPSS": cmapss,
-           "CMAPSS3": cmapss3}
+           "CMAPSS3": cmapss3, "BlastFurnace": blastfurnace,
+           "MetroPT3": metropt3, "N2O": n2o}
 
 if __name__ == "__main__":
     todo = sys.argv[1:] or list(RECIPES)

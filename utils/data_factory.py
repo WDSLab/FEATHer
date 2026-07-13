@@ -21,39 +21,30 @@ def _darts():
         "Electricity": ElectricityDataset, "Traffic": TrafficDataset,
     }
 
+# Active scope only (2026-07-13c cleanup): LTSF-8 (darts ETT/Weather/Exchange/
+# Traffic + local electricity.csv) + manufacturing 6 (Steel/GasTurbine/WindSCADA/
+# BlastFurnace/MetroPT3/N2O) + short-horizon PdM shelf (CMAPSS/CMAPSS3/PMSM) +
+# nrel (solar, kept). Out-of-scope loaders (PEMS/METR/ninja/era_ssr/KnowAir/astd/
+# AirQuality/Volatility/SML/TEP/PM) were removed — re-add from git history if needed.
 data_dict = {
     'ETTh1': Dataset_ETT_hour,
     'ETTh2': Dataset_ETT_hour,
     'ETTm1': Dataset_ETT_minute,
     'ETTm2': Dataset_ETT_minute,
-    'PEMS03': Dataset_Custom,
-    'PEMS04': Dataset_Custom,
-    'PEMS07': Dataset_Custom,
-    'PEMS08': Dataset_Custom,
     'Weather': Dataset_Custom,
     'Exchange': Dataset_Custom,
-    'AirQuality': Dataset_Custom,
-    'Volatility': Dataset_Custom,
-    'SML': Dataset_Custom,
+    'Traffic': Dataset_Custom,
+    'Electricity': Dataset_Custom,
     'Steel': Dataset_Custom,
     'GasTurbine': Dataset_Custom,
-    'TEP': Dataset_Custom,
     'WindSCADA': Dataset_Custom,
+    'BlastFurnace': Dataset_Custom,
+    'MetroPT3': Dataset_Custom,
+    'N2O': Dataset_Custom,
     'PMSM': Dataset_CMAPSS,   # rebuilt 2026-07-02: 69 sessions, unit-aware
     'CMAPSS': Dataset_CMAPSS,
     'CMAPSS3': Dataset_CMAPSS,
-    'PM': Dataset_Custom,
-    'Traffic': Dataset_Custom,
-    'Electricity': Dataset_Custom,
     'nrel': Dataset_Custom,
-    'astd': Dataset_Custom,
-    'PEMS_BAY': Dataset_Custom,
-    'METR': Dataset_Custom,
-    'ninja_pv': Dataset_Custom,
-    'ninja_pv2': Dataset_Custom,
-    'ninja_wind': Dataset_Custom,
-    'era_ssr': Dataset_Custom,
-    'KnowAir': Dataset_Custom,
 }
 
 # features - Multi-Uni(MS) or Multi-Multi(M) or Uni-Uni(S)
@@ -107,60 +98,6 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         embed = 'timeF'
         target = df.columns[-1]
 
-    elif data == 'PEMS_BAY':
-        df = pd.read_csv(root_path + 'PEMS_BAY/pems_bay.csv', index_col=0)
-        df.insert(0, 'date', df.index)
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = df.columns[-1]
-        freq = 'm'
-        embed = 'timeF'
-
-    elif data == 'PEMS03':
-        df = pd.read_csv(root_path + 'PEMS/PEMS03.csv', index_col=0)
-        df.insert(0, 'date', df.index)
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = df.columns[-1]
-        freq = 'm'
-        embed = 'timeF'
-
-    elif data == 'PEMS04':
-        df = pd.read_csv(root_path + 'PEMS/PEMS04.csv', index_col=0)
-        df.insert(0, 'date', df.index)
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = df.columns[-1]
-        freq = 'm'
-        embed = 'timeF'
-
-    elif data == 'PEMS07':
-        df = pd.read_csv(root_path + 'PEMS/PEMS07.csv', index_col=0)
-        df.insert(0, 'date', df.index)
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = df.columns[-1]
-        freq = 'm'
-        embed = 'timeF'
-
-    elif data == 'PEMS08':
-        df = pd.read_csv(root_path + 'PEMS/PEMS08.csv', index_col=0)
-        df.insert(0, 'date', df.index)
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = df.columns[-1]
-        freq = 'm'
-        embed = 'timeF'
-
-    elif data == 'METR':
-        df = pd.read_csv(root_path + 'METR/metr_la.csv', index_col=0)
-        df.insert(0, 'date', df.index)
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = df.columns[-1]
-        freq = 'm'
-        embed = 'timeF'
-
     elif data == 'Weather':
         df = _darts()["Weather"]().load().to_dataframe()
         df.insert(0, 'date', df.index)
@@ -178,42 +115,6 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         freq = 'd'
         embed = 'learned'
         target = '7'
-
-    elif data == 'AirQuality':
-        df = pd.read_csv(root_path + data + '.csv')
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = 'NOx(GT)'
-        freq = 'h'
-        embed = 'timeF'
-
-    elif data == 'Volatility':
-        df = pd.read_csv(root_path + data + '.csv')
-        #
-        df = df[['close_price', 'Symbol', 'date']]
-        df['date'] = pd.to_datetime(df['date'], utc=True, errors='coerce')
-        df['date'] = df['date'].dt.tz_localize(None)
-        df = df.pivot(index='date', columns='Symbol', values='close_price')
-        nan_counts = df.isna().sum()
-        symbols_to_keep = nan_counts.sort_values(ascending=True).head(14).index   # Sort by ascending NaN count and select top 14 Symbols
-        df = df[symbols_to_keep]    # Keep only selected Symbols
-        #
-        df.insert(0, 'date', df.index)
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = '.SPX'
-        freq = 'd'
-        embed = 'timeF'
-
-    elif data == 'SML':
-        df = pd.read_csv(root_path + data + '/data' + '.csv')
-        df = df.drop(['21:Exterior_Entalpic_turbo', '20:Exterior_Entalpic_2'
-                      , '19:Exterior_Entalpic_1'], axis=1)
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = '3:Temperature_Comedor_Sensor'
-        freq = 'm'
-        embed = 'timeF'
 
     elif data == 'Steel':
         # DAEWOO Steel Co. (Gwangyang, KR) — 15-min plant energy/power
@@ -236,16 +137,6 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         freq = 'h'
         embed = 'timeF'
 
-    elif data == 'TEP':
-        # Tennessee Eastman Process — process-plant simulation, 52 vars
-        # (41 XMEAS + 11 XMV), 3-min sampling, continuous one-year run.
-        df = pd.read_csv(root_path + data + '/data' + '.csv')
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = 'XMEAS(1)'
-        freq = 'm'
-        embed = 'timeF'
-
     elif data == 'WindSCADA':
         # Kelmarsh wind farm (UK, Senvion MM92), Turbine 1, 2017, 10-min
         # SCADA. 14 physical channels (wind/power/drivetrain temps/speeds/
@@ -254,6 +145,45 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         df = df.dropna()
         df = df.reset_index(drop=True)
         target = 'Power_kW'
+        freq = 'm'
+        embed = 'timeF'
+
+    elif data == 'BlastFurnace':
+        # MISIS blast-furnace process sensors (Mendeley 6d7jbc7tb5, Data in
+        # Brief 2025). 27 continuous hourly process channels (blast pressures/
+        # temps/gas/flows) + Si (hot-metal silicon content = product-quality
+        # target, asof-merged from the irregular per-cast Si sheet). Gapless
+        # 2013-2016; raw sensor-fault spikes winsorized in prep. D=27 -> above
+        # sub-1K -> STRESS/breadth tier (like Weather/Electricity). Target = Si.
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        target = 'Si'
+        freq = 'h'
+        embed = 'timeF'
+
+    elif data == 'N2O':
+        # Avedore WWTP (DK) process + N2O monitoring (Mendeley xmbxhscgpr;
+        # arXiv:2407.05959). 14 continuous sensor channels @ 5-min mean (~210k
+        # rows, 2 yr). D=14 -> sub-1K core. Continuous industrial-process
+        # monitoring (bio-chemical); target = N2O (emission/quality variable).
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        target = 'N2O'
+        freq = 'm'
+        embed = 'timeF'
+
+    elif data == 'MetroPT3':
+        # MetroPT-3 (UCI #791, Sci Data 2022) — metro-train APU air compressor.
+        # 7 analog channels (pressures/motor-current/oil-temp), 1-min mean
+        # aggregation in prep (~307k rows, Feb-Sep 2020). D=7 -> sub-1K core.
+        # Native task = anomaly detection; cast as forecasting (TIME precedent).
+        # Target = Oil_temperature (compressor thermal-health indicator).
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        target = 'Oil_temperature'
         freq = 'm'
         embed = 'timeF'
 
@@ -285,14 +215,6 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         freq = 'h'
         embed = 'timeF'
 
-    elif data == 'PM':
-        df = pd.read_csv(root_path + data + '/data' + '.csv')
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = 'pm2.5'
-        freq = 'h'
-        embed = 'timeF'
-
     elif data == 'nrel':
         df = pd.read_csv(root_path + data + '.csv')
         df = df.dropna()
@@ -301,60 +223,6 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         freq = 'h'
         embed = 'nrel'
         
-    elif data == 'astd':
-        df = np.load(root_path + 'astd_array_43.npy')[:, :, 0]    # co2
-        df = pd.DataFrame(df, columns=[str(i) for i in range(df.shape[1])])   
-        date_index = pd.date_range(start="2013-01-01", end="2022-12-31", freq="D")
-        date_index = pd.DataFrame({"date": date_index})
-        df.insert(0, 'date', date_index)
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        df = df.iloc[500:]
-        target = '42'
-        freq = 'd'
-        embed = 'astd'
-
-    elif data == 'ninja_pv':
-        df = pd.read_csv(root_path + data + '.csv')
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = 'sensor_99'
-        freq = 'h'
-        embed = 'ninja_pv'
-        
-    elif data == 'ninja_pv2':
-        df = pd.read_csv(root_path + data + '.csv')
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = 'sensor_98'
-        freq = 'h'
-        embed = 'ninja_pv'
-
-    elif data == 'ninja_wind':
-        df = pd.read_csv(root_path + data + '.csv')
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = 'sensor_99'
-        freq = 'h'
-        embed = 'ninja_wind'
-
-    elif data == 'era_ssr':
-        df = pd.read_csv(root_path + data + '.csv')
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = df.columns[-1]
-        freq = 'h'
-        embed = 'era_ssr'
-
-    elif data == 'KnowAir':
-        df = pd.read_csv(root_path + data + '.csv')
-        df['date'] = pd.to_datetime(df['date'])
-        mask = (df['date'] >= '2018-01-01') & (df['date'] <= '2020-12-31')
-        df = df.loc[mask].reset_index(drop=True)
-        target = df.columns[-1]
-        freq = 'h'
-        embed = 'KnowAir'
-
     elif data == 'Electricity':
         df = pd.read_csv(root_path + 'electricity.csv')
         df.insert(0, 'date', df.index) if 'date' not in df.columns else None
@@ -450,66 +318,6 @@ def data_select(data, root_path):
         print(df)
         print(df.columns)
         print(f'freq: {freq} / embed: {embed}')
-    elif data == 'PEMS_BAY':
-        df = pd.read_csv(root_path + 'PEMS_BAY/pems_bay.csv', index_col=0)
-        df.insert(0, 'date', df.index)
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        freq = 'm'
-        embed = 'timeF'
-        print(df)
-        print(df.columns)
-        print(f'freq: {freq} / embed: {embed}')
-    elif data == 'PEMS03':
-        df = pd.read_csv(root_path + 'PEMS/PEMS03.csv', index_col=0)
-        df.insert(0, 'date', df.index)
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        freq = 'm'
-        embed = 'timeF'
-        print(df)
-        print(df.columns)
-        print(f'freq: {freq} / embed: {embed}')
-    elif data == 'PEMS04':
-        df = pd.read_csv(root_path + 'PEMS/PEMS04.csv', index_col=0)
-        df.insert(0, 'date', df.index)
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        freq = 'm'
-        embed = 'timeF'
-        print(df)
-        print(df.columns)
-        print(f'freq: {freq} / embed: {embed}')
-    elif data == 'PEMS07':
-        df = pd.read_csv(root_path + 'PEMS/PEMS07.csv', index_col=0)
-        df.insert(0, 'date', df.index)
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        freq = 'm'
-        embed = 'timeF'
-        print(df)
-        print(df.columns)
-        print(f'freq: {freq} / embed: {embed}')
-    elif data == 'PEMS08':
-        df = pd.read_csv(root_path + 'PEMS/PEMS08.csv', index_col=0)
-        df.insert(0, 'date', df.index)
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        freq = 'm'
-        embed = 'timeF'
-        print(df)
-        print(df.columns)
-        print(f'freq: {freq} / embed: {embed}')
-    elif data == 'METR':
-        df = pd.read_csv(root_path + 'METR/metr_la.csv', index_col=0)
-        df.insert(0, 'date', df.index)
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        freq = 'm'
-        embed = 'timeF'
-        print(df)
-        print(df.columns)
-        print(f'freq: {freq} / embed: {embed}')
     elif data == 'Weather':
         df = _darts()["Weather"]().load().to_dataframe()
         df.insert(0, 'date', df.index)
@@ -527,44 +335,6 @@ def data_select(data, root_path):
         df = df.reset_index(drop=True)
         freq = 'd'
         embed = 'learned'
-        print(df)
-        print(df.columns)
-        print(f'freq: {freq} / embed: {embed}')
-    elif data == 'AirQuality':
-        df = pd.read_csv(root_path + data + '.csv')
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        freq = 'h'
-        embed = 'timeF'
-        print(df)
-        print(df.columns)
-        print(f'freq: {freq} / embed: {embed}')
-    elif data == 'Volatility':
-        df = pd.read_csv(root_path + data + '.csv')
-        #
-        df = df[['close_price', 'Symbol', 'date']]
-        df['date'] = pd.to_datetime(df['date'], utc=True, errors='coerce')
-        df['date'] = df['date'].dt.tz_localize(None)
-        df = df.pivot(index='date', columns='Symbol', values='close_price')
-        nan_counts = df.isna().sum()
-        symbols_to_keep = nan_counts.sort_values(ascending=True).head(14).index   # Sort by ascending NaN count and select top 14 Symbols
-        df = df[symbols_to_keep]    # Keep only selected Symbols
-        #
-        df.insert(0, 'date', df.index)
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        freq = 'd'
-        embed = 'timeF'
-        print(df)
-        print(df.columns)
-        print(f'freq: {freq} / embed: {embed}')
-    elif data == 'SML':
-        df = pd.read_csv(root_path + data + '/data' + '.csv')
-        df = df.drop(['21:Exterior_Entalpic_turbo', '20:Exterior_Entalpic_2', '19:Exterior_Entalpic_1'], axis=1)
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        freq = 'm'
-        embed = 'timeF'
         print(df)
         print(df.columns)
         print(f'freq: {freq} / embed: {embed}')
@@ -586,15 +356,6 @@ def data_select(data, root_path):
         print(df)
         print(df.columns)
         print(f'freq: {freq} / embed: {embed}')
-    elif data == 'TEP':
-        df = pd.read_csv(root_path + data + '/data' + '.csv')
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        freq = 'm'
-        embed = 'timeF'
-        print(df)
-        print(df.columns)
-        print(f'freq: {freq} / embed: {embed}')
     elif data == 'WindSCADA':
         df = pd.read_csv(root_path + data + '/data' + '.csv')
         df = df.dropna()
@@ -604,8 +365,38 @@ def data_select(data, root_path):
         print(df)
         print(df.columns)
         print(f'freq: {freq} / embed: {embed}')
+    elif data == 'BlastFurnace':
+        # 29 cols (date + 27 process channels + Si) -> n_features = 28.
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        freq = 'h'
+        embed = 'timeF'
+        print(df)
+        print(df.columns)
+        print(f'freq: {freq} / embed: {embed}')
+    elif data == 'N2O':
+        # 15 cols (date + 13 channels + N2O) -> n_features = 14.
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        freq = 'm'
+        embed = 'timeF'
+        print(df)
+        print(df.columns)
+        print(f'freq: {freq} / embed: {embed}')
+    elif data == 'MetroPT3':
+        # 8 cols (date + 6 channels + Oil_temperature) -> n_features = 7.
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        freq = 'm'
+        embed = 'timeF'
+        print(df)
+        print(df.columns)
+        print(f'freq: {freq} / embed: {embed}')
     elif data == 'PMSM':
-        # 13 cols (unit + 12 channels) -> worker n_features = shape[1]-1 = 12.
+        # 13 cols (unit + 12 channels) -> worker n_features = 12.
         df = pd.read_csv(root_path + data + '/data' + '.csv')
         df = df.dropna()
         df = df.reset_index(drop=True)
@@ -624,15 +415,6 @@ def data_select(data, root_path):
         print(df)
         print(df.columns)
         print(f'freq: {freq} / embed: {embed}')
-    elif data == 'PM':
-        df = pd.read_csv(root_path + data + '/data' + '.csv')
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        freq = 'h'
-        embed = 'timeF'
-        print(df)
-        print(df.columns)
-        print(f'freq: {freq} / embed: {embed}')
     elif data == 'nrel':
         df = pd.read_csv(root_path + data + '.csv')
         df = df.dropna()
@@ -642,72 +424,6 @@ def data_select(data, root_path):
         print(df)
         print(df.columns)
         print(f'freq: {freq} / embed: {embed}')
-    elif data == 'astd':
-        df = np.load(root_path + 'astd_array_43.npy')[:, :, 0]    # co2
-        df = pd.DataFrame(df, columns=[str(i) for i in range(df.shape[1])])   
-        date_index = pd.date_range(start="2013-01-01", end="2022-12-31", freq="D")
-        date_index = pd.DataFrame({"date": date_index})
-        df.insert(0, 'date', date_index)
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        df = df.iloc[500:]
-        freq = 'd'
-        embed = 'astd'
-        print(df)
-        print(df.columns)
-        print(f'freq: {freq} / embed: {embed}')
-    elif data == 'ninja_pv':
-        df = pd.read_csv(root_path + data + '.csv')
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = 'sensor_99'
-        freq = 'h'
-        embed = 'ninja_pv'
-        print(df)
-        print(df.columns)
-        print(f'freq: {freq} / embed: {embed}')
-    elif data == 'ninja_pv2':
-        df = pd.read_csv(root_path + data + '.csv')
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = 'sensor_98'
-        freq = 'h'
-        embed = 'ninja_pv2'
-        print(df)
-        print(df.columns)
-        print(f'freq: {freq} / embed: {embed}')
-    elif data == 'ninja_wind':
-        df = pd.read_csv(root_path + data + '.csv')
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = 'sensor_99'
-        freq = 'h'
-        embed = 'ninja_wind'
-        print(df)
-        print(df.columns)
-        print(f'freq: {freq} / embed: {embed}')
-    elif data == 'era_ssr':
-        df = pd.read_csv(root_path + data + '.csv')
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = df.columns[-1]
-        freq = 'h'
-        embed = 'era_ssr'
-        print(df)
-        print(df.columns)
-        print(f'freq: {freq} / embed: {embed}')
-    elif data == 'KnowAir':
-        df = pd.read_csv(root_path + data + '.csv')
-        df['date'] = pd.to_datetime(df['date'])
-        mask = (df['date'] >= '2018-01-01') & (df['date'] <= '2020-12-31')
-        df = df.loc[mask].reset_index(drop=True)
-        target = df.columns[-1]
-        freq = 'h'
-        embed = 'KnowAir'
-        print(df)
-        print(df.columns)
-        print(f'freq: {freq} / embed: {embed}')
-
     elif data == 'Electricity':
         df = pd.read_csv(root_path + 'electricity.csv')
         df.insert(0, 'date', df.index) if 'date' not in df.columns else None

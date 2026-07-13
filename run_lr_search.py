@@ -57,7 +57,13 @@ MODELS = list_models()                                   # all 12
 # TEP dropped 2026-06-26. Short-horizon PdM group (2026-07-02): CMAPSS FD001 +
 # CMAPSS3 (FD003) + PMSM (rebuilt: 69 sessions, 30-s mean, unit-aware loader —
 # dropped from the long-horizon main table, re-enters here).
-LR_DATASETS = ["Steel", "GasTurbine", "WindSCADA", "CMAPSS", "CMAPSS3", "PMSM"]
+# BlastFurnace added 2026-07-13 (long-horizon manufacturing, D=28 stress tier).
+# CMAPSS/CMAPSS3/PMSM kept here on purpose: the short-horizon PdM section is
+# archived from the PAPER, but their lr search is cheap insurance — if a
+# reviewer asks for the PdM section, the lr is already banked (just run the
+# main sweep). Only run_forecast/paper-table scope drops them.
+LR_DATASETS = ["Steel", "GasTurbine", "WindSCADA", "BlastFurnace", "MetroPT3",
+               "N2O", "CMAPSS", "CMAPSS3", "PMSM"]
 LR_PREDS = [96, 720]                                     # representative short/long
 LR_PREDS_SHORT = [24, 96]                                # short-horizon PdM group
 SHORT_DATASETS = ("CMAPSS", "CMAPSS3", "PMSM")

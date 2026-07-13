@@ -38,8 +38,13 @@ sys.path.insert(0, ROOT)
 from utils import data_factory  # noqa: E402
 
 MFG = [("Steel", [96, 192, 336, 720]),
+       ("MetroPT3", [96, 192, 336, 720]),
        ("GasTurbine", [96, 192, 336, 720]),
-       ("WindSCADA", [96, 192, 336, 720])]
+       ("WindSCADA", [96, 192, 336, 720]),
+       ("N2O", [96, 192, 336, 720]),
+       ("BlastFurnace", [96, 192, 336, 720])]
+# ARCHIVED 2026-07-13 (short-horizon PdM section dropped from the paper); kept
+# as a shelf list reachable via --group pdm, but out of the default "all".
 PDM = [("CMAPSS", [24, 48, 96]),
        ("CMAPSS3", [24, 48, 96]),
        ("PMSM", [24, 48, 96])]
@@ -99,7 +104,8 @@ def main():
         default = dict(MFG + PDM).get(args.data, [96, 192, 336, 720])
         todo = [(args.data, [args.pred_len] if args.pred_len else default)]
     else:
-        todo = {"mfg": MFG, "pdm": PDM, "all": MFG + PDM}[args.group]
+        # "all" = manufacturing main table only; PDM archived (reach via --group pdm).
+        todo = {"mfg": MFG, "pdm": PDM, "all": MFG}[args.group]
 
     rows = []
     for data_name, horizons in todo:

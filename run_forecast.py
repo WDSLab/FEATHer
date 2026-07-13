@@ -51,18 +51,37 @@ DEFAULT_MODELS = list_models()  # all registered
 # MSE 0.004 (target) / 0.117 (all-channel mean) at H=96, so the cells are
 # trivially easy; a multi-session+downsample rebuild would only support short
 # horizons anyway. Data + prep recipe kept on disk like TEP.
-MFG_DATASETS = ["Steel", "GasTurbine", "WindSCADA"]
+# BlastFurnace added 2026-07-13 (Mendeley 6d7jbc7tb5, Data in Brief 2025):
+# 27 hourly process channels + Si (hot-metal silicon = product-quality target,
+# asof-merged). D=28 -> above sub-1K, so it is the manufacturing STRESS/breadth
+# tier (like Weather/Electricity in LTSF); the sub-1K claim stays on the D<=14
+# core (Steel/GasTurbine/WindSCADA). Forecasting-native, gapless, no LTSF
+# precedent -> "first to cast as edge-PdM LTSF" holds.
+# MetroPT3 added 2026-07-13 (UCI #791, metro-train APU compressor): 7 analog
+# channels @ 1-min mean, D=7 -> sub-1K CORE. Persistence-audited non-trivial
+# (0.80-1.14 std). Native anomaly-detection set cast as forecasting (TIME
+# precedent). Adds an air-compressor PdM domain to the manufacturing lineup.
+# N2O added 2026-07-13 (Avedore WWTP, Mendeley xmbxhscgpr): 14 continuous
+# process channels @ 5-min mean, D=14 -> sub-1K core. Persistence-audited
+# non-trivial (1.10-1.53 std). Forecasting-native. Adds a continuous
+# industrial-process (bio-chemical) domain; frame as "industrial process
+# monitoring" (it is a utility process, not discrete manufacturing).
+MFG_DATASETS = ["Steel", "GasTurbine", "WindSCADA", "BlastFurnace",
+                "MetroPT3", "N2O"]
 MFG_PREDS = [96, 192, 336, 720]
 
-# SEPARATE short-horizon PdM forecasting section — unit-segmented datasets
-# (windows never cross a unit boundary; split by unit via Dataset_CMAPSS):
-#   CMAPSS  = NASA C-MAPSS FD001 (de-facto prognostics benchmark, 1 fault mode)
-#   CMAPSS3 = C-MAPSS FD003 (same single op-condition, 2 fault modes, longer
-#             trajectories -> ~3x the H=96 windows; added 2026-07-02)
-#   PMSM    = Paderborn motor test bench, REBUILT 2026-07-02 (69 sessions,
-#             30-s mean agg) — re-enters here after being dropped from the
-#             long-horizon main table (electric-drive domain preserved).
-CMAPSS_DATASETS = ["CMAPSS", "CMAPSS3", "PMSM"]
+# ARCHIVED 2026-07-13 — short-horizon PdM section DROPPED from the paper.
+# Rationale: it was the one experiment block that attached to neither the
+# long-term "frequency forecaster" identity (it is short-horizon, where the
+# multi-scale/FFT inductive bias is weakest) nor the robustness param-
+# justification (its anchors are Steel/GT/Wind/ETTh1/Weather), AND it created a
+# grid-asymmetry attack surface ("why short horizons only here?"). Dropping it
+# unifies every dataset to [96..720] and keeps the identity sharp. The loader
+# (Dataset_CMAPSS), prep recipes, and lr search (run_lr_search) are KEPT as a
+# shelf so a reviewer-driven revision can restore the section immediately.
+# Still reachable via `--group cmapss`; just out of the default + `all`.
+#   CMAPSS = C-MAPSS FD001 · CMAPSS3 = FD003 · PMSM = Paderborn motor (69-sess)
+CMAPSS_DATASETS = ["CMAPSS", "CMAPSS3", "PMSM"]   # shelf (archived from paper)
 CMAPSS_PREDS = [24, 48, 96]
 
 # Long-term horizon datasets — now the GENERALIZATION section (demoted from
@@ -70,14 +89,6 @@ CMAPSS_PREDS = [24, 48, 96]
 LTSF_DATASETS = ["ETTh1", "ETTh2", "ETTm1", "ETTm2", "Weather", "Electricity",
                  "Traffic", "Exchange"]
 LTSF_PREDS = [96, 192, 336, 720]
-
-# Short-horizon datasets
-SHORT_DATASETS = ["SML", "Volatility"]
-SHORT_PREDS = [24, 48, 96, 192]
-
-# Spatio-temporal
-ST_DATASETS = ["PEMS03", "PEMS04", "PEMS08", "PEMS_BAY", "METR"]
-ST_PREDS = [12, 24, 48, 96]
 
 DEFAULT_BASE_SEED = 2025
 DEFAULT_NUM_SEEDS = 5
@@ -91,10 +102,6 @@ RESULTS_CSV = "results/fcst_results.csv"
 # -----------------------------------------------------------------------------
 
 def pred_lens_for(dataset):
-    if dataset in SHORT_DATASETS:
-        return SHORT_PREDS
-    if dataset in ST_DATASETS:
-        return ST_PREDS
     if dataset in MFG_DATASETS:
         return MFG_PREDS
     if dataset in CMAPSS_DATASETS:
@@ -153,7 +160,8 @@ def enumerate_combos(args):
     elif args.group == "cmapss":
         datasets = CMAPSS_DATASETS    # separate short-horizon PdM section
     elif args.group == "all":
-        datasets = MFG_DATASETS + CMAPSS_DATASETS + LTSF_DATASETS
+        # CMAPSS archived from the paper (2026-07-13); use --group cmapss to reach it.
+        datasets = MFG_DATASETS + LTSF_DATASETS
     else:
         datasets = MFG_DATASETS       # default: manufacturing MAIN table
 

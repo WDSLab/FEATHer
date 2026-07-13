@@ -46,11 +46,13 @@ MODEL_ORDER = [
     "LMS_AutoTSF", "TimesNet", "iTransformer", "MDMLP_EIA",
 ]
 
-# JMS two-tier benchmark first (main mfg table, short-horizon PdM section),
-# then the LTSF-8 generalization datasets.
+# JMS manufacturing main table (6 datasets: 5 sub-1K core + BlastFurnace
+# stress tier), then the LTSF-8 generalization datasets. The short-horizon PdM
+# section (CMAPSS/CMAPSS3/PMSM) was ARCHIVED 2026-07-13 — it did not attach to
+# the long-term identity or the robustness story; its lr search is still banked
+# (run_lr_search) so it can return in a revision.
 DATASET_ORDER = [
-    "Steel", "GasTurbine", "WindSCADA",
-    "CMAPSS", "CMAPSS3", "PMSM",
+    "Steel", "MetroPT3", "GasTurbine", "WindSCADA", "N2O", "BlastFurnace",
     "ETTh1", "ETTh2", "ETTm1", "ETTm2",
     "Weather", "Exchange", "Electricity", "Traffic",
 ]
