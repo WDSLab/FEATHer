@@ -276,6 +276,13 @@ def train_single(args, data_name, pred_len, device, seed):
 
 def train(args):
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
+    if torch.cuda.is_available():
+        # Make args.gpu the DEFAULT cuda device for this worker process, so any
+        # hardcoded `.cuda()` / `.to('cuda')` inside upstream baselines (e.g.
+        # MDMLP_EIA/layers/ema.py, dema.py) resolves to THIS gpu, not cuda:0.
+        # Without this, --ngpu 2 workers on cuda:1 crash with a cuda:1/cuda:0
+        # device mismatch. See CLAUDE.md "Known issues".
+        torch.cuda.set_device(args.gpu)
     print(f"Using device: {device}")
     print(f"Model: {args.model}  |  data: {args.data}  |  pred_len: {args.pred_len}  "
           f"|  exp_tag: {args.exp_tag}")
