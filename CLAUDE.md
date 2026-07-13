@@ -744,13 +744,14 @@ cd manuscript/tex_workspace
 pdflatex feather_iotj && bibtex feather_iotj && pdflatex feather_iotj && pdflatex feather_iotj
 ```
 
-## Model registry (12 entries)
+## Model registry (13 entries)
 
 ```python
 from baselines import get_model, list_models, get_method_defaults, get_dataset_overrides
 print(list_models())
 # ['DLinear', 'DiPE_Linear', 'FEATHer', 'FITS', 'LMS_AutoTSF', 'MDMLP_EIA',
-#  'PatchTST', 'SparseTSF', 'TQNet', 'TimeMixer', 'TimesNet', 'iTransformer']
+#  'PatchTST', 'SCINet', 'SparseTSF', 'TQNet', 'TimeMixer', 'TimesNet',
+#  'iTransformer']
 ```
 
 | Model | Venue | Year | Params (ETTh1 paper config, D=7) |
@@ -761,12 +762,20 @@ print(list_models())
 | FITS | ICLR Spotlight | 2024 | 1,200 |
 | DLinear | AAAI | 2023 | 18,624 |
 | PatchTST | ICLR | 2023 | 35,171 |
+| SCINet | NeurIPS | 2022 | 54,114 |
 | TimeMixer | ICLR | 2024 | 75,497 |
 | TQNet | ICML | 2025 | 86,192 |
 | LMS_AutoTSF | arXiv | 2024 | 181,318 |
 | TimesNet | ICLR | 2023 | 605,479 |
 | iTransformer | ICLR | 2024 | 841,568 |
 | MDMLP_EIA | AAAI | 2026 | 1,632,832 |
+
+SCINet (NeurIPS'22, hierarchical sample-convolution) added 2026-07-13 — a TPAMI
+reviewer (R2 #4) named it as prior multi-scale work; benchmarking it directly
+(not just Related-Work differentiation) pre-empts the critique and pits FEATHer's
+multi-band decomposition against an explicit multi-scale conv baseline. Wrapper
+uses num_stacks=1 / num_decoder_layer=1 (avoids the upstream `.cuda()` decoder
+path) + RIN on (print silenced in the adapter).
 
 → 5 orders of magnitude (267 → 1.6M) across the lineup. **Two 2026 SOTA
 papers (DiPE-Linear DASFAA, MDMLP-EIA AAAI)** address R4's "outdated

@@ -94,6 +94,11 @@ def _build_mdmlp_eia(args, n_features, seq_len, pred_len):
     return build(args, n_features, seq_len, pred_len)
 
 
+def _build_scinet(args, n_features, seq_len, pred_len):
+    from baselines.SCINet.wrapper import build
+    return build(args, n_features, seq_len, pred_len)
+
+
 # NOTE — deliberately excluded from the benchmark (cite in Related Work only):
 #   S-Mamba: selective-scan CUDA kernels have no Cortex-M / STM32 port.
 #   TimeCMA: frozen GPT-2 features blow past the sub-1K parameter budget by
@@ -113,6 +118,8 @@ _BUILDERS: Dict[str, Callable] = {
     # R4-requested 2025-2026 SOTA — addresses "outdated baselines" critique
     "DiPE_Linear":  _build_dipe_linear,    # DASFAA 2026
     "MDMLP_EIA":    _build_mdmlp_eia,      # AAAI 2026
+    # R2 #4-requested multi-scale conv baseline (added 2026-07-13)
+    "SCINet":       _build_scinet,         # NeurIPS 2022
 }
 
 
@@ -210,6 +217,8 @@ _METHOD_DEFAULTS: Dict[str, Dict] = {
     "DiPE_Linear":  {"lr": 1e-3, "loss": "mse"},
     # MDMLP-EIA: run.py default lr=1e-4
     "MDMLP_EIA":    {"lr": 1e-4, "loss": "mse"},
+    # SCINet: run_ETTh.py-style long-horizon config; lr moderate for Adam+CosLR
+    "SCINet":       {"lr": 1e-3, "loss": "mse"},
 }
 
 
