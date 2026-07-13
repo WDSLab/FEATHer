@@ -809,6 +809,25 @@ Manufacturing datasets (JMS pivot): each `data/<name>/` holds the raw source
 
 ## Known issues / gotchas
 
+- **`--ngpu N` + upstream hardcoded `.cuda()` (fixed 2026-07-13)**: several
+  upstream baselines create tensors on the DEFAULT cuda device via bare
+  `.cuda()` / `.to('cuda')` (on-path: `MDMLP_EIA/layers/ema.py`+`dema.py`;
+  latent: TimeMixer DWT, iTransformer LSH — off the default path). Under
+  `--ngpu 2` a worker on `cuda:1` then crashes with *"Expected all tensors to
+  be on the same device, cuda:1 and cuda:0"*. Fix = both workers call
+  `torch.cuda.set_device(args.gpu)` at startup so bare-`cuda` resolves to the
+  worker's GPU. Do NOT sed the upstream files — `baselines/*/*-main/` is
+  gitignored + re-cloned by `setup_baselines.sh`, so the set_device fix in our
+  worker is the durable one.
+- **`reformer_pytorch` is an import-time dep of 4 baselines** (iTransformer,
+  LMS_AutoTSF, TimeMixer, TimesNet — they share a `layers/SelfAttention_Family.py`
+  that does `from reformer_pytorch import LSHSelfAttention` even though LSH is
+  never used). A fresh env (e.g. server `lee`) without it fails those 4 models
+  with `No module named 'reformer_pytorch'` — and since failed worker runs write
+  NO csv row, the orchestrator silently skips them (they just look "not yet
+  run"). `setup_baselines.sh` now `pip install reformer_pytorch==1.4.4`; manual:
+  `pip install reformer_pytorch==1.4.4`. After installing, just re-run the sweep
+  — resume fills the missing cells.
 - **AMP is forcibly disabled** in `scripts/benchmarks/run_forecast.py`.
   Re-enabling will break FITS (complex grads) and TimesNet (half-precision
   cuFFT on non-power-of-2 sizes).

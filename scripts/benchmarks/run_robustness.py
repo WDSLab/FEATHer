@@ -88,6 +88,10 @@ def evaluate_on_test(model, test_loader, n_features, pred_len, device,
 
 def run(args):
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
+    if torch.cuda.is_available():
+        # See run_forecast.py: make args.gpu the default cuda device so upstream
+        # hardcoded `.cuda()`/`.to('cuda')` lands on THIS gpu under --ngpu N.
+        torch.cuda.set_device(args.gpu)
     print(f"Using device: {device}")
     print(f"Model: {args.model}  |  data: {args.data}  |  pred_len: {args.pred_len}  "
           f"|  seed: {args.seed}  |  train_exp_tag: {args.train_exp_tag}")

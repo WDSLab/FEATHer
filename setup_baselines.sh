@@ -57,6 +57,20 @@ for target in "${!REPOS[@]}"; do
   fi
 done
 
+# ---------------------------------------------------------------------------
+# Python deps that upstream baselines import at MODULE LOAD (not just runtime).
+# iTransformer/LMS_AutoTSF/TimeMixer/TimesNet share a layers/SelfAttention_Family.py
+# that does `from reformer_pytorch import LSHSelfAttention` at import time — so
+# these 4 models fail with `No module named 'reformer_pytorch'` even though LSH
+# attention is never used. Install it (no-op if already present).
+if [ -z "$TARGET_NAME" ]; then
+  echo ""
+  echo "[deps ] ensuring reformer_pytorch (import-time dep of 4 baselines)"
+  python -c "import reformer_pytorch" 2>/dev/null \
+    && echo "        already installed" \
+    || pip install "reformer_pytorch==1.4.4"
+fi
+
 echo ""
 echo "All requested baselines are present under baselines/."
 echo "Next: write baselines/<Name>/wrapper.py for each, register in"
