@@ -3,9 +3,15 @@
 Input corruptions for SensorFault-Bench-style robustness evaluation.
 
 Train once on clean data, then at test time replace `x` with `corrupt(x, ...)`
-before passing it to the model. The reference protocol is Windmann et al.,
-"Benchmarking Sensor-Fault Robustness in Forecasting" (2026), simplified to
-four fault axes most relevant to industrial IoT edge deployment:
+before passing it to the model. This train-clean / test-corrupt protocol
+follows Windmann et al., "Quantifying Robustness: A Benchmarking Framework for
+Deep Learning Forecasting in Cyber-Physical Systems," IEEE ETFA 2025
+(arXiv:2504.03494); the severity-grid + degradation-curve methodology follows
+Hendrycks & Dietterich, "Benchmarking Neural Network Robustness to Common
+Corruptions and Perturbations," ICLR 2019 (ImageNet-C). The gauss/miss/impulse
+fault taxonomy matches the anomaly types in Cheng et al., "RobustTSF," ICLR
+2024 (arXiv:2402.02032). We simplify to the four fault axes most relevant to
+industrial IoT edge deployment:
 
     Gaussian noise   thermal / electrical noise            σ ∈ {0.05, 0.10, 0.20, 0.30, 0.50}
     Missing values   communication drop / sensor outage    rate ∈ {0.05, 0.10, 0.20, 0.30, 0.50}
