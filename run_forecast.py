@@ -241,7 +241,22 @@ def dispatch(missing, args):
         lr_to_use   = args.lr   if args.lr   is not None else merged.get("lr",   1e-3)
         loss_to_use = args.loss if args.loss is not None else merged.get("loss", "mse")
 
-        hp_overrides = {k: v for k, v in merged.items() if k not in ("lr", "loss")}
+        # AUDIT-FIX (2026-07-14, P2-4): the worker applies --model_overrides
+        # AFTER parse_args, so an override key silently beats an explicit CLI
+        # arch flag (e.g. `--d_state 4` on ETTh1 used to train d16 while the
+        # CSV recorded nothing). Explicitly-set FEATHer arch flags (default
+        # None = unset) are therefore DROPPED from the override dict and
+        # forwarded as worker CLI flags instead — CLI wins, sweeps unchanged.
+        explicit_arch = {k: v for k, v in {
+            "d_state":     args.d_state,
+            "kernel_size": args.kernel_size,
+            "period":      args.period,
+            "num_bands":   args.num_bands,
+            "lambda_spec": args.lambda_spec,
+        }.items() if v is not None}
+
+        hp_overrides = {k: v for k, v in merged.items()
+                        if k not in ("lr", "loss") and k not in explicit_arch}
         overrides_str = ";".join(f"{k}={v}" for k, v in sorted(hp_overrides.items()))
 
         label = (f"{m} | {d} | H={h} | seeds={seeds} | lr={lr_to_use} | "
@@ -269,14 +284,11 @@ def dispatch(missing, args):
             cmd += ["--save_model"]
         if overrides_str:
             cmd += ["--model_overrides", overrides_str]
-        # FEATHer hyperparameters — harmless to pass to other models
-        cmd += [
-            "--d_state", str(args.d_state),
-            "--kernel_size", str(args.kernel_size),
-            "--period", str(args.period),
-            "--num_bands", str(args.num_bands),
-            "--lambda_spec", str(args.lambda_spec),
-        ]
+        # FEATHer arch flags: forward ONLY the explicitly-set ones (P2-4).
+        # Unset flags fall back to the worker's own defaults (d8/k7/p12/B3/
+        # λ0.01 — identical values), still overridable per dataset above.
+        for k, v in explicit_arch.items():
+            cmd += [f"--{k}", str(v)]
         jobs.append((label, cmd))
 
     failed = run_on_gpus(jobs, args.ngpu, base_gpu=args.gpu,
@@ -333,11 +345,15 @@ def main():
     p.add_argument("--loss",       type=str,   default=None, choices=["l1", "mse"],
                    help="Override loss. Defaults to each method's paper "
                         "loss (MSE for baselines, L1 for FEATHer).")
-    p.add_argument("--d_state",     type=int,   default=8)
-    p.add_argument("--kernel_size", type=int,   default=7)
-    p.add_argument("--period",      type=int,   default=12)
-    p.add_argument("--num_bands",   type=int,   default=3)
-    p.add_argument("--lambda_spec", type=float, default=0.01)
+    # FEATHer arch flags default to None (= unset) so dispatch can tell an
+    # explicit user value from the default: explicit values BEAT
+    # _DATASET_OVERRIDES (audit P2-4); unset falls back to per-dataset
+    # override, then the worker default (d8/k7/p12/B3/lambda 0.01).
+    p.add_argument("--d_state",     type=int,   default=None)
+    p.add_argument("--kernel_size", type=int,   default=None)
+    p.add_argument("--period",      type=int,   default=None)
+    p.add_argument("--num_bands",   type=int,   default=None)
+    p.add_argument("--lambda_spec", type=float, default=None)
 
     # Output / system
     p.add_argument("--results_csv", type=str, default=RESULTS_CSV)

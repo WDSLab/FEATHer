@@ -283,9 +283,9 @@ def get_method_defaults(name):
 # _METHOD_DEFAULTS (base config) on every dataset.
 #
 # Sources extracted from each repo's official ETTh1 / ETTh2 / ETTm1 / ETTm2
-# / Electricity / Exchange / Traffic / Weather script. SML / Volatility /
-# PEMS fall back to the closest hourly-data config (ETTh1) since no
-# upstream paper provides values for them.
+# / Electricity / Exchange / Traffic / Weather script. Datasets with no
+# upstream paper values (the manufacturing sets) keep each method's paper
+# default architecture; only lr is dataset-selected via run_lr_search.py.
 # -----------------------------------------------------------------------------
 
 _DATASET_OVERRIDES: Dict = {

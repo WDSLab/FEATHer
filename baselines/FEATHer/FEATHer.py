@@ -323,7 +323,14 @@ class FEATHer(nn.Module):
         B, L, D = x.size()
         assert L == self.seq_len, f"Expected seq_len={self.seq_len}, got {L}"
 
-        # Instance normalization
+        # Instance normalization.
+        # DELIBERATE asymmetry (audit P3, decided 2026-07-14): `means` is
+        # detached but `stdev` is not — gradients flow through the scale
+        # statistic only. This half-RevIN variant is what every frozen OFAT
+        # HP row and all trained checkpoints were selected under; detaching
+        # stdev as well would change the trained function and invalidate
+        # them, for no expected gain. If the paper's method section ever
+        # describes this as standard RevIN, reword the paper, not this code.
         if self.use_norm:
             means = x.mean(1, keepdim=True).detach()
             stdev = torch.sqrt(x.var(1, keepdim=True, unbiased=False) + 1e-5)

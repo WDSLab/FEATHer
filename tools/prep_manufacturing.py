@@ -1,27 +1,43 @@
-"""Reproducible preprocessing for the 5 manufacturing LTSF datasets (JMS pivot).
+"""Reproducible preprocessing for the manufacturing datasets (JMS pivot).
 
-Each recipe reads the RAW source already in data/<name>/ and writes the
-cleaned data/<name>/data.csv that utils/data_factory.py loads. Idempotent:
-re-running regenerates data.csv from raw without touching the raw files.
+9 recipes: the 6 MFG main-table sets (Steel / WindSCADA / BlastFurnace /
+MetroPT3 / N2O / EWELD) + the 3 short-horizon PdM shelf sets (CMAPSS /
+CMAPSS3 / PMSM, archived from the paper). Each recipe reads the RAW source
+already in data/<name>/ and writes the cleaned data/<name>/data.csv that
+utils/data_factory.py loads. Idempotent: re-running regenerates data.csv
+from raw without touching the raw files.
+
+GAP-FILL POLICY (audit P3, 2026-07-14): for the gridded sensor sets, short
+gaps (<= ~1 h) are linearly interpolated; LONGER outages are held at the
+last observation (no linear bridging across outages, no lookahead) and only
+the leading edge is back-filled. `_fill_gaps` prints the gap audit on every
+run so a changed raw re-download is visible. State this policy in the paper.
 
 RAW PROVENANCE (download once, place in data/<name>/):
-  Steel       UCI #851  -> Steel_industry_data.csv   (direct UCI zip)
-  WindSCADA   Zenodo rec 5841834, Kelmarsh_SCADA_2017_3083.zip
-              -> Turbine_Data_Kelmarsh_1_2017-..csv (saved as turbine1_2017.csv)
-              (Zenodo Cloudflare-blocks scripted downloads -> download via browser)
-  PMSM        Kaggle wkirgsn/electric-motor-temperature -> measures_v2.csv
-              (Kaggle needs auth -> download via browser/CLI)
-  CMAPSS      NASA C-MAPSS FD001 train_FD001.txt -> raw/train_FD001.txt
-              (mirror: github.com/cyrilli/TurboEngine_Dataset_NASA/CMAPSSData)
-              SEPARATE short-horizon PdM section, NOT the main [96..720] table
-              (run-to-failure trajectories ~200 cycles are too short for long
-              horizons; engine-aware windowing via Dataset_CMAPSS).
+  Steel        UCI #851  -> Steel_industry_data.csv   (direct UCI zip)
+  WindSCADA    Zenodo rec 5841834, Kelmarsh_SCADA_2017_3083.zip
+               -> Turbine_Data_Kelmarsh_1_2017-..csv (saved turbine1_2017.csv)
+               (Zenodo Cloudflare-blocks scripted downloads -> use a browser)
+  BlastFurnace Mendeley 6d7jbc7tb5 (Data in Brief 2025)
+               -> raw/1_blast_furnace_data_first_dataset.xlsx (needs openpyxl)
+  MetroPT3     UCI #791 -> raw/MetroPT3(AirCompressor).csv
+  N2O          Mendeley xmbxhscgpr (Avedore WWTP) -> raw/aved_raw.csv
+  EWELD        Figshare 10.6084/m9.figshare.21893808 -> raw/EWELD.zip
+  PMSM         Kaggle wkirgsn/electric-motor-temperature -> measures_v2.csv
+               (Kaggle needs auth -> download via browser/CLI)
+  CMAPSS(3)    NASA C-MAPSS train_FD001.txt / train_FD003.txt -> raw/
+               (mirror: github.com/cyrilli/TurboEngine_Dataset_NASA/CMAPSSData)
+               SEPARATE short-horizon PdM shelf, NOT the main [96..720] table
+               (run-to-failure trajectories ~200 cycles are too short for long
+               horizons; engine-aware windowing via Dataset_CMAPSS).
 
 Run:  python tools/prep_manufacturing.py            # all
       python tools/prep_manufacturing.py Steel CMAPSS  # subset
 """
 import os
 import sys
+
+import numpy as np
 import pandas as pd
 
 DATA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
@@ -32,6 +48,52 @@ def _w(df, name):
     assert df.isna().sum().sum() == 0, f"{name}: NaN present"
     df.to_csv(out, index=False)
     print(f"{name:10s} -> data.csv  rows={len(df):>7d}  D={df.shape[1]-1}")
+
+
+def _fill_gaps(df, cols, name, interp_limit, step_desc, max_gap_bound=None):
+    """AUDIT-FIX (2026-07-14, P3): explicit, bounded gap policy.
+
+    Previously N2O/MetroPT3 ran an UNLIMITED whole-series linear interpolate
+    (lookahead endpoints; multi-day outages bridged with fictional ramps)
+    and WindSCADA's `interpolate(limit=12).ffill()` let the unlimited ffill
+    defeat the limit silently. Policy now, per channel:
+      - gaps <= interp_limit steps: linear interpolation (short sensor
+        dropouts; both endpoints are at most interp_limit steps away);
+      - gaps  > interp_limit steps: HOLD the last observation (sensor-hold,
+        no lookahead, no linear bridging across outages);
+      - leading edge (no prior observation): back-fill only.
+    Prints the gap audit; `max_gap_bound` (steps) asserts a sanity ceiling
+    so a different raw re-download cannot silently change the data shape.
+    """
+    isna = df[cols].isna()
+    n_nan = int(isna.to_numpy().sum())
+    worst = 0
+    for c in cols:
+        col_na = isna[c].to_numpy()
+        if col_na.any():
+            ch = np.diff(np.concatenate([[0], col_na.astype(int), [0]]))
+            runs = np.where(ch == -1)[0] - np.where(ch == 1)[0]
+            worst = max(worst, int(runs.max()))
+    print(f"{name}: NaN cells={n_nan} "
+          f"({100.0 * n_nan / max(1, isna.size):.2f}%), "
+          f"max gap={worst} steps ({step_desc}) -> "
+          f"interp<={interp_limit}, hold-last beyond, bfill lead")
+    if max_gap_bound is not None:
+        assert worst <= max_gap_bound, (
+            f"{name}: max gap {worst} steps exceeds the audited bound "
+            f"{max_gap_bound} — raw source changed? Re-vet before filling.")
+
+    out = df.copy()
+    interp = out[cols].interpolate(limit_direction="both")
+    for c in cols:
+        col_na = isna[c]
+        # length of the NaN run each cell belongs to
+        run_id = (col_na != col_na.shift()).cumsum()
+        run_len = col_na.groupby(run_id).transform("sum")
+        keep = col_na & (run_len <= interp_limit)      # short gaps -> linear
+        out[c] = out[c].where(~keep, interp[c])
+    out[cols] = out[cols].ffill().bfill()              # long gaps -> hold
+    return out
 
 
 def steel():
@@ -66,7 +128,10 @@ def windscada():
         if m:
             chosen.append(m[0])
     sub = df[["date"] + chosen].copy()
-    sub[chosen] = sub[chosen].interpolate(limit=12, limit_direction="both").ffill().bfill()
+    # 10-min grid: linear interp <= 12 steps (2 h); the worst audited outage
+    # is 153 steps (25.5 h, audited 2026-07-14) -> hold-last, bound 288 (2 d).
+    sub = _fill_gaps(sub, chosen, "WindSCADA", interp_limit=12,
+                     step_desc="10-min", max_gap_bound=288)
     pcol = [c for c in chosen if c.lower().startswith("power")][0]
     sub = sub[["date"] + [c for c in chosen if c != pcol] + [pcol]]
     sub.columns = ["date"] + [f"ch{i}" for i in range(len(chosen) - 1)] + ["Power_kW"]
@@ -124,16 +189,23 @@ def blastfurnace():
     #            paper's forecasting target), measured PER-CAST -> irregular
     #            (~every 1.8 h, 16,589 rows).
     # Build one multivariate hourly series:
-    #   (1) winsorize each process channel to its [0.5, 99.5] pct — the raw
-    #       carries gross sensor faults (a shared ~3311 temperature error
-    #       SENTINEL, physical-impossible negatives, zero-dropouts); tail-clip
-    #       touches 0.84% of cells and DELETES nothing (a MAD rule over-flagged
-    #       low-variance channels e.g. Pt 48%). Cleaned copy-last persistence
-    #       MSE 1.37->3.40 over H=96..720 = non-trivial (cf. GasTurbine 1.3-1.6).
+    #   (1) winsorize each process channel to its [0.5, 99.5] pct computed on
+    #       the TRAIN region only (first 70% rows, matching Dataset_Custom's
+    #       0.7/0.1/0.2 split — audit P3: full-series quantiles were textbook
+    #       preprocessing leakage, 2 scalars/channel). The raw carries gross
+    #       sensor faults (a shared ~3311 temperature error SENTINEL,
+    #       physically-impossible negatives, zero-dropouts); tail-clip touches
+    #       ~1% of cells and DELETES nothing (a MAD rule over-flagged
+    #       low-variance channels e.g. Pt 48%). Side benefit (audited
+    #       2026-07-14): the Tp4 sentinel spikes live in the LATER rows, so
+    #       train-region bounds clip them (hi 3313 -> 855) where full-series
+    #       quantiles let them through. Cleaned copy-last persistence
+    #       MSE 1.37->3.40 over H=96..720 = non-trivial.
     #   (2) asof-merge the most recent Si cast onto each hour (forward-carry;
     #       leading pre-first-cast hours back-filled). Si placed LAST -> target.
-    # D=27 -> above sub-1K (STRESS/breadth tier like Weather/Electricity; the
-    # sub-1K claim stays on the D<=14 core Steel/GasTurbine/WindSCADA).
+    # D=28 (27 process + Si) -> above sub-1K (STRESS/breadth tier like
+    # Weather/Electricity; the sub-1K claim stays on the D<=14 core
+    # Steel/WindSCADA/MetroPT3/N2O/EWELD).
     xl = pd.ExcelFile(os.path.join(DATA, "BlastFurnace", "raw",
                                    "1_blast_furnace_data_first_dataset.xlsx"))
     proc = xl.parse("data")
@@ -141,10 +213,16 @@ def blastfurnace():
     proc["dt"] = pd.to_datetime(proc["dt"])
     si["dt"] = pd.to_datetime(si["dt"])
     chans = [c for c in proc.columns if c != "dt"]
-    for c in chans:
-        lo, hi = proc[c].quantile(0.005), proc[c].quantile(0.995)
-        proc[c] = proc[c].clip(lo, hi)
     proc = proc.sort_values("dt").reset_index(drop=True)
+    # AUDIT-FIX (2026-07-14, P3): quantile bounds from the TRAIN region only
+    # (first 70% rows = Dataset_Custom's train split); clip applied to the
+    # full series. Full-series quantiles leaked 2 scalars/channel from
+    # val/test AND missed the late Tp4 sentinel spikes (see note above).
+    n_train = int(len(proc) * 0.7)
+    for c in chans:
+        lo = proc[c].iloc[:n_train].quantile(0.005)
+        hi = proc[c].iloc[:n_train].quantile(0.995)
+        proc[c] = proc[c].clip(lo, hi)
     si = si.sort_values("dt").reset_index(drop=True)
     merged = pd.merge_asof(proc, si[["dt", "Si"]], on="dt", direction="backward")
     merged["Si"] = merged["Si"].bfill()  # leading hours before the first cast
@@ -188,6 +266,12 @@ def eweld():
                 cols[n.split("/")[-1].replace(".csv", "")] = s.ffill().bfill().values
         if len(cols) >= 14:
             break
+    # AUDIT-FIX (2026-07-14, P3): a different raw re-download (users added/
+    # removed from the C24/C25 divisions) must fail loudly, not silently
+    # change D and break every trained checkpoint's input width.
+    assert len(cols) == 14, (
+        f"EWELD: expected exactly 14 qualifying users, got {len(cols)} — "
+        f"raw EWELD.zip contents changed?")
     out = pd.DataFrame(cols, index=grid).reset_index().rename(columns={"index": "date"})
     out["date"] = out["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
     _w(out, "EWELD")
@@ -202,7 +286,8 @@ def n2o():
     # channels (blower + per-tank airflow, N2O/NH4/NO3/O2/SS/temperature/PO4,
     # inlet flow); DROP the quality flags, O2/phase SETPOINTS, PROCESSPHASE /
     # PHASECODE (categorical), valve PCT, inlet STATE. Resample to 5-min MEAN
-    # -> residual NaN 40%->5.8% (interpolate), ~210k rows over 2 yr
+    # -> residual NaN ~5.8% (filled per the module gap policy: linear <=1 h,
+    # hold-last beyond — see _fill_gaps), ~210k rows over 2 yr
     # (2022-06..2024-06). Standardized copy-last persistence 1.10->1.53 over
     # H=96..720 = non-trivial. D=14 -> sub-1K CORE. Continuous INDUSTRIAL
     # PROCESS monitoring (bio-chemical); target = N2O (the source paper's
@@ -224,7 +309,12 @@ def n2o():
     df = pd.read_csv(os.path.join(DATA, "N2O", "raw", "aved_raw.csv"))
     df["time"] = pd.to_datetime(df["time"], utc=True)
     g = (df.set_index("time")[list(ren)].rename(columns=ren)
-           .resample("5min").mean().interpolate(limit_direction="both"))
+           .resample("5min").mean())
+    # 5-min grid: linear interp <= 12 steps (1 h). Long SCADA outages exist
+    # (audited 2026-07-14: INLET.Q up to 26,643 steps = 92 d; airflows 66 d)
+    # -> hold-last, NOT the previous unlimited linear bridge (audit P3).
+    g = _fill_gaps(g, list(ren.values()), "N2O",
+                   interp_limit=12, step_desc="5-min", max_gap_bound=30000)
     g = g.reset_index().rename(columns={"time": "date"})
     g["date"] = g["date"].dt.tz_localize(None).dt.strftime("%Y-%m-%d %H:%M:%S")
     _w(g[["date"] + [c for c in ren.values() if c != "N2O"] + ["N2O"]].copy(), "N2O")
@@ -250,8 +340,11 @@ def metropt3():
     df = pd.read_csv(os.path.join(DATA, "MetroPT3", "raw",
                                   "MetroPT3(AirCompressor).csv"))
     df["timestamp"] = pd.to_datetime(df["timestamp"])
-    g = (df.set_index("timestamp")[analog].resample("1min").mean()
-           .interpolate(limit_direction="both"))
+    g = df.set_index("timestamp")[analog].resample("1min").mean()
+    # 1-min grid: linear interp <= 60 steps (1 h). Recording gaps up to 48 h
+    # exist (audited 2026-07-14) -> hold-last beyond 1 h (audit P3).
+    g = _fill_gaps(g, analog, "MetroPT3",
+                   interp_limit=60, step_desc="1-min", max_gap_bound=4320)
     g = g.reset_index().rename(columns={"timestamp": "date"})
     g["date"] = g["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
     chans = [c for c in analog if c != "Oil_temperature"]

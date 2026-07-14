@@ -7,8 +7,8 @@ import os
 
 # darts is only needed for the canonical benchmark datasets
 # (ETTh1/ETTh2/ETTm1/ETTm2/Weather/Exchange/Electricity/Traffic).
-# Importing lazily lets local-CSV datasets (SML, AirQuality, Volatility, etc.)
-# work without darts installed.
+# Importing lazily lets local-CSV datasets (the manufacturing 6 + the
+# CMAPSS/PMSM shelf + nrel) work without darts installed.
 def _darts():
     from darts.datasets import (
         ETTh1Dataset, ETTh2Dataset, ETTm1Dataset, ETTm2Dataset,
@@ -142,8 +142,9 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         # Brief 2025). 27 continuous hourly process channels (blast pressures/
         # temps/gas/flows) + Si (hot-metal silicon content = product-quality
         # target, asof-merged from the irregular per-cast Si sheet). Gapless
-        # 2013-2016; raw sensor-fault spikes winsorized in prep. D=27 -> above
-        # sub-1K -> STRESS/breadth tier (like Weather/Electricity). Target = Si.
+        # 2013-2016; raw sensor-fault spikes winsorized in prep. D=28 (27
+        # process + Si) -> above sub-1K -> STRESS/breadth tier (like
+        # Weather/Electricity). Target = Si.
         df = pd.read_csv(root_path + data + '/data' + '.csv')
         df = df.dropna()
         df = df.reset_index(drop=True)

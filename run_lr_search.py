@@ -203,11 +203,20 @@ def summarize(args):
             cd["rank"] = cd.groupby("pred_len")["val_loss"].rank()
             agg = (cd.groupby("lr_val")
                      .agg(mean_rank=("rank", "mean"), mean_val=("val_loss", "mean"),
-                          mean_mse=("MSE", "mean"), cells=("rank", "size")))
+                          mean_mse=("MSE", "mean"), cells=("rank", "size"),
+                          min_seeds=("n_seeds", "min")))
             n_cells = cd["pred_len"].nunique()
             best_lr = agg["mean_rank"].idxmin()
-            incomplete = agg.loc[best_lr, "cells"] < n_cells
-            flag = "  (incomplete)" if incomplete else ""
+            # AUDIT-FIX (2026-07-14, P2-8): flag missing horizons AND missing
+            # seeds — a best-lr picked from 1-of-2-seed cells used to look
+            # identical to a fully-covered one.
+            flags = []
+            if agg.loc[best_lr, "cells"] < n_cells:
+                flags.append("horizons incomplete")
+            if agg.loc[best_lr, "min_seeds"] < len(LR_SEEDS):
+                flags.append(f"seeds {int(agg.loc[best_lr, 'min_seeds'])}"
+                             f"/{len(LR_SEEDS)}")
+            flag = f"  ({'; '.join(flags)})" if flags else ""
             print(f"  {m:>12} | {d:<10} -> lr={best_lr:g}  "
                   f"val={agg.loc[best_lr,'mean_val']:.4f}  "
                   f"testMSE={agg.loc[best_lr,'mean_mse']:.4f}{flag}")

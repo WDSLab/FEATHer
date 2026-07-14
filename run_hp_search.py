@@ -66,9 +66,9 @@ AXES = {
     "lr":          [5e-4, 1e-3, 5e-3],
 }
 
-# All 8 main-table datasets — FEATHer is tuned per-dataset (like every
-# baseline), so the search must cover every dataset the main table reports.
-# SML stays out (robustness-only; not in the main accuracy table).
+# All 8 LTSF generalization datasets — FEATHer is tuned per-dataset (like
+# every baseline). (These were the main table before the JMS manufacturing
+# pivot; the sweep is DONE and its winners are frozen in _DATASET_OVERRIDES.)
 HP_DATASETS = ["ETTh1", "ETTh2", "ETTm1", "ETTm2",
                "Weather", "Exchange", "Electricity", "Traffic"]
 HP_PREDS = [96, 720]
@@ -249,7 +249,8 @@ def _rank_agg(cell_d):
                  .agg(mean_rank=("rank", "mean"),
                       mean_val=("val_loss", "mean"),
                       mean_mse=("MSE", "mean"),
-                      cells=("rank", "size")))
+                      cells=("rank", "size"),
+                      min_seeds=("n_seeds", "min")))
     return agg, cell_d["pred_len"].nunique()
 
 
@@ -275,7 +276,14 @@ def _recommend_for_dataset(cell_d, axis_quiet=False):
                     lines.append(f"    {axis:>11}={v!s:<6} (no results)")
                 continue
             r = agg.loc[tag]
-            flag = " (incomplete)" if r["cells"] < n_cells else ""
+            # AUDIT-FIX (2026-07-14, P2-8): also flag seed under-coverage —
+            # a winner ranked from 1-of-2-seed cells is not a clean verdict.
+            if r["cells"] < n_cells:
+                flag = " (incomplete)"
+            elif r["min_seeds"] < len(HP_SEEDS):
+                flag = f" (seeds {int(r['min_seeds'])}/{len(HP_SEEDS)})"
+            else:
+                flag = ""
             if not axis_quiet:
                 lines.append(f"    {axis:>11}={v!s:<6} "
                              f"rank={r['mean_rank']:.2f} val={r['mean_val']:.4f} "
@@ -325,7 +333,9 @@ def summarize(args):
         if diff:
             combo_tag = _combo_tag(cfg)
             agg_all, n_cells = _rank_agg(cell_d)
-            complete = agg_all[agg_all["cells"] == n_cells]
+            # "complete" now also requires full seed coverage (P2-8).
+            complete = agg_all[(agg_all["cells"] == n_cells)
+                               & (agg_all["min_seeds"] >= len(HP_SEEDS))]
             if combo_tag in complete.index:
                 final_tag = complete["mean_rank"].idxmin()
                 final_cfg = _tag_to_cfg(final_tag)

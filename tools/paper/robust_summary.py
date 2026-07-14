@@ -54,19 +54,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(_THIS_DIR)))
 sys.path.insert(0, _THIS_DIR)  # so `import wilcoxon` (sibling) resolves
 
 from wilcoxon import wilcoxon_pair  # noqa: E402  reuse the paired signed-rank test
+# AUDIT-FIX (2026-07-14, P3): import the severity tables from the torch-free
+# single source instead of a hand-copied mirror — a silent drift here would
+# make the top-severity Wilcoxon match 0 rows (NaN p) with no error.
+from utils.severity import SEVERITY_SWEEPS as _SEVERITY_SWEEPS  # noqa: E402
+from utils.severity import CLEAN_SENTINEL  # noqa: E402
 
 LOWER_IS_BETTER = {"MSE", "MAE", "RMSE"}
 
-# Severity axes per fault type (mirror of utils/noise.py:SEVERITY_SWEEPS +
-# CLEAN_SENTINEL). Kept here so the summary is runnable without importing
-# torch. The "clean" reference value maps to normalized severity 0.
-_SEVERITY_SWEEPS = {
-    "gauss":   [0.05, 0.10, 0.20, 0.30, 0.50],
-    "miss":    [0.05, 0.10, 0.20, 0.30, 0.50],
-    "impulse": [0.005, 0.01, 0.02, 0.05],
-    "quant":   [16, 12, 8, 6, 4],   # ADC bits — SMALLER bits = MORE severe
-}
-_QUANT_CLEAN_BITS = 32.0
+_QUANT_CLEAN_BITS = float(CLEAN_SENTINEL["quant"])
 
 
 def normalized_severity(fault_type, severity):
@@ -241,11 +237,38 @@ def mce_table(df, reference="SparseTSF", metric="MSE"):
     merged = summed.merge(ref, on=["data", "pred_len", "fault_type"], how="left")
     merged["CE"] = merged["err_sum"] / merged["ref_sum"].replace(0, np.nan)
 
+    # AUDIT-FIX (2026-07-14, P2-6): a left-merge + skipna mean silently
+    # averaged models over DIFFERENT cell sets whenever reference rows were
+    # partially missing. Restrict every model to the cell set that (a) has a
+    # reference value and (b) is present for ALL models, and say what was
+    # dropped — an mCE from unequal cell sets is not comparable.
+    cell_cols = ["data", "pred_len", "fault_type"]
+    no_ref = merged.loc[merged["CE"].isna(), cell_cols].drop_duplicates()
+    if not no_ref.empty:
+        print(f"[mCE] WARNING: {len(no_ref)} (data, pred_len, fault) cell(s) "
+              f"lack a {reference} reference — dropped for ALL models:",
+              file=sys.stderr)
+        for _, r in no_ref.iterrows():
+            print(f"        {r['data']} | H={r['pred_len']} | {r['fault_type']}",
+                  file=sys.stderr)
+        merged = merged.dropna(subset=["CE"])
+
+    n_models = merged["model"].nunique()
+    per_cell = merged.groupby(cell_cols)["model"].nunique()
+    common = per_cell[per_cell == n_models].reset_index()[cell_cols]
+    n_dropped = int((per_cell < n_models).sum())
+    if n_dropped:
+        print(f"[mCE] WARNING: {n_dropped} cell(s) missing for some model(s) "
+              f"— mCE computed over the {len(common)} cells common to all "
+              f"{n_models} models.", file=sys.stderr)
+        merged = merged.merge(common, on=cell_cols, how="inner")
+
     per_fault = (merged.groupby(["model", "fault_type"])["CE"]
                        .mean().reset_index())
     per_fault_wide = per_fault.pivot(index="model", columns="fault_type",
                                      values="CE")
     per_fault_wide["mCE"] = per_fault_wide.mean(axis=1)
+    per_fault_wide["n_cells"] = merged.groupby("model").size()
     return per_fault_wide.sort_values("mCE").reset_index()
 
 

@@ -223,8 +223,17 @@ def train_single(args, data_name, pred_len, device, seed):
             break
 
     # ---------- Test (once, on the best-val model) ----------
-    if best_state is not None:
-        model.load_state_dict(best_state)
+    # AUDIT-FIX (2026-07-14, P2-5): if val_loss was never finite, there is no
+    # best-val model — evaluating the last-epoch weights would write a
+    # normal-looking row (val_loss=inf, best_epoch=0) and --save_model would
+    # checkpoint a degenerate state. Fail the seed instead: no row is
+    # written, and the worker exits non-zero via the P2-1 path so the
+    # orchestrator surfaces the group.
+    if best_state is None:
+        raise RuntimeError(
+            f"no finite val_loss in {args.num_epochs} epoch(s) — degenerate "
+            f"run (diverged/NaN); refusing to report last-epoch metrics")
+    model.load_state_dict(best_state)
     model.eval()
     sum_vector = np.zeros(num_metrics, dtype=np.float64)
     cnt_vector = np.zeros(num_metrics, dtype=np.float64)

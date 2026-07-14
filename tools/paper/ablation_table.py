@@ -172,11 +172,15 @@ def main():
         sys.exit(1)
 
     axes = [args.axis] if args.axis else AXIS_ORDER
-    for ax in axes:
-        print(f"\n## Axis: {ax}  (metric={args.metric}"
-              + (f", data={args.data}" if args.data else ", all datasets")
-              + ")\n")
-        print(per_axis_table(df, ax, args.metric, args.format))
+    # AUDIT-FIX (2026-07-14, P2-7): never pool raw MSE across datasets — the
+    # scales differ, so a pooled mean is dominated by the largest-scale
+    # dataset. Without --data, emit one table per dataset instead.
+    datasets = [args.data] if args.data else sorted(df["data"].unique())
+    for data in datasets:
+        df_d = df[df["data"] == data]
+        for ax in axes:
+            print(f"\n## {data} — axis: {ax}  (metric={args.metric})\n")
+            print(per_axis_table(df_d, ax, args.metric, args.format))
 
 
 if __name__ == "__main__":

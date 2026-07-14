@@ -10,7 +10,7 @@ parameter / edge-MCU constraints. It combines multi-scale frequency
 decomposition with a shared temporal kernel and a period-aware sparse
 forecasting head.
 
-## Current status (2026-07-14c)
+## Current status (2026-07-14d)
 
 **Positioning (settled):** Fresh **JMS** submission (TPAMI reject → IoT-J →
 JMS manufacturing pivot). Main table = **6 manufacturing datasets** (Steel ·
@@ -53,12 +53,32 @@ frontier. 12-model baseline lineup unchanged.
 - ✅ **P2-1 worker exit code**: training worker now exits 1 if any seed run
   failed (kills the reformer-style silent-skip class). **P2-2 CSV header
   race**: atomic `open(mode="x")` create-with-header in both workers.
-- **STILL OPEN (P2-3..8, P3)**: `check_duplicates.py --fix` robust-CSV guard,
-  CLI-vs-override precedence for manual FEATHer runs, best_state=None
-  degenerate row, mCE partial-reference silence, ablation_table cross-dataset
-  pooling, --summary seed-coverage flags, prep interpolation lookahead
-  (N2O/MetroPT3) + BlastFurnace winsorize bounds, misc stale docstrings.
-  See the audit doc for details.
+- ✅ **P2-3..8 + P3 batch (2026-07-14d) — AUDIT FULLY CLOSED** (23-check
+  smoke suite passed + all 4 orchestrators `--check` exit 0; details in the
+  audit doc UPDATE 2 block):
+  - P2-3 check_duplicates schema-detects the robust CSV (key extends with
+    train_exp_tag/fault_type/severity — `--fix` now safe on it). P2-4
+    explicit FEATHer CLI arch flags beat `_DATASET_OVERRIDES` (flags default
+    None; sweep behavior byte-identical). P2-5 best_state=None raises (no
+    row/ckpt; exits via P2-1 path). P2-6 mCE drops no-ref + model-incomplete
+    cells for ALL models (warns; emits n_cells). P2-7 ablation_table = one
+    table per dataset (no raw-MSE pooling). P2-8 lr/hp `--summary` flag seed
+    under-coverage; hp combo "complete" requires full seeds.
+  - P3: prep `_fill_gaps` gap policy (linear interp ≤ ~1 h, hold-last
+    beyond — no lookahead/linear bridging of outages; audited max-gap
+    asserts); BlastFurnace winsorize bounds from the TRAIN region (also
+    finally clips the late Tp4 ~3311 sentinel: hi 3313→855); EWELD D=14
+    assert; metrics.py np.divide out= init; severity tables +
+    corruption_seed → torch-free `utils/severity.py` (noise.py re-exports,
+    robust_summary shares the object, utils/__init__ now lazy PEP 562);
+    FEATHer half-RevIN (means detached, stdev not) KEPT + documented as
+    deliberate (changing it would invalidate all frozen OFAT rows); stale
+    docstrings/comments swept.
+  - ⚠ **DATA REGENERATED** under the new gap policy — cells changed:
+    MetroPT3 16.6% / N2O 2.7% / WindSCADA 1.1% / BlastFurnace 0.9% /
+    EWELD·Steel 0%. Pre-fix copies kept at `data/<name>/data.csv.preP3bak`.
+    → transfer the 4 changed data.csv to the server and purge/refill their
+    lr_search rows (added to SERVER PROCEDURE below).
 
 **▶ SERVER PROCEDURE after pulling the fix commit** (order matters):
 ```bash
@@ -72,6 +92,11 @@ python tools/audit/purge_rows.py --csv results/lr_search.csv    --model FEATHer 
 # (the λ=0.01 anchor) so the λ axis refills under the corrected loss
 # (4 tags × 8 datasets × 2H × 2seeds = 128 tiny FEATHer runs):
 python tools/audit/purge_rows.py --csv results/hp_search.csv --exp_tag hp_lambda_spec_0.0,hp_lambda_spec_0.001,hp_lambda_spec_0.1,hp_base --apply
+# (P3 data regen, 2026-07-14d) transfer the 4 regenerated data.csv files
+# from local (WindSCADA / BlastFurnace / N2O / MetroPT3 — Steel/EWELD
+# unchanged), THEN purge their lr rows so lr is re-selected on the new data
+# (~960 of 2,160 lr runs; MetroPT3 changed 16.6% — too big to caveat away):
+python tools/audit/purge_rows.py --csv results/lr_search.csv --data WindSCADA,BlastFurnace,N2O,MetroPT3 --apply
 # then just re-run the same sweep commands — resume fills the gaps.
 # Weather + lambda OFAT slices (hp_search) refill via run_hp_search.py;
 # re-freeze the Weather row in _DATASET_OVERRIDES from --summary afterwards.
@@ -96,19 +121,23 @@ fixed location with its finding ID.
 incl EWELD); LTSF baseline sweep resuming (12 models, 1,920). GPU box =
 2×94.5GB, shared with CF-JEPA.
 
-**Local git**: 2 commits LOCAL only, NOT pushed (dbf8179 robust_summary
-metrics + 54e3407 gate_logging). Push policy: **ijaehun (personal) ONLY**,
-not WDSLab, unless asked.
+**Local git**: 5 commits LOCAL only, NOT pushed (dbf8179 robust_summary
+metrics + 54e3407 gate_logging + cfd90c5/c8f61e0 audit P0/P1 + the P2/P3
+close-out commit). Push policy: **ijaehun (personal) ONLY**, not WDSLab,
+unless asked.
 
 **▶ NEXT**
-1. ✅ ~~Apply audit fixes~~ (done 2026-07-14c, committed with this block).
-   Remaining audit items = P2-3..8 + P3 batch (see audit doc), lower urgency.
+1. ✅ ~~Apply audit fixes~~ — ENTIRE audit closed 2026-07-14d (P0/P1 in
+   cfd90c5, P2-3..8+P3 in the close-out commit). Nothing left in the audit
+   doc.
 2. **Server**: run the purge + resume procedure above (Weather + FEATHer
-   rows), then continue the chain: lr search finishes → `--summary` → MERGE
-   lr into the EXISTING period entries in `_DATASET_OVERRIDES` (no dup keys)
-   → mfg main sweep (`--group mfg --exp_tag main --save_model --ngpu 2`,
-   1,440, makes robustness checkpoints) → robustness sweep →
-   `robust_summary.py` + `gate_logging.py`.
+   rows + the λ OFAT slice), **transfer the 4 regenerated data.csv
+   (WindSCADA/BlastFurnace/N2O/MetroPT3) and purge their lr rows**, then
+   continue the chain: lr search finishes → `--summary` → MERGE lr into the
+   EXISTING period entries in `_DATASET_OVERRIDES` (no dup keys) → mfg main
+   sweep (`--group mfg --exp_tag main --save_model --ngpu 2`, 1,440, makes
+   robustness checkpoints) → robustness sweep → `robust_summary.py` +
+   `gate_logging.py`.
 3. **A+C Intro/Motivation draft** (`manuscript/drafts/`) — needs air-gap /
    OT-isolation citations; scope to genuinely-local settings.
 4. **Still-missing analysis code**: component ablation UNDER corruption
@@ -189,11 +218,12 @@ FEATHer/
 │   ├── losses.py                   spectral_separation_loss_scales (FEATHer-specific)
 │   ├── metrics.py                  metric() (MSE/MAE/RMSE/CORR/R2)
 │   ├── noise.py                    4-axis corruption (gauss/miss/impulse/quant)
+│   ├── severity.py                 torch-free severity grids + corruption_seed (single source)
 │   └── timefeatures.py
 ├── tools/
 │   ├── prep_manufacturing.py       reproducible raw→data.csv for the 6 MFG datasets (tracked; data/ gitignored)
 │   ├── audit/check_progress.py     read results CSV, print coverage + mean±std preview
-│   ├── audit/check_duplicates.py   resume-key dup audit + --fix (fcst_results.csv schema ONLY — see audit P2-3)
+│   ├── audit/check_duplicates.py   resume-key dup audit + --fix (schema-aware: robust CSV key auto-extends)
 │   └── paper/                      Phase 5 table/figure generators
 │       ├── main_table.py           5-seed mean±std table + persistence column (md / latex / csv)
 │       ├── wilcoxon.py             pairwise signed-rank vs FEATHer
@@ -246,8 +276,8 @@ python run_hp_search.py --check / --summary / --validate
 # Windows gotcha: run --summary with PYTHONUTF8=1 PYTHONIOENCODING=utf-8 (em-dash vs cp949)
 
 # === Robustness sweep (after mfg-main checkpoints exist) ===
-# ⚠ BLOCKED on audit P0 fixes (override forwarding etc.) — see
-# manuscript/notes/code_audit_2026-07-14.md before launching.
+# (audit fully closed 2026-07-14d — only blocker left is the mfg-main
+# checkpoints themselves)
 python run_robustness.py --check            # 1,200 ckpt × 20 cond = 24,000 rows
 python run_robustness.py --train_exp_tag main --exp_tag robust
 python run_robustness.py --model FEATHer --train_exp_tag main
@@ -258,7 +288,7 @@ python run_forecast.py --ablation_axis all --data ETTh1 --exp_tag ablation
 
 # === Progress audit ===
 python tools/audit/check_progress.py --exp_tag main
-python tools/audit/check_duplicates.py      # fcst_results.csv ONLY (not robust CSV)
+python tools/audit/check_duplicates.py      # schema-aware (robust CSV key auto-extends)
 
 # === Paper artifact generators (Phase 5) ===
 python tools/paper/main_table.py --metric MSE --format latex > main_mse.tex
@@ -419,14 +449,13 @@ regenerate with `python tools/prep_manufacturing.py [<name> ...]`
 
 ## Known issues / gotchas
 
-- **⚑ AUDIT (2026-07-14c)** — P0/P1/P2-1/2 batch FIXED + validated (see
-  Current status). Still open from
-  `manuscript/notes/code_audit_2026-07-14.md`: `check_duplicates.py --fix`
-  must NOT be pointed at robust_results.csv (its key lacks fault/severity —
-  it would delete 95% of the sweep); manual FEATHer sensitivity runs: CLI
-  arch flags are silently beaten by `_DATASET_OVERRIDES` (sweeps unaffected);
+- **⚑ AUDIT (2026-07-14) — FULLY CLOSED** (P0/P1/P2-1,2 in cfd90c5;
+  P2-3..8 + P3 in the 07-14d close-out). Residual DATA facts to remember:
   pre-fix Weather rows and stored-RMSE values in old CSVs are stale (purge /
-  derive sqrt(MSE) respectively).
+  derive sqrt(MSE) respectively); lr rows for WindSCADA/BlastFurnace/N2O/
+  MetroPT3 predate the gap-policy data regen (purge+refill per SERVER
+  PROCEDURE); `data/<name>/data.csv.preP3bak` = pre-fix data copies (delete
+  once the server transition is confirmed).
 - **`--ngpu N` + upstream hardcoded `.cuda()` (fixed 2026-07-13)**: workers
   call `torch.cuda.set_device(args.gpu)` at startup. Do NOT sed the upstream
   `baselines/*/*-main/` files (gitignored, re-cloned).

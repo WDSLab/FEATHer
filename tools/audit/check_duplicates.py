@@ -18,9 +18,16 @@ duplicates before they reach a table, and `--fix` rewrites a deduped CSV
 Resume key (matches run_forecast.py load_done_set):
     exp_tag, model, data, pred_len, seq_len, seed
 
+AUDIT-FIX (2026-07-14, P2-3): robust_results.csv rows are keyed PER
+(fault_type, severity) CONDITION — 20 rows per checkpoint is by design, not
+duplication. The schema is auto-detected (fault_type column present) and the
+key extended accordingly, so pointing this tool (or --fix) at the robustness
+CSV can no longer flag/delete 95% of a legitimate sweep.
+
 Usage:
     python tools/audit/check_duplicates.py
     python tools/audit/check_duplicates.py --csv results/fcst_results.csv
+    python tools/audit/check_duplicates.py --csv results/robust_results.csv
     python tools/audit/check_duplicates.py --exp_tag main
     python tools/audit/check_duplicates.py --fix          # dedup in place (backs up first)
 """
@@ -35,6 +42,22 @@ import pandas as pd
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 RESUME_KEY = ["exp_tag", "model", "data", "pred_len", "seq_len", "seed"]
+
+# robust_results.csv extension: one row per corruption condition is the
+# intended cardinality, so the condition columns are part of the key.
+ROBUST_EXTRA_KEY = ["train_exp_tag", "fault_type", "severity"]
+
+
+def resume_key_for(df):
+    """Pick the resume key by schema. A `fault_type` column marks the
+    robustness CSV — its per-condition rows would look like 19 duplicates
+    per cell under the plain key (audit P2-3)."""
+    key = list(RESUME_KEY)
+    if "fault_type" in df.columns:
+        key += [c for c in ROBUST_EXTRA_KEY if c in df.columns]
+        print("[schema] fault_type column detected -> robustness CSV; "
+              f"resume key extended with {ROBUST_EXTRA_KEY}")
+    return key
 
 # FEATHer belongs on the LTSF-8 (generalization) datasets under --group ltsf.
 # If it shows up on a manufacturing / PdM dataset it was almost certainly
@@ -82,8 +105,9 @@ def report_group_anomalies(df):
 
 
 def report_duplicates(df, csv_path):
-    key_present = [c for c in RESUME_KEY if c in df.columns]
-    missing_cols = set(RESUME_KEY) - set(key_present)
+    resume_key = resume_key_for(df)
+    key_present = [c for c in resume_key if c in df.columns]
+    missing_cols = set(resume_key) - set(key_present)
     if missing_cols:
         print(f"[warn] CSV missing resume-key columns: {sorted(missing_cols)}; "
               f"using {key_present}")
@@ -111,8 +135,10 @@ def report_duplicates(df, csv_path):
                .reset_index(name="copies")
                .sort_values("copies", ascending=False))
     for _, r in grp.head(40).iterrows():
+        cond = (f" | {r.fault_type}@{r.severity}"
+                if "fault_type" in grp.columns else "")
         print(f"    x{int(r.copies)}  [{r.exp_tag}] {r.model} | {r.data} | "
-              f"H={r.pred_len} L={r.seq_len} | seed={r.seed}")
+              f"H={r.pred_len} L={r.seq_len} | seed={r.seed}{cond}")
     if len(grp) > 40:
         print(f"    ... ({len(grp) - 40} more duplicated keys)")
 

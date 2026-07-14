@@ -15,9 +15,14 @@ def corr_mean(pred, true):
     cnt = m.sum(axis=1)                              # (B, F)
     valid = cnt >= 2
 
-    # Masked mean
-    x_mean = np.divide((x*m).sum(axis=1), cnt, where=valid)[:, None, :]
-    y_mean = np.divide((y*m).sum(axis=1), cnt, where=valid)[:, None, :]
+    # Masked mean. AUDIT-FIX (2026-07-14, P3): np.divide with `where=` leaves
+    # the unselected entries UNINITIALIZED — pass out=zeros so invalid (B,F)
+    # pairs hold a defined value (they are masked out of `r` at the end, but
+    # garbage here could surface as spurious warnings/NaN-propagation).
+    x_mean = np.divide((x*m).sum(axis=1), cnt,
+                       out=np.zeros(cnt.shape, dtype=float), where=valid)[:, None, :]
+    y_mean = np.divide((y*m).sum(axis=1), cnt,
+                       out=np.zeros(cnt.shape, dtype=float), where=valid)[:, None, :]
 
     # Centering
     xc = np.where(m, x - x_mean, 0.0)
@@ -54,7 +59,10 @@ def r2_mean(pred, true):
 
     # y mean (masked)
     # Use minimum of 1 for denominator to avoid cnt=0, calculate only valid locations with where=valid
-    y_mean = np.divide((y * m).sum(axis=1), np.maximum(cnt, 1), where=valid)[:, None, :]
+    # AUDIT-FIX (2026-07-14, P3): out=zeros — `where=` alone leaves the
+    # unselected entries uninitialized (see corr_mean).
+    y_mean = np.divide((y * m).sum(axis=1), np.maximum(cnt, 1),
+                       out=np.zeros(cnt.shape, dtype=float), where=valid)[:, None, :]
 
     # SSE, SST (masked)
     sse = ((y - x) ** 2 * m).sum(axis=1)           # (B, F)
