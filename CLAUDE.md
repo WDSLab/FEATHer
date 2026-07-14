@@ -10,687 +10,136 @@ parameter / edge-MCU constraints. It combines multi-scale frequency
 decomposition with a shared temporal kernel and a period-aware sparse
 forecasting head.
 
-**Status (2026-07-14b) — ⚑ ROBUSTNESS ANALYSIS CODE DONE + 🟢 R3 RESOLVED
-(A+C framing). Committed dbf8179 (LOCAL only, NOT pushed).**
-- **Robustness analysis code (Thread A) DONE** — `tools/paper/robust_summary.py`
-  gained 4 metrics: **μ_rel** = MSE_clean/MSE_corrupt (retention, higher=better);
-  **AUC** = normalized-severity integral of Dw (quant bit-axis reversed so "more
-  severe" always increases; lower=more robust); **mCE** normalized to SparseTSF
-  (Hendrycks ICLR'19 ratio; <1 = beats the 41p linear rival); **FEATHer-vs-
-  SparseTSF degradation curve** = per-fault slope + top-severity paired Wilcoxon
-  (reuses `wilcoxon.py`) + PNG. Also fixed `dw_table` ratio/delta unit mix; added
-  `--reference`/`--focus`; ALL comparisons anchored to SparseTSF (framing guard).
-  **Validated end-to-end on a SYNTHETIC robust_results.csv** (μ_rel/AUC/mCE/curve
-  directionality all correct, figures render). ⚠ REAL sweep still UNRUN — code is
-  ready, needs mfg-main checkpoints first.
-- **Robustness set: GasTurbine→EWELD** in `run_robustness.py:ROBUSTNESS_DATASETS`
-  = **[Steel, WindSCADA, EWELD, ETTh1, Weather]** (GasTurbine was the last stale
-  active ref to the removed dataset; all others were comments). EWELD earns it:
-  its 5,741 extreme-weather event windows are the ONLY non-synthetic
-  distribution-shift robustness test (backs up the 4 synthetic axes). Count = 5.
-- **🟢 R3 RESOLVED — A+C framing, NO short-term experiments in the paper.** KEY
-  realization: reject_mail is a TPAMI **REJECT**; we are a **FRESH JMS submission**
-  → **no obligation to rebut R3**. R3 is one voice in a premise-attack CLUSTER
-  (also reject_mail 269/98/427: "sub-1K+long+edge is contrived / why 1K / sub-1K
-  is config-limited"). Resolution:
-  * **A (justify premise)**: long-horizon MUST run on-device in INDUSTRIAL edge —
-    air-gap/OT isolation (no cloud egress), per-machine-sensor scale (offload
-    doesn't scale), autonomy under network outage. R3's premise "long-horizon can
-    offload" fails for industry. OUR DATASETS ARE THE EVIDENCE: WindSCADA (remote
-    turbines), MetroPT3 (moving asset), Steel/BlastFurnace/N2O (OT-isolated
-    plants), EWELD (factory). R3 generalized from CONSUMER IoT (edge=short);
-    industrial edge ≠ that.
-  * **C (decouple axes)**: "edge" = param/memory budget (sub-1K/MCU); "horizon" =
-    task. ORTHOGONAL — never claimed edge⟹short. Reframe "why 1K" → accuracy-per-
-    param **Pareto FRONTIER** (not a magic threshold) → also kills the 269/98
-    cluster.
-  * **Short-term NOT in paper** — preserves the 07-13c long-horizon identity +
-    avoids the co-equal "does-both" muddle (subordination logic). Stays **lr-
-    BANKED insurance (option a)**: if a JMS reviewer forces it, run the 540 CMAPSS
-    sweep in revision — do NOT pre-run (GPU busy w/ real work; don't pre-spend on a
-    hypothetical). If ever included, use INDUSTRIAL short-horizon (CMAPSS PdM), NOT
-    generic M4/GIFT-Eval — justified by R3's own "edge does short INDUSTRIAL tasks"
-    logic (aikido).
-- **FFT gate-under-corruption logging DONE** (`tools/paper/gate_logging.py`,
-  committed 54e3407) — loads a FEATHer checkpoint, forward-hooks the
-  `FFTFrequencyGate` (non-invasive), dumps mean per-band gate weights on clean +
-  every fault/severity → CSV + re-allocation shift table + PNG. Interpretability
-  = does the gate route AROUND corrupted bands (answers reject_mail R2#3/R3#3).
-  Plumbing validated on an untrained FEATHer; real figures need mfg-main ckpts.
-- **⚠ EVIDENCE STATE (verified from `hp_search.csv` this session)**: only
-  **num_bands is confirmed FLAT on clean** LTSF-8 (B2/B3/B4 mean MSE
-  0.4505/0.4418/0.4457, mean-rank 2.13/1.97/1.91 — no meaningful separation).
-  The **gate on/off clean effect is UNTESTED** (no `hp_gate_*` in OFAT; needs the
-  ablation sweep), and **everything robustness is UNTESTED** (sweep unrun). So the
-  "extra params buy ROBUSTNESS not accuracy" thesis rests on ONE confirmed fact
-  (bands flat) + an unproven bet (gate/bands help robustness). Robustness sweep
-  is still the #1 risk.
-- **▶ NEXT (this session's handoff — 2 commits LOCAL only: dbf8179 + 54e3407,
-  NOT pushed)**: (1) **A+C Intro/Motivation draft NOT yet written** (user
-  deferred) → needs air-gap/OT-isolation **citations**, scope to genuinely-local
-  settings (remote assets / secure OT / mass sensors) so "why not offload" holds →
-  `manuscript/drafts/`. (2) server sweeps continue: lr search → `--summary` →
-  MERGE into `_DATASET_OVERRIDES` period entries → mfg main sweep (`--group mfg
-  --save_model`, makes robustness checkpoints) → robustness sweep → run
-  `robust_summary.py` + `gate_logging.py`. (3) STILL TODO code: **component
-  ablation UNDER corruption** (run gate-off/band-off variants through the
-  robustness sweep → "removing gate hurts robustness ≫ accuracy") + **Pareto plot
-  generator** (MSE-vs-params frontier; neither exists — `ablation_table.py` is
-  clean-accuracy only). (4) push dbf8179+54e3407 to ijaehun when user OKs. (5)
-  raw-data cleanup under `data/` — DECIDED: **skip** (gitignored, 1.6G trivial,
-  raw = regen safety net, dir already clean of dead datasets; if disk pressure,
-  drop PMSM raw first).
+## Current status (2026-07-14c)
 
-**Status (2026-07-14) — ⚑ MANUFACTURING LINEUP LOCKED at 6 (EWELD in,
-GasTurbine out); baseline stays 12; period HPs data-driven. UNCOMMITTED.**
-- **FINAL manufacturing 6 (LOCKED after exhaustive vetting)**: **Steel** (energy)
-  · **WindSCADA** (wind, ≥4 forecasting papers) · **BlastFurnace** (iron process,
-  gapless-verified) · **N2O** (WWTP process) · **MetroPT3** (compressor machine-
-  sensor) · **EWELD** (factory 15-min load — the star add). All real, continuous,
-  persistence-audited non-trivial, domain-diverse. Run counts: mfg **1,440**
-  (12×6×4×5) · lr **2,160** (9 = 6 mfg + 3 PdM shelf) · all **3,360**.
-- **EWELD** (Sci Data 2023, Figshare 10.6084/m9.figshare.21893808, CC-BY) —
-  386-user industrial load bank; we use **Section-C metals (C24+C25), 14 lowest-
-  ID users covering gap-free 2018-01-01..2020-12-31** (D=14 sub-1K core, 105,216
-  rows @ 15-min). UNIQUE value = 6-yr source → **daily+weekly+ANNUAL** multi-
-  period (only dataset that showcases the multi-band head) + **5,741 labeled
-  extreme-weather events = REAL distribution-shift robustness** (upgrades the
-  robustness pillar beyond synthetic corruption). ⚠ strong daily cycle →
-  copy-last-STEP 1.27-1.47 (non-trivial) but seasonal copy-last-DAY ~0.55 →
-  MUST report a seasonal-naive baseline; robustness value lives in the event
-  windows. Regenerate: `prep_manufacturing.py EWELD` (reads data/EWELD/raw/EWELD.zip).
-- **GasTurbine fully REMOVED** (data + loader + prep + period-override all
-  deleted) — data-verified ~15% hours missing/year + synthetic hourly index
-  mixes non-adjacent real times = broken sliding window. Treated as REJECTED
-  (broken), NOT deferred-shelf like CMAPSS — no revival path (re-download from
-  UCI #551 if ever needed).
-- **Vetted + REJECTED this round** (record so they don't resurface): TEP
-  (simulation + anomaly-native), Machine-health/ziya07 (SYNTHETIC + 34 short
-  per-machine segments), AI4I (synthetic), UCI Gas-Sensor (real but mediocre
-  chemical-lab, weak periodicity). **PyTSF-MfG** (Farahani 2025 RCIM, arXiv:
-  2411.17499) = closest prior mfg-TSF benchmark — verified its `DATASET_POOL` is
-  mostly toy/generic (AirPassengers, Seoul Bike, Brent Oil, ETT, ECL, grid); only
-  Steel + 2 gas-sensors are real-mfg → confirms mfg data scarcity (cite for scope
-  + "first EDGE/sub-1K mfg benchmark" gap; consider N-HiTS/TiDE as full-size
-  mfg-SOTA reference baselines, they crown those but they're ~10^5-10^6 params).
-- **Freq-tied period HPs now DATA-DRIVEN** (fairness — default hourly period was
-  crippling SparseTSF harder than FEATHer): FFT-detected dominant period per mfg
-  dataset in `_DATASET_OVERRIDES` for all 3 period-models (FEATHer/SparseTSF
-  period ≤48 divisor; TQNet cycle = daily). lr for mfg cells MERGES IN later from
-  run_lr_search (edit dicts, don't paste dup keys).
-- **SCINet was added then REVERTED** (4d8cf8e): reviewer only named it as multi-
-  scale prior work (novelty critique), not a benchmark request; no LTSF config.
-  Baseline stays **12**.
-- **▶ STRATEGIC ISSUE (RESOLVED 2026-07-14b → A+C framing; see top Status
-  block)**: TPAMI **R3 said "long-term on edge is
-  contrived; edge does SHORT-horizon; add short-term (GIFT-Eval/M4)"** (reject_mail
-  #1). Our 2026-07-13c "drop short-term PdM for identity" decision DIRECTLY
-  conflicts with R3 and doubles down on the attacked premise. Leaning: reframe as
-  "one sub-1K model spans short→long horizons = edge versatility" (address R3
-  without the does-both muddle) — ~~NOT yet decided~~ **RESOLVED 2026-07-14b: went
-  with A+C (justify industrial on-device long-horizon + decouple edge≠horizon),
-  NO short-term in paper. The versatility/does-both route was REJECTED as
-  unnecessary — it's a fresh JMS submission, not a TPAMI rebuttal. See top block.**
-- **▶ NEXT (handoff 2026-07-14, all committed: cdf36c7 latest, pushed ijaehun
-  ONLY)**: (1) **lr search IS RUNNING on the server** for the new mfg data
-  (`run_lr_search.py --ngpu 2`, 9 datasets incl EWELD; data/EWELD/data.csv
-  transferred, code pulled) → when done: `--summary` → **MERGE the lr into the
-  EXISTING period entries in `_DATASET_OVERRIDES`** (do NOT paste dup keys — e.g.
-  `("SparseTSF","EWELD"): {"sparsetsf_period_len": 24, "lr": X}`). (2) then
-  **manufacturing main sweep** `run_forecast --group mfg --exp_tag main
-  --save_model --ngpu 2` (1,440; --save_model makes the robustness checkpoints).
-  (3) **LTSF sweep** resume also running (12 models, back to 1,920 after SCINet
-  revert). (4) ~~🔴 RESOLVE R3~~ **🟢 R3 RESOLVED 2026-07-14b (A+C — see top
-  block)**. (5) **analysis code DONE 2026-07-14b** (Thread A: `robust_summary.py`
-  μ_rel/AUC/mCE-vs-SparseTSF/degradation-curve — see top block); robustness SWEEP
-  still pending mfg-main checkpoints. lr search bypasses overrides (default arch)
-  so period settings don't affect it; periods are for the main sweep only.
+**Positioning (settled):** Fresh **JMS** submission (TPAMI reject → IoT-J →
+JMS manufacturing pivot). Main table = **6 manufacturing datasets** (Steel ·
+WindSCADA · BlastFurnace · N2O · MetroPT3 · EWELD), LTSF-8 demoted to a
+generalization section, short-horizon PdM (CMAPSS/CMAPSS3/PMSM) **NOT in the
+paper** (lr-banked shelf, `--group cmapss`). FEATHer's 453p > SparseTSF 41p is
+justified by **ROBUSTNESS, not accuracy** (OFAT num_bands FLAT on clean).
+Framing guard: NOT "more params = more robust" but "41p linear lacks headroom;
+FEATHer's inductive bias buys graceful degradation at sub-1K". R3's
+"long-term-on-edge is contrived" attack resolved via **A+C framing**: (A)
+industrial edge NEEDS on-device long-horizon (air-gap/OT isolation, per-sensor
+scale, outage autonomy — our datasets are the evidence), (C) edge = param
+budget, horizon = task, orthogonal axes; "why 1K" → accuracy-per-param Pareto
+frontier. 12-model baseline lineup unchanged.
 
-**Status (2026-07-13c) — ⚑ DATASET SCOPE RESHAPED: short-horizon PdM DROPPED,
-manufacturing expanded 3→6 (read FIRST; all UNCOMMITTED).**
-- **Big decision — short-horizon PdM section (CMAPSS/CMAPSS3/PMSM) DROPPED from
-  the paper.** It was the one experiment block attaching to NEITHER pillar: (a)
-  contradicts the long-term "frequency forecaster" identity (short horizon =
-  where the multi-scale/FFT inductive bias is weakest), (b) not in the
-  robustness anchors (Steel/GT/Wind/ETTh1/Weather), (c) created a grid-asymmetry
-  attack ("why short horizons only there? why not H=24 on ETTh1?"). Dropping it
-  unifies every dataset to [96..720] + keeps identity sharp. **Kept as SHELF**:
-  loader (`Dataset_CMAPSS`), prep recipes, and lr search all retained; reachable
-  via `run_forecast --group cmapss`. Archived from `--group all` + `main_table.py`
-  + `persistence_baseline.py` (`all`→mfg only). **lr search STILL runs CMAPSS**
-  on purpose (cheap insurance — if a reviewer asks, lr is banked, just run the
-  540 main sweep).
-- **Manufacturing datasets 3→6** (all downloaded to gitignored `data/`, wired in
-  `prep_manufacturing.py`+`data_factory.py`, smoke-tested end-to-end, persistence
-  -audited non-trivial). **5 sub-1K CORE + 1 stress**:
-  * **MetroPT3** (UCI #791, metro-train APU air compressor) — 7 analog channels
-    @ 1-min mean, D=7 → 453p CORE. Persistence 0.80-1.14 (native 10-s also
-    passes; compressor duty-cycle defeats copy-last → NOT the 2Hz-PMSM trap).
-    Native anomaly set cast as forecasting (TIME benchmark precedent).
-    target=Oil_temperature.
-  * **N2O** (Avedore WWTP, Mendeley xmbxhscgpr; arXiv:2407.05959) — 14 continuous
-    sensor channels @ 5-min mean (raw 1-min was ~40% NaN → 5.8% after 5-min agg,
-    interpolated), D=14 → 866p CORE. Persistence 1.10-1.53. Forecasting-native.
-    ⚠ FRAMING: wastewater = "continuous INDUSTRIAL PROCESS monitoring", the one
-    non-strict-manufacturing set (defensible, but note it). target=N2O.
-  * **BlastFurnace** (MISIS, Mendeley 6d7jbc7tb5, Data in Brief 2025) — 27 hourly
-    process channels + Si (hot-metal silicon = product-quality target, asof-merged
-    from the irregular per-cast Si sheet), D=28 → 1,986p **STRESS tier** (breaks
-    sub-1K like Weather/Electricity; the user's own "big data OK as stress test"
-    logic). Winsorize[0.5,99.5] tail-clip (raw has a ~3311 temp error-sentinel);
-    persistence Si-only 3.7-5.0 (staircase concern REFUTED — Si genuinely hard at
-    long horizons). Needs `openpyxl` to regenerate from xlsx.
-- **Rejected candidates**: SPARK/KIT (best manufacturing fit but access WALL —
-  RADAR4KIT ships one 71GB tar, no per-file API); Korean 10-factory (univariate);
-  gas-sensor-drift (batch classification). N2O was the SPARK fallback.
-- **New run counts**: mfg main **1,440** (12×6×4×5) · lr search **2,160** (9
-  datasets = 6 mfg + 3 PdM shelf) · `--group all` **3,360** (mfg6 + LTSF8).
-- **▶ NEXT (uncommitted → commit first)**: (1) commit this dataset work;
-  (2) transfer the 3 new `data/*/data.csv` to the server (+`pip install openpyxl`
-  only if regenerating BlastFurnace); (3) `manuscript/notes/EXPERIMENT_OVERVIEW.md`
-  updated to 6-mfg — re-read it; (4) THEN the robustness analysis code
-  (Thread A, unchanged goal below).
+**⚑ CODE AUDIT (2026-07-14c) — full-repo review done, findings in
+`manuscript/notes/code_audit_2026-07-14.md`. ✅ THE CRITICAL BATCH IS FIXED
+(same session, all validated end-to-end):**
+- ✅ **P0-1 robustness override plumbing**: `run_robustness.py` dispatch now
+  mirrors the training-time `get_method_defaults`+`get_dataset_overrides`
+  merge → `--model_overrides`; the worker gained the flag +
+  `_apply_overrides()`; `gate_logging.py` applies the same merge itself.
+  Verified live: trained ETTh1 d16/k3/p8/B4 ckpt loads + clean MSE
+  reproduces training-time test MSE exactly.
+- ✅ **P0-2 corruption seeding**: salted `hash((ft,sev))` →
+  `utils/noise.corruption_seed()` (deterministic index-based). Verified:
+  re-run reproduces corrupt-MSE to 6 decimals across processes.
+- ✅ **P0-3 robustness resume**: `load_robust_set` counts DISTINCT
+  (fault,severity) pairs; worker skips conditions already in the CSV
+  (per-condition resume — no duplicate rows on retry). Verified via
+  truncate-and-refill test.
+- ✅ **P1-1 spectral loss band order** fixed (`bands[S-1-s]` — POINT owns the
+  highest slice, LOW the lowest). Synthetic check: correct placement → loss
+  0.0, swapped → 2.0. Frozen LTSF OFAT rows kept (λ axis was flat).
+- ✅ **P1-2 Weather split** → standard 0.7/0.1/0.2 (legacy hard-coded branch
+  + dead PM/PEMS_BAY/METR branches deleted). ALL pre-fix Weather rows are
+  invalid → purge + re-run (see server procedure below).
+- ✅ **P1-3 RMSE** = sqrt(global MSE) in both workers (+ NaN-aware CORR/R2
+  accumulation). Old rows: derive sqrt(MSE) at table time.
+- ✅ **P2-1 worker exit code**: training worker now exits 1 if any seed run
+  failed (kills the reformer-style silent-skip class). **P2-2 CSV header
+  race**: atomic `open(mode="x")` create-with-header in both workers.
+- **STILL OPEN (P2-3..8, P3)**: `check_duplicates.py --fix` robust-CSV guard,
+  CLI-vs-override precedence for manual FEATHer runs, best_state=None
+  degenerate row, mCE partial-reference silence, ablation_table cross-dataset
+  pooling, --summary seed-coverage flags, prep interpolation lookahead
+  (N2O/MetroPT3) + BlastFurnace winsorize bounds, misc stale docstrings.
+  See the audit doc for details.
 
-**Status (2026-07-13b) — ⚑ SESSION RECAP + CLEAN START POINT (read this
-first).** Two open threads; recommended order is (B) then (A):
-- **What's DONE this session (all committed + pushed both remotes)**:
-  * `tools/audit/check_duplicates.py` — resume-key dup audit + `--fix`. Ran on
-    server → `fcst_results.csv` = 769 rows, **0 dups**, FEATHer clean on LTSF.
-  * **Strategy decision** (the big one): FEATHer's 453p > SparseTSF 41p is now
-    justified by **ROBUSTNESS, not accuracy** (OFAT num_bands FLAT → can't sell
-    on MSE). 3 lit-agents secured protocol+citations →
-    `manuscript/notes/robustness_justification_evidence.md`; memory
-    [[project-robustness-justification]]. Framing guard: NOT "more params = more
-    robust" (monotone, counter-attackable) but "41p linear lacks headroom;
-    FEATHer inductive bias buys graceful degradation at sub-1K."
-  * `run_robustness.py:ROBUSTNESS_DATASETS` → `[Steel,GasTurbine,WindSCADA,
-    ETTh1,Weather]` (3 mfg main + 2 LTSF anchors; PdM deferred). `--check` =
-    1,200 ckpt × 20 cond = 24,000 rows (all need checkpoints from mfg-main +
-    FEATHer-LTSF sweeps first).
-  * `utils/noise.py` docstring citations fixed (commit 8f819ac) → verified
-    Windmann ETFA'25 / Hendrycks&Dietterich ICLR'19 / RobustTSF ICLR'24.
-  * `manuscript/notes/EXPERIMENT_OVERVIEW.md` — full data/baseline/experiment
-    summary (datasets 6 mfg + LTSF-8, 12 baselines, HP protocol, run counts).
-- **▶ THREAD B (do FIRST — data integrity)**: the 4 reformer/MDMLP-affected
-  models are likely MISSING from `fcst_results.csv`(769) + `lr_search.csv` (see
-  the 2026-07-13 server-bug block just below). Server: `git pull` →
-  `pip install reformer_pytorch==1.4.4` → `python tools/audit/check_progress.py`
-  (measure gap) → resume sweeps. Must close this before any table/analysis or
-  numbers will be wrong.
-- **▶ THREAD A (then — code, GPU not needed)**: write the robustness ANALYSIS
-  code. `tools/paper/robust_summary.py` → μ_rel=MSE_clean/MSE_corrupt + AUC
-  robustness score + mCE-normalized-to-SparseTSF + FEATHer-vs-SparseTSF
-  degradation-curve (reuse `tools/paper/wilcoxon.py` at top severity); then FFT
-  gate-under-corruption logging; then (after sweeps) component ablation +
-  Pareto plot. Detail in the 2026-07-09 block below.
-- **Honest risk (unchanged)**: robustness sweep is UNRUN — must ACTUALLY show
-  FEATHer degrades more gracefully than SparseTSF; if not, rethink positioning.
+**▶ SERVER PROCEDURE after pulling the fix commit** (order matters):
+```bash
+git pull   # (at a natural pause; running workers finish on old code harmlessly)
+# invalidated rows — resume refills them:
+python tools/audit/purge_rows.py --csv results/fcst_results.csv --data Weather --apply
+python tools/audit/purge_rows.py --csv results/hp_search.csv    --data Weather --apply
+python tools/audit/purge_rows.py --csv results/fcst_results.csv --model FEATHer --apply
+python tools/audit/purge_rows.py --csv results/lr_search.csv    --model FEATHer --apply
+# then just re-run the same sweep commands — resume fills the gaps.
+# Weather OFAT slice (hp_search) refills via run_hp_search.py; re-freeze the
+# Weather row in _DATASET_OVERRIDES from --summary afterwards.
+```
 
-**Status (2026-07-13) — TWO server sweep bugs found + fixed (commit 40bcf34,
-pushed BOTH remotes). `run_lr_search.py --ngpu 2` was silently dropping 4
-models; must re-run sweeps after these fixes:**
-- **Bug 1 — `reformer_pytorch` missing on server `lee` env**: 4 baselines
-  (iTransformer, LMS_AutoTSF, TimeMixer, TimesNet) share
-  `layers/SelfAttention_Family.py` which does `from reformer_pytorch import
-  LSHSelfAttention` at IMPORT time (LSH never used). Server `lee` env lacked it
-  → those 4 die on import. Failed worker runs write NO csv row → orchestrator
-  SILENTLY skips them (look "not yet run"). Fix: `setup_baselines.sh` now
-  `pip install reformer_pytorch==1.4.4`. Manual on server:
-  `pip install reformer_pytorch==1.4.4`.
-- **Bug 2 — `--ngpu 2` device mismatch**: upstream MDMLP_EIA
-  (`layers/ema.py:19`, `dema.py:12-13`) hardcode `.to('cuda')` → default cuda:0.
-  A worker on cuda:1 crashes *"Expected all tensors on same device, cuda:1 and
-  cuda:0"*. Fix: both workers (`run_forecast.py`, `run_robustness.py`) call
-  `torch.cuda.set_device(args.gpu)` at startup so bare-`cuda` resolves to the
-  worker GPU — fixes the whole class WITHOUT sed-ing the gitignored/re-cloned
-  `baselines/*/*-main/` files. Both documented in "Known issues".
-- **⚠ IMPLICATION — existing CSVs likely have these 4 models MISSING**: the
-  LTSF baseline sweep (`fcst_results.csv`, was 769/1,920) + the mfg lr search
-  (`lr_search.csv`) both ran on the same `lee` env → iTransformer/LMS_AutoTSF/
-  TimeMixer/TimesNet cells were probably skipped all along. **▶ NEXT on server**:
-  `git pull` → `pip install reformer_pytorch==1.4.4` → `python
-  tools/audit/check_progress.py` (measure the gap) → re-run
-  `run_lr_search.py --ngpu 2` + the LTSF sweeps (resume fills the missing
-  cells). FEATHer itself is unaffected by both bugs (no reformer, not MDMLP).
-- **Push policy (this session)**: user confirmed OK to leave 40bcf34 on BOTH
-  remotes (personal=ijaehun + origin=WDSLab), consistent with prior "pushed
-  both remotes" habit. Default `git push` still tracks personal.
+**Evidence state (verified from hp_search.csv)**: only **num_bands is
+confirmed FLAT on clean** LTSF-8 (B2/B3/B4 mean MSE 0.4505/0.4418/0.4457).
+Gate on/off clean effect UNTESTED (needs ablation sweep); ALL robustness
+UNTESTED (sweep unrun). The robustness thesis = 1 confirmed fact + an unproven
+bet → the robustness sweep is the #1 risk.
 
-**Status (2026-07-09) — ⚑ NEXT SESSION = WRITE ROBUSTNESS ANALYSIS CODE.
-Robustness is now FEATHer's PRIMARY param-justification (why 453p > SparseTSF
-41p), NOT accuracy:**
-- **Why the pivot**: OFAT found num_bands FLAT (2/3/4) so "multi-scale lowers
-  MSE" has no support. 3 literature agents confirmed the field justifies extra
-  params via ROBUSTNESS + component-ablation, not clean accuracy. Full protocol
-  + citations in `manuscript/notes/robustness_justification_evidence.md`
-  (ETFA'25/arXiv:2504.03494 CPS = train-clean/test-corrupt, "simplest DLinear =
-  LEAST robust" direct precedent; FIRE 2510.10145 adaptive-gate helps
-  robustness 17.5% vs 1.4% clean; N-HiTS AAAI'23 component-removal; TimesNet
-  ICLR'23 Fig8 "k-insensitivity = generality"; Hendrycks&Dietterich ICLR'19
-  mCE). Memory: [[project-robustness-justification]].
-- **Framing guard**: NOT "more params = more robust" (monotone, gets
-  counter-attacked — ETFA shows accuracy≠robustness). YES "41-param linear
-  lacks representational headroom to absorb sensor faults; FEATHer's
-  multi-band+FFT-gate inductive bias buys graceful degradation at still-sub-1K."
-- **DONE this session (committed)**: `run_robustness.py:ROBUSTNESS_DATASETS`
-  IoT-J `[ETTh1,Weather,Electricity,SML]` → **`[Steel,GasTurbine,WindSCADA,
-  ETTh1,Weather]`** (3 mfg main + 2 LTSF anchors; user picked balanced scope;
-  PdM deferred to revision). `--check` = 1,200 ckpt × 20 cond = 24,000 rows,
-  all No-checkpoint until mfg-main + FEATHer-LTSF sweeps finish w/ --save_model.
-  Also added `tools/audit/check_duplicates.py` (resume-key dup audit + --fix;
-  ran on server → fcst_results.csv 769 rows, 0 dups, FEATHer clean on LTSF).
-- **▶ NEXT SESSION CODE TASKS (GPU results not needed — pure code, sweeps still
-  running)**:
-  1. `tools/paper/robust_summary.py` → add **relative degradation
-     μ_rel=MSE_clean/MSE_corrupt**, **AUC robustness score** (severity
-     integral), **mCE normalized to SparseTSF**, and a **FEATHer-vs-SparseTSF
-     degradation-curve** generator (error vs severity, slope). Reuse
-     `tools/paper/wilcoxon.py` for top-severity per-window test.
-  2. FFT **gate-under-corruption logging**: dump FEATHer's per-band gate
-     weights under each noise axis → show re-allocation (interpretability =
-     "gate does what claimed"). Feeds the ablation section.
-  3. (after sweeps) component ablation (bands on/off, gate on/off) on mfg +
-     Pareto plot (MSE-vs-params, cell-pinned, robustness 3rd axis).
-- **Honest risk**: protocol/citations secured but the robustness sweep is
-  UNRUN — must ACTUALLY show FEATHer degrades more gracefully than SparseTSF;
-  if not, rethink positioning. ETFA/FIRE/CPS are preprints → our own sweep
-  corroborates. Don't cite the phantom "FEATHer" arXiv (26xx) from search.
-- **Sweeps still running (unchanged)**: (a) mfg lr search 1,440 → lr_search.csv;
-  (b)+(c) LTSF 1,920 → fcst_results.csv (was 769/1,920). After (a):
-  run_lr_search.py --summary → paste MFG rows → mfg main 720 + PdM 540 (those
-  --save_model runs produce the mfg robustness checkpoints).
+**Server state**: lr search running (`run_lr_search.py --ngpu 2`, 9 datasets
+incl EWELD); LTSF baseline sweep resuming (12 models, 1,920). GPU box =
+2×94.5GB, shared with CF-JEPA.
 
-**Status (2026-07-06b) — dataset re-verification + candidate hunt (web
-agents, no deep-research): all 6 datasets CONFIRMED, scope unchanged:**
-- **Precedent audit (5 parallel search agents, one per dataset)**: every
-  dataset has a peer-reviewed pedigree (no "obscure dataset" attack), and
-  NONE has ever been used with the 96–720 / fixed-24–96 multivariate LTSF
-  protocol → the "first to cast as edge PdM LTSF" framing survives for all
-  6. WindSCADA is the only one with genuine forecasting precedent — ≥4
-  peer-reviewed Kelmarsh forecasting papers, all short-horizon (≤6h/36
-  steps). Full per-dataset citations + suggested phrasing in
-  `manuscript/notes/dataset_precedent_audit.md` (incl. ~12 new bib entries).
-- **Wording guards discovered** (must-follow in the JMS rewrite):
-  * CMAPSS: NOT "first to forecast C-MAPSS" (Wang et al. ICPHM 2020
-    forecasts raw sensors on FD001, arXiv:2006.03729) → "first to cast as a
-    fixed-horizon multivariate sensor forecasting BENCHMARK". Bonus:
-    ICPHM'20 excluded FD003 because 2 fault modes break single-distribution
-    HI assumptions — our unit-aware forecasting doesn't need that → FD003
-    adoption justification.
-  * PMSM: cite AIP Advances 16(4):045101 (Apr 2026, seq2seq multi-step
-    thermal forecasting on the same Kaggle set) as nearest precedent;
-    differentiate on 12-model benchmark + unknown-future-load + sub-1K.
-    Add one sentence: most prior "prediction" work is same-timestamp
-    ESTIMATION (virtual sensor) — pre-empts title-skimming reviewers.
-  * GasTurbine: operating-hours-axis framing is NECESSARY (timestamps
-    stripped, non-continuous), not optional honesty. All prior use = PEMS
-    same-timestamp regression (Fuel Q1 ×3).
-  * Steel: prior use = single-target Usage_kWh regression/next-step; our
-    all-channels-jointly forecast is a departure — state it explicitly.
-- **Candidate hunt (4 agents: process industry / machinery PdM / factory
-  energy / catalogs)**: the 07-01 structural wall independently reconfirmed.
-  **Gap evidence for Intro/RW**: Monash, GIFT-Eval, TFB, LOTSA/Chronos,
-  TSLib contain ZERO manufacturing datasets; the TIME benchmark (arXiv
-  2602.12147, 2026) created an "Industry" domain and could only fill it
-  with 1 SYNTHETIC set + MetroPT-3; PHM challenges 2019–2024 have no
-  continuous forecasting stream. **Decision: no scope change** (6 datasets
-  stay; sweeps already running). Shelf candidates for a reviewer-driven
-  revision (priority order): Blast furnace (Mendeley 6d7jbc7tb5/1, Data in
-  Brief 2025, hourly 29.6K rows, forecasting-native, main-table grade) >
-  MetroPT-2/3 (compressor PdM, D=7-8 analog, TIME already casts it as
-  forecasting; persistence audit MANDATORY first — PMSM-at-2Hz trap) >
-  SPARK (KIT 7yr factory energy) > Korean 10-factory (Sci Data 2022).
-  Full shelf list + rejections in `manuscript/notes/dataset_candidate_hunt.md`.
+**Local git**: 2 commits LOCAL only, NOT pushed (dbf8179 robust_summary
+metrics + 54e3407 gate_logging). Push policy: **ijaehun (personal) ONLY**,
+not WDSLab, unless asked.
 
-**Status (2026-07-06) — ① CLOSED: combo validation done, FEATHer LTSF 8 rows
-FROZEN into `_DATASET_OVERRIDES`:**
-- User brought back `run_hp_search.py --summary` AFTER the 32-run `--validate`
-  finished (512 OFAT + 32 combo all complete). Verdict per dataset (final =
-  best mean-rank among {base, single-axis, combo}): **7/8 adopt the combo**
-  (rank 1.00), **Exchange falls back** to `hp_d_state_16` (combo rank 7.5 lost
-  to the single-axis d16 rank 3.5 — the "no dataset ends worse than an observed
-  config" guard working as designed). The 8 rows are pasted into
-  `baselines/__init__.py` `_DATASET_OVERRIDES` (FEATHer LTSF block) + committed.
-- **Param re-check before freezing (this session)**: d_state=16 does NOT break
-  sub-1K for D≤14 sets at H=96 — measured ETTh1 643 / ETTh2 691 / ETTm1 755 /
-  ETTm2 803 / Exchange 690, all OK. The H=720 overflow (1,579+) is the
-  pre-existing SPK pred_len scaling that hits the BASE config too → sub-1K claim
-  stays **H=96-scoped** (unchanged story, not a new problem). Weather(D=21)/
-  Electricity/Traffic already >1K as documented stress tests.
-- These 8 rows feed the **LTSF generalization section only**. The MFG main-table
-  canonical arch stays FROZEN at base **d8/k7/p12/B3** (cross-dataset aggregate
-  verdict from 2026-07-03 below — d16/p6 win val but break sub-1K budget).
-- **Also committed this session (were uncommitted from 07-03)**: `--jobs_per_gpu`
-  in all four orchestrators + `dispatch_queue.py`; `main_table.py` persistence-
-  column integration; `tools/paper/persistence_baseline.py`.
-- **Raw CSV verified (this session)**: user synced `hp_search.csv` via Dropbox
-  (`WDSLab/05. 실험/FEATHer/results/`). Cross-checked against the pasted
-  overrides: 544 rows = 512 OFAT + 32 combo (all 8 combos complete, 4 cells
-  each); zero NaN/inf in MSE/MAE/val_loss (R2 min -3.5e11 = the documented
-  Traffic near-constant explosion, supplementary only); re-ran the real
-  `--summary` logic on the raw CSV → the 8 override rows byte-match the
-  committed `_DATASET_OVERRIDES` (8/8 `get_dataset_overrides` MATCH). Overrides
-  are raw-verified, not summary-text-only. Windows gotcha: run `--summary` with
-  `PYTHONUTF8=1 PYTHONIOENCODING=utf-8` (em-dash breaks cp949).
-- **Three result streams still outstanding** (user's mental model confirmed):
-  (a) ① lr search 1,440 → `lr_search.csv` (running); (b) ② LTSF baseline ~1,760
-  → `fcst_results.csv` (running, T2); (c) ③ FEATHer LTSF 160 → **NOT launched
-  yet** — was blocked on the override paste, now unblocked. (b)+(c) together =
-  the 1,920 generalization table. After (a): `run_lr_search.py --summary` →
-  MFG rows → ⑤ main sweeps 720+540 (still ahead, separate from the above).
-- **Server next**: `git pull` → ▶ launch (c) `run_forecast.py --model FEATHer
-  --group ltsf --exp_tag main --save_model --ngpu 2` (160). Bring back
-  `run_lr_search.py --summary` when (a) finishes.
+**▶ NEXT**
+1. ✅ ~~Apply audit fixes~~ (done 2026-07-14c, committed with this block).
+   Remaining audit items = P2-3..8 + P3 batch (see audit doc), lower urgency.
+2. **Server**: run the purge + resume procedure above (Weather + FEATHer
+   rows), then continue the chain: lr search finishes → `--summary` → MERGE
+   lr into the EXISTING period entries in `_DATASET_OVERRIDES` (no dup keys)
+   → mfg main sweep (`--group mfg --exp_tag main --save_model --ngpu 2`,
+   1,440, makes robustness checkpoints) → robustness sweep →
+   `robust_summary.py` + `gate_logging.py`.
+3. **A+C Intro/Motivation draft** (`manuscript/drafts/`) — needs air-gap /
+   OT-isolation citations; scope to genuinely-local settings.
+4. **Still-missing analysis code**: component ablation UNDER corruption
+   (gate-off/band-off variants through the robustness sweep) + Pareto plot
+   generator (MSE-vs-params frontier).
+5. Push dbf8179 + 54e3407 + the audit-fix commit to ijaehun when user OKs.
+6. Raw-data cleanup under `data/`: DECIDED skip (raw = regen safety net; drop
+   PMSM raw first if disk pressure).
 
-**Status (2026-07-03) — OFAT 512 done; cross-dataset verdict = KEEP base
-canonical; combo validation pending on server:**
-- User brought back `run_hp_search.py --summary` (all 512 runs finished).
-  Cross-dataset mean-rank aggregation (8 LTSF sets): **d_state 16 wins 7/8**
-  (5.8 vs 8.5) and **period 6 wins consistently** (4.8 vs 12's 8.5), BUT both
-  are blocked by the sub-1K budget — verified with real param counts:
-  d16 @D=14/H96 = **1,146 ✗**; p6 @D=14/H720 = 2,638 (2× base). k/λ flat,
-  **num_bands PERFECTLY flat (2→8.44 / 3→8.50 / 4→8.38) → B=3 stays; the tex
-  ~485 "B=4 industrial default" sentence has NO LTSF support** (mfg ms-axis
-  ablation gives the final word). lr=5e-3 sweeps 8/8 (lr comes from lr-search
-  on mfg anyway). → **Canonical arch for mfg = base d8/k7/p12/B3 unchanged.**
-  Sensitivity narrative for the paper: "d_state shows mild monotone gains but
-  16 exceeds the 1K budget at D=14; within budget 8 is optimal" (R2 #23).
-- **Per-dataset LTSF rows are NOT frozen yet**: the OFAT "recommended" combos
-  were never trained (axes interact; ETTh1 changes 6 axes at once). Added
-  **`run_hp_search.py --validate`** (combo runs, exp_tag=`hp_combo_<cfg>`,
-  config encoded in tag → resume-safe) + `--summary` now prints a per-dataset
-  verdict: final = best mean-rank among {base, single-axis variants, combo},
-  so no dataset can end worse than an observed config. Offline-tested
-  (synthetic CSV: adopt/fallback/no-pollution all pass). **Server next:
-  `git pull` → `python run_hp_search.py --validate` (≤32 runs) → `--summary`
-  → paste the final 8 FEATHer LTSF rows.** ② (FEATHer LTSF 160) waits on this;
-  ③ baselines' lr search can start now.
-- ⚠ Side-finding: FEATHer's param count grows with pred_len (SPK backbone
-  n×m): quoted 402/677/866 are H=96 values; at H=720 base already exceeds 1K
-  for D≥11 (GasTurbine 1,093 / WindSCADA 1,282). Check how the manuscript
-  quotes params — sub-1K must be scoped to H=96 (or per-horizon counts shown)
-  before the claim ships. Full tex audit in `manuscript/notes/
-  PAPER_CONTEXT.md` ("tex 감사 결과" section): 3 spots to fix in the JMS
-  rewrite (Abstract/Limitations D-only framing; ~486 "B=4 industrial";
-  ~494 "fix P=12 across all eight datasets" vs per-dataset LTSF rows).
-- **`--ngpu N` multi-GPU (2026-07-03, later same day)**: all four
-  orchestrators now take `--ngpu N` — CF-JEPA-style DYNAMIC job queue
-  (`utils/dispatch_queue.py`; no torchrun/DDP/fcntl — orchestrator owns an
-  in-memory queue, one worker subprocess per GPU, free GPU grabs next job).
-  ngpu=1 default = old sequential. run_lr_search also got --model/--exclude.
-  Commits: cd687f0 (--validate) / 63b1312 (lr split flags) / f9c8dea (ngpu),
-  all pushed to both remotes.
-- **Server launch state (2026-07-03 evening, user's server = 2×94.5GB GPU,
-  128GB RAM; a CF-JEPA anomaly sweep shares the box, near-done)**: T1
-  `run_hp_search.py --validate --ngpu 2` (32) · T2 `run_forecast.py
-  --exclude FEATHer --group ltsf --num_seeds 5 --num_epochs 50 --exp_tag
-  main --save_model --ngpu 2` (resume of the 1,760; `--group ltsf` is
-  MANDATORY post-pivot) · T3 `run_lr_search.py --ngpu 2` (1,440).
-- Low GPU util diagnosed as EXPECTED: sub-1K..100K models can't saturate
-  94.5GB cards + `num_workers=0` (data_factory.py:399) serializes batch
-  prep with compute. Bottleneck is host-bound per-job critical path, not
-  GPU or total CPU. Fix = `--jobs_per_gpu N` (IMPLEMENTED 2026-07-03 in all
-  four orchestrators: ngpu×jobs_per_gpu workers, gpu = base + i%ngpu, auto
-  OMP/MKL pinning to cpu_count//total_workers; offline-tested; uncommitted
-  pending user go). E.g. `run_lr_search.py --ngpu 2 --jobs_per_gpu 3` = 6
-  workers, 3 per GPU, OMP threads 24//6=4 each.
+### Decision history (compact — full blocks in `manuscript/notes/CLAUDE_STATUS_ARCHIVE_2026-07-14.md`)
 
-**Status (2026-07-02b) — experiment protocol sequencing locked (same day,
-after the scope was closed):**
-- **FEATHer's canonical architecture for the MFG tables comes from the LTSF
-  OFAT** (the 512-run search on the server): aggregate `--summary` ACROSS the
-  8 LTSF datasets → if the base config (d_state=8, k=7, P=12, B=3) sits in the
-  flat region, keep it; if an axis value wins consistently (num_bands 3 vs 4
-  is the live question — tex line ~485 claims "B=4 default for industrial"
-  while code default is 3), update the canonical. Clean story: *architecture
-  fixed on independent LTSF data before any manufacturing experiment; on the
-  mfg datasets every method (FEATHer included) runs a fixed architecture +
-  lr-only search — fully symmetric.*
-- **Server order therefore**: (1) `run_hp_search.py --check` → if done,
-  `--summary` → confirm/update canonical FEATHer config; (2) `run_lr_search.py`
-  — baselines' 1,320 runs can start before (1) resolves; FEATHer's 120 lr rows
-  should run AFTER the canonical config is fixed (lr interacts with arch);
-  (3) paste both summaries into `_DATASET_OVERRIDES` (LTSF rows from OFAT,
-  mfg rows from lr search); (4) main sweeps 720 + 540.
-- **Ablation extended to manufacturing datasets — CONFIRMED** (the ms axis
-  provides the B=2/3/4 evidence on mfg data as analysis, without breaking
-  main-table symmetry; also settles the tex "B=4 industrial" sentence).
-- **Robustness swap to manufacturing datasets — decided in principle**, code
-  change pending (`run_robustness.py:ROBUSTNESS_DATASETS`); settles SML.
-- Freq-tied HPs (SparseTSF `period_len`, TQNet `cycle`, FEATHer `period`) —
-  if adjusted later, adjust ALL THREE by the same deterministic
-  sampling-rate rule (no model-specific favors).
-- Docs updated: `manuscript/drafts/intro_jms.md` + `manuscript/notes/
-  PAPER_CONTEXT.md` now carry the final scope (intro Para 4 / C5 rewritten:
-  two-tier benchmark, sub-1K everywhere, persistence rows).
-
-**Status (2026-07-02) — PMSM dropped after task-fit audit; main table = 3
-datasets:** Ran a quantitative task-fit audit on the actual local data (channel-
-level naive-persistence baselines, timestamp continuity, per-split window
-counts, physical horizon spans). Findings:
-- **Steel ✅ / WindSCADA ✅ / C-MAPSS ✅** — sound as scoped (Steel's 729
-  non-modal timestamps = the known benign 24:00 date artifact; WindSCADA zero
-  gaps; C-MAPSS window counts reproduce exactly).
-- **GasTurbine ⚠ kept with framing** — 8/11 channels have persistence MSE>1
-  already at H=96 (all-channel mean 1.31→1.63); same profile as Exchange in
-  LTSF, so defensible by convention. Frame the synthetic index honestly as an
-  "operating-hours" axis; add a persistence baseline row to the table.
-- **PMSM ✂ dropped from the MAIN table (2026-07-02)** — at native 2Hz,
-  H=96..720 spans only 48s–6min of slow rotor-thermal drift; copy-last
-  persistence = MSE **0.004** (target) / **0.117** (all-channel) at H=96 →
-  trivially easy, indefensible against a naive-baseline row.
-- **Short-horizon PdM section EXPANDED same day (user asked for more PdM
-  datasets; all vetted against real data):** section = **CMAPSS (FD001) +
-  CMAPSS3 (FD003) + PMSM (rebuilt)**, horizons [24,48,96], all via the
-  unit-aware `Dataset_CMAPSS` loader:
-  * **CMAPSS3** = C-MAPSS FD003 (raw already on disk): same single operating
-    condition as FD001 but 2 fault modes + longer trajectories (med 220 /
-    max 525) → ~3x FD001's H=96 windows (4365/447/1358). Same 14-channel
-    set as FD001 (FD003's constants are a subset of FD001's drops) → D=14,
-    target s11, directly comparable. **FD002/FD004 rejected**: 6 op-conditions
-    driven by unobserved flight profile (unpredictable regime switches) + all
-    21 sensors active → D=21 breaks sub-1K.
-  * **PMSM rebuilt**: ALL 69 sessions, 30-s MEAN aggregation (not decimation —
-    no aliasing; matches SCADA convention), `['unit', chans, pm]` schema,
-    session-aware windows/split. 22,216 rows, D=12. Measured difficulty:
-    all-channel persistence 1.12/1.40/1.50, target pm 0.16/0.35/0.62 at
-    H=24/48/96 → non-trivial. Horizons = 12/24/48 min of motor-thermal
-    forecasting under unknown future load.
-  * Both smoke-verified (FEATHer/SparseTSF/iTransformer × H=24 train+score;
-    models beat persistence even at 2 epochs).
-  * **PHM 2018 ion mill etch (semiconductor) REJECTED after vetting the real
-    data** (downloaded the 5.36GB tarball, audited tool 01_M01, 3.1M rows):
-    (a) NOT continuous — 11,963 gaps >60s, max gap 220 h across a 460-day
-    span; (b) only ~9 of 17 numeric channels are true continuous measurements
-    (rest = setpoints with 4–121 unique values, monotonic usage counters,
-    a NaN-carrying binary); (c) dynamics are batch/recipe-driven (3,776 runs,
-    median 40 min) → forecasting = predicting the exogenous production
-    schedule (same reason FD002/4 were rejected); (d) 60s-mean persistence
-    ≈0.93–1.06 even at 24–96 min; (e) native task is TTF/anomaly (TEP-style
-    mismatch). Download deleted (re-fetch: gdown id
-    15Jx9Scq9FqpIGn8jbAQB_lcHSXvIoPzb). This closes the search — the PdM
-    section stays at CMAPSS/CMAPSS3/PMSM.
-- **Scope now: main long-horizon table = Steel/GasTurbine/WindSCADA (3) ×
-  [96..720]; short-horizon PdM section = CMAPSS/CMAPSS3/PMSM (3) × [24,48,96].
-  5 domain cards (steel energy, gas-turbine emissions, wind, aero-engine ×2
-  fault regimes, electric drives), sub-1K everywhere.** Run counts: main
-  **720** (12×3×4×5), PdM **540** (12×3×3×5), lr search **1,440** (12×5×6×2×2)
-  — all verified via `--check`. Both tables get a naive persistence baseline
-  row (cheap, defuses the "is this task trivial?" attack).
-- **data/ cleanup (2026-07-02, user-directed):** DELETED LG_AC/LG_PAC_pool/
-  LG_RAC_pool (LG air-conditioner telemetry from an unrelated project, zero
-  code references), TEP (rejected; raw re-downloadable from the mirror in
-  `prep_manufacturing.py`, recipe still tracked), and PM (obsolete IoT-J-era
-  air-quality set). KEPT: the 6 active sets + their raws, **nrel (solar —
-  user explicitly keeps it)**, and SML (may still serve the LTSF robustness
-  section; scope decision pending).
-
-**Status (2026-06-26) — TEP dropped, C-MAPSS added (data validation):**
-Validated the manufacturing datasets against top-tier usage (web search, not
-deep-research). Finding: none are established *long-term forecasting* (LTSF)
-benchmarks; native tasks are energy regression (Steel), non-continuous emission
-regression (GasTurbine), **anomaly detection (TEP)**, wind-power forecasting
-(WindSCADA, the one true forecasting precedent), short-horizon temp estimation
-(PMSM). Acted on the two weakest:
-- **TEP DROPPED** — anomaly-detection benchmark (task mismatch) *and* D=50 broke
-  the sub-1K claim. **Main table is now 4 datasets** (Steel/GasTurbine/WindSCADA/
-  PMSM), all D≤14 → **sub-1K now holds across the entire main table**.
-- **C-MAPSS ADDED but as a SEPARATE short-horizon PdM section, NOT the main
-  table.** NASA C-MAPSS FD001 (de-facto prognostics benchmark, 100 engines, 14
-  informative sensors → D=14, FEATHer=818p). Verified from the data: engine
-  trajectories median ~200 / max 543 cycles, so the [96..720] long horizons are
-  structurally impossible (816 rows needed). Uses its own horizons **[24,48,96]**
-  with a dedicated engine-aware loader `Dataset_CMAPSS` (windows never cross an
-  engine boundary; train/val/test split BY ENGINE 70/10/20 → no leakage; zero
-  time-marks like PEMS). Group `cmapss`; smoke-verified end-to-end (FEATHer 818p,
-  iTransformer 823K, SparseTSF 29 all train+score; window counts 5800/818/2113
-  match the engine-aware enumeration). Raw mirror:
-  github.com/cyrilli/TurboEngine_Dataset_NASA/CMAPSSData → `data/CMAPSS/raw/`.
-- Run counts now: main sweep **960** (12×4×4×5); C-MAPSS section **180**
-  (12×1×3×5); lr search drops TEP, adds C-MAPSS at [24,96].
-- **DATASET SCOPE FINALIZED (2026-07-01): 4 main + C-MAPSS, no more additions.**
-  Vetted every extra candidate against real data and all failed the
-  continuous-multivariate-LTSF bar:
-  * Bosch CNC Machining (UCI #752) — downloaded + opened an .h5: `vibration_data`
-    (268288, **3**) = only 3 accelerometer axes, one ~134 s machining op per file
-    (segmented), good/bad **classification** labels → not LTSF (TEP-style trap).
-  * SCANIA Component X — features are histograms/counters (aggregated), not a
-    continuous per-entity sensor stream → poor LTSF fit.
-  * Engie "La Haute Borne" wind SCADA — clean + continuous + downloadable, BUT a
-    2nd wind farm = **domain-redundant** with Kelmarsh (weakens the "5
-    heterogeneous domains" claim). Rejected on redundancy, not viability.
-  * 3W (Petrobras oil wells) — anomaly/event-segmented, D=5 (thin). HVAC/building
-    sets — not manufacturing. Structural wall: genuinely continuous + multivariate
-    (D≤14) + long manufacturing sensor streams are rare; the existing 4 are
-    well-chosen precisely because they ARE continuous monitoring streams.
-- **No temporal downsampling** — all datasets kept at native sampling. Only
-  channel selection (drop accounting/constant/categorical cols) and, for
-  WindSCADA (Turbine 1 / 2017) and PMSM (longest single session), subset
-  selection to get one clean continuous series. `h5py` installed into the
-  `feather` env (to inspect Bosch .h5).
-
-**Status (2026-06-25) — ⚑ MANUFACTURING PIVOT (professor's call, supersedes
-the IoT-J plan below):** Target venue changed from **IEEE IoT-J → Journal of
-Manufacturing Systems (JMS)**, Elsevier/SME, Q1. The paper is repositioned
-around manufacturing/predictive-maintenance forecasting.
-- **Main table** (updated 2026-06-26: TEP dropped → **4 datasets**; C-MAPSS is a
-  separate short-horizon section, see the 2026-06-26 block above). The old
-  LTSF-8 is demoted to a "generalization" section. Datasets, all wired + QC'd +
-  smoke-verified (raw + processed `data.csv` both under `data/<name>/`;
-  reproducible recipes in `tools/prep_manufacturing.py`):
-  Steel (UCI #851, KR steel, D=6, 402p), GasTurbine (UCI #551, D=11, 677p),
-  ~~TEP (process sim, D=50, 4.5Kp — breaks sub-1K)~~ **dropped**, WindSCADA
-  (Kelmarsh, D=14, 866p), PMSM (Paderborn motor, D=12, 738p). All 4 real.
-- **Orchestrator**: `run_forecast.py` default sweep group is now `mfg`
-  (`--group {mfg,ltsf,cmapss,all}`); `python run_forecast.py --exp_tag main
-  --save_model` → 960 runs (12×4×4×5). C-MAPSS via `--group cmapss` (180).
-- **HP protocol = Option B (lr-only)**: baselines have no paper HPs for these
-  datasets, so `run_lr_search.py` selects lr per (method,dataset) on val
-  (arch fixed at paper default), 1,200 runs (5 datasets incl. C-MAPSS ×
-  12 × 5 lr × 2 horizons × 2 seeds) → `--summary` → paste into
-  `baselines/__init__.py` `_DATASET_OVERRIDES`. The old FEATHer
-  `run_hp_search.py` (OFAT on LTSF-8) is superseded for the main table.
-- **Server run order**: `run_lr_search.py` → `--summary` → paste overrides →
-  `run_forecast.py --exp_tag main --save_model` → robustness/ablation.
-- **Pending (decide later / test on server)**: extend robustness + ablation
-  to manufacturing datasets (the PdM noise story makes mfg robustness ~core);
-  freq-tied HPs (SparseTSF `period_len`, TQNet `cycle`) left at hourly default
-  — **user chose to just test this on the server** and tune if needed; edge
-  estimator FEATHer rows recompute.
-- **NOT committed** (user commits everything together later). **`data/` is
-  gitignored** → committing does NOT ship data to the server; transfer the 5
-  raw sets (or data.csv) + run `tools/prep_manufacturing.py`. The in-flight
-  server runs (512-run FEATHer search + 1,760 LTSF baseline sweep) are left
-  running — the LTSF baselines still serve the generalization section.
-- Memory: `memory/project_jms_manufacturing_pivot.md` has the full detail.
-
----
-**Status (2026-06-11):** Pre-sweep audit complete — the codebase is
-ready for the server runs. Locked this week:
-- **Evaluation protocol rewritten**: best-val-epoch selection with
-  early stopping (patience=10, 50-epoch cap), test evaluated once on
-  the selected model, checkpoint = that same model. The old worker did
-  test-oracle selection with element-wise metric mixing — every
-  pre-2026-06-11 result row (there were none in fcst_results.csv) is
-  incompatible with the new protocol.
-- **Traffic = full 862 channels** (was a legacy 162 slice in
-  data_factory only; manuscript and edge estimator already said 862).
-- **Sub-1K claim scoped to D≤14** (FEATHer params scale as D² via
-  `in_proj`; see Known issues).
-- **Ablation variants unblocked** (worker argparse choices excluded
-  them) + `--ablation_axis` orchestrator dispatch.
-- **run_hp_search.py added** (OFAT, val-only selection, 192 runs).
-- **QEMU framing fixed**: instruction-level emulation, verified
-  (memory fit, correctness, icount) vs modeled (latency, energy)
-  separation in Sec IX, README, and firmware skeleton.
-All 12 main models + 5 ablation axes smoke-tested end-to-end through
-the new worker. 13-page PDF compiles cleanly. Sections VI-VIII remain
-`\TODO{...}` skeletons waiting on sweep results.
-
-**In progress (2026-06-17):** Step 1 — `run_hp_search.py` now scoped to
-**per-dataset FEATHer tuning** (decided 2026-06-17): all 8 main-table
-datasets × 16 OFAT configs × 2 horizons × 2 seeds = **512 runs** (was
-192 / single-config). FEATHer is tuned per-dataset like every baseline
-to maximize main-table numbers; the old "single configuration across all
-8 datasets" selling point is **dropped**. Resume-safe — the ~10 already-
-done ETTh1/ETTm1/Weather runs carry over. No `fcst_results.csv` yet;
-`results/checkpoints/` still empty. On return: `run_hp_search.py
---summary` → paste the per-dataset winners into
-`baselines/__init__.py` `_DATASET_OVERRIDES` (FEATHer rows) → proceed to
-main sweep below. The rescope (+ the `--no_save_data` checkpoint flag) is
-committed + pushed to both remotes; user is re-launching the 512-run
-search on the server (resume picks up the ~10 done runs) and will report
-results.
-
-Checkpoint policy (decided 2026-06-17): main sweep saves **all 8 datasets**
-(~42GB; TimesNet-on-Traffic alone ≈ 24GB). `--no_save_data` exists as an
-opt-in to skip Traffic's unused `.pth` (~16GB) if disk gets tight, but
-default is save-all.
-
-**Update (2026-06-18):** Baseline main sweep launched on the server in
-**parallel** with the HP search — `run_forecast.py --exclude FEATHer
---num_seeds 5 --num_epochs 50 --exp_tag main --save_model` (1,760 runs;
-baselines need no HP search, their per-dataset paper HPs are already in
-`_DATASET_OVERRIDES`). FEATHer's 160 main rows stay blocked on the HP
-search → `_DATASET_OVERRIDES` paste. **Gotcha hit:** the 11 `*-main/`
-upstream baseline repos are gitignored (`baselines/*/*-main/`); a fresh
-server checkout fails non-FEATHer runs with `No module named 'models'`
-until `bash setup_baselines.sh` clones them. Done on the server.
-
-**Manuscript revisions (2026-06-18, done — single-config TODO closed):**
-edited `feather_iotj.tex` + `feather.bib` (NOT yet committed; plan to
-commit with the main-table numbers once the sweep lands):
-- **single-config narrative removed** (4 spots: protocol para, Conclusion,
-  Limitations(i), Future-directions) → "per-dataset selection like every
-  baseline" symmetric fair-comparison framing.
-- **R6#5/R8#5 symbol fix**: uppercase `H` was overloaded (gate-fused L×D
-  feature *and* scalar horizon) → fused feature renamed `H_g` /
-  residual-smoothed `H_{agg}`, aligned with Algorithm 1's `h`/`h_agg`,
-  notation table rows added. (R6#1d L_f→B transition was already resolved.)
-- **R1#6**: added BLS-AttnTCN (Su et al., ESWA 2026) + BLS-QLSTM (Su et
-  al., HSSC 2025) bib entries (real metadata via Crossref) + one Related-
-  Work paragraph framing them as out-of-edge-scope hybrids.
-- **R8#1** (tone down "broadly SOTA"): already resolved 2026-06-04, no-op.
-- Build verified: 13-page PDF, 3 clean passes; only undefined refs are
-  `tab:main-mse`/`tab:main-mae` (the pending main tables).
-
-**Next action (server) — SUPERSEDED by the 2026-06-25 manufacturing pivot
-above.** The manufacturing main-table pipeline is: `run_lr_search.py` (1,200)
-→ `--summary` → paste lr into `_DATASET_OVERRIDES` → `run_forecast.py
---exp_tag main --save_model` (1,200, default group=mfg) → `run_robustness.py`
-(extend to mfg datasets — pending) → ablation (pending mfg scope) → QEMU
-Layer 2 (WSL). The LTSF-8 pipeline below still runs for the generalization
-section. After the main sweep: `check_progress.py --exp_tag main`; re-run
-FEATHer rows of `edge_estimates.csv` for the manufacturing datasets.
-
-*(historical IoT-J plan, kept for the generalization-section runs):*
-`run_hp_search.py` (512 runs) → `run_forecast.py --group ltsf --save_model`
-(1,920) → `run_forecast.py --data SML --exp_tag main --save_model` (240) →
-`run_robustness.py` → ablation (ETTh1+Weather+Electricity) → QEMU.
-Reject letter at `manuscript/notes/reject_mail.md`.
-
-**Build:** from `manuscript/tex_workspace/`,
-`pdflatex feather_iotj && bibtex feather_iotj && pdflatex feather_iotj && pdflatex feather_iotj`.
+- **2026-07-14b**: `robust_summary.py` +4 metrics (μ_rel / AUC / mCE-vs-
+  SparseTSF / degradation curve) + `gate_logging.py`, both synthetic-validated;
+  R3 resolved (A+C, no short-term in paper); ROBUSTNESS_DATASETS
+  GasTurbine→EWELD = [Steel, WindSCADA, EWELD, ETTh1, Weather].
+- **2026-07-14**: mfg lineup LOCKED at 6 (EWELD in; GasTurbine fully removed —
+  broken, no revival); freq-tied period HPs data-driven in
+  `_DATASET_OVERRIDES`; SCINet added-then-reverted; TEP/ziya07/AI4I/GasSensor
+  vetted+rejected; PyTSF-MfG = cite for mfg-scarcity gap.
+- **2026-07-13c**: short-horizon PdM DROPPED from paper (kept as shelf);
+  mfg 3→6 (+MetroPT3 +N2O +BlastFurnace-stress); Tier-2 loader prune
+  (data_dict = 18 keys); push policy → ijaehun only.
+- **2026-07-13/b**: strategy pivot — robustness (not accuracy) justifies
+  params, protocol+citations in
+  `manuscript/notes/robustness_justification_evidence.md`; server bugs fixed
+  (reformer_pytorch import-time dep; --ngpu `torch.cuda.set_device`) —
+  4 models were silently missing from CSVs, resume fills;
+  `check_duplicates.py` added (fcst 769 rows, 0 dups).
+- **2026-07-06/b**: OFAT 512 + combo 32 done → FEATHer LTSF 8 rows FROZEN into
+  `_DATASET_OVERRIDES` (raw-verified); dataset precedent audit — all 6
+  confirmed, "first to cast as edge LTSF" holds; wording guards in
+  `manuscript/notes/dataset_precedent_audit.md`.
+- **2026-07-03**: OFAT verdict — canonical mfg arch stays d8/k7/p12/B3
+  (d16/p6 win val but break sub-1K); `--ngpu` dynamic queue + `--jobs_per_gpu`
+  added; ⚠ FEATHer params scale with pred_len → sub-1K claim is H=96-scoped.
+- **2026-07-02/b**: PMSM dropped from main (2Hz trivial persistence), rebuilt
+  for PdM; PHM-2018 vetted+rejected; protocol sequencing locked (arch from
+  LTSF OFAT, lr-only on mfg, symmetric).
+- **2026-06-25/26**: JMS manufacturing pivot (professor's call, from IoT-J);
+  TEP dropped, C-MAPSS added as separate short-horizon section (later
+  shelved); Word submission format.
+- **2026-06-11..18**: eval protocol rewritten (best-val-epoch, test-once);
+  per-dataset FEATHer tuning replaces single-config narrative; baseline LTSF
+  sweep launched; tex symbol/citation fixes.
 
 ## Environment
 
@@ -709,7 +158,7 @@ FEATHer/
 ├── run_robustness.py               robustness orchestrator (loads --save_model checkpoints)
 ├── run_hp_search.py                FEATHer OFAT HP search (LTSF generalization configs + R2 #23 sensitivity)
 ├── run_lr_search.py                per-(method,dataset) lr search for the MFG main table (Option B, all 12 models)
-├── setup_baselines.sh              git-clone baseline upstream repos (idempotent)
+├── setup_baselines.sh              git-clone baseline upstream repos (idempotent) + pip deps
 ├── scripts/
 │   └── benchmarks/
 │       ├── run_forecast.py         worker (one model × dataset × pred_len × N seeds)
@@ -717,54 +166,32 @@ FEATHer/
 ├── baselines/                      top-level model directory
 │   ├── _import_helper.py           sys.modules isolation for upstream imports
 │   ├── __init__.py                 registry (12 main + 30 ablation) + _METHOD_DEFAULTS + _DATASET_OVERRIDES
-│   ├── FEATHer/                    our model (paper-faithful single config)
-│   │   ├── FEATHer.py
-│   │   └── ablation/{multiscale,dtk,gating,head,complexity}.py
-│   ├── DLinear/wrapper.py          + DLinear-main/ (cure-lab/LTSF-Linear)
-│   ├── PatchTST/wrapper.py         + PatchTST-main/ (yuqinie98)
-│   ├── iTransformer/wrapper.py     + iTransformer-main/ (thuml)
-│   ├── FITS/wrapper.py             + FITS-main/ (VEWOXIC)
-│   ├── SparseTSF/wrapper.py        + SparseTSF-main/ (lss-1138)
-│   ├── TimeMixer/wrapper.py        + TimeMixer-main/ (kwuking)
-│   ├── TimesNet/wrapper.py         + TimesNet-main/ (thuml/Time-Series-Library)
-│   ├── TQNet/wrapper.py            + TQNet-main/ (ACAT-SCUT)
-│   ├── LMS_AutoTSF/wrapper.py      + LMS_AutoTSF-main/ (mribrahim/LMS-TSF)
-│   ├── DiPE_Linear/wrapper.py      + DiPE_Linear-main/ (wintertee, DASFAA 2026)
-│   └── MDMLP_EIA/wrapper.py        + MDMLP_EIA-main/ (zh1985csuccsu, AAAI 2026)
+│   ├── FEATHer/                    our model (FEATHer.py + ablation/{multiscale,dtk,gating,head,complexity}.py)
+│   └── <11 baseline dirs>/wrapper.py + <Name>-main/ upstream clones (gitignored)
 ├── utils/
 │   ├── seed.py                     set_seed() + parse_seed_list()
-│   ├── data_factory.py             data_provider + data_select (lazy darts import)
-│   ├── data_loader.py              Dataset classes (ETT_hour/minute, Custom, PEMS)
+│   ├── data_factory.py             data_provider + data_select (lazy darts import; data_dict = 18 keys)
+│   ├── data_loader.py              Dataset classes (ETT_hour/minute, Custom, CMAPSS)
+│   ├── dispatch_queue.py           --ngpu dynamic job queue (one worker subprocess per GPU)
 │   ├── losses.py                   spectral_separation_loss_scales (FEATHer-specific)
 │   ├── metrics.py                  metric() (MSE/MAE/RMSE/CORR/R2)
 │   ├── noise.py                    4-axis corruption (gauss/miss/impulse/quant)
 │   └── timefeatures.py
 ├── tools/
-│   ├── prep_manufacturing.py       reproducible raw→data.csv for the 5 MFG datasets (tracked; data/ is gitignored)
+│   ├── prep_manufacturing.py       reproducible raw→data.csv for the 6 MFG datasets (tracked; data/ gitignored)
 │   ├── audit/check_progress.py     read results CSV, print coverage + mean±std preview
-│   └── paper/                      Phase 5 table generators
-│       ├── main_table.py           5-seed mean±std table (md / latex / csv)
+│   ├── audit/check_duplicates.py   resume-key dup audit + --fix (fcst_results.csv schema ONLY — see audit P2-3)
+│   └── paper/                      Phase 5 table/figure generators
+│       ├── main_table.py           5-seed mean±std table + persistence column (md / latex / csv)
 │       ├── wilcoxon.py             pairwise signed-rank vs FEATHer
-│       ├── ablation_table.py       5 axes × 4 horizons aggregator
-│       └── robust_summary.py       4-axis noise heatmaps + summary table
-├── deployment/cortex_m3/           Layer-1 edge-cost estimator (this work, IoT-J Sec IX)
-│   ├── op_costs.py                 Cortex-M3 reference profile + per-op FLOP counters
-│   ├── estimator.py                forward-hook based peak RAM / arena / latency / energy
-│   ├── run.py                      CLI sweep -> results/edge_estimates.csv
-│   └── qemu/                       Layer-2 QEMU validation (skeleton; WSL workflow)
-│       ├── README.md               build + run instructions
-│       ├── codegen.py              PyTorch -> int8 + weights.h / arena.h
-│       └── firmware/{main.c,Makefile,lm3s6965_64k.ld}
-├── results/
-│   ├── fcst_results.csv            main sweep (append-only, resume by orchestrator)
-│   ├── robust_results.csv          robustness sweep
-│   ├── edge_estimates.csv          384 cells from deployment/cortex_m3/run.py
-│   └── checkpoints/<exp_tag>/      deterministic .pth from --save_model
-├── data/                           .csv / .npy raw data (gitignored)
-└── manuscript/                     reviews, drafts, notes (mostly gitignored)
-    ├── tex_workspace/feather_iotj.tex  IoT-J source (selectively tracked)
-    ├── tex_workspace/fig{1-5}*.tex     TikZ figures (tracked)
-    └── drafts/*.md                     per-section drafts (tracked)
+│       ├── ablation_table.py       5 axes × 4 horizons aggregator (clean accuracy only)
+│       ├── robust_summary.py       μ_rel / AUC / mCE-vs-SparseTSF / degradation curves + heatmaps
+│       ├── gate_logging.py         FFT gate-under-corruption logging (per-band weights, CSV+PNG)
+│       └── persistence_baseline.py copy-last baseline under the exact worker protocol
+├── deployment/cortex_m3/           Layer-1 edge-cost estimator + qemu/ Layer-2 skeleton (WSL)
+├── results/                        fcst_results.csv · robust_results.csv · edge_estimates.csv · checkpoints/<exp_tag>/
+├── data/                           raw + processed data (gitignored — transfer to server manually)
+└── manuscript/                     reviews, drafts, notes (gitignored; tex_workspace/ + drafts/*.md selectively tracked)
 ```
 
 ## Common commands
@@ -773,109 +200,69 @@ FEATHer/
 # Always activate the env first
 conda activate feather
 
-# === One-time: clone the 11 baseline upstream repos ===
+# === One-time: clone the 11 baseline upstream repos (+ reformer_pytorch dep) ===
 bash setup_baselines.sh           # clone all
 bash setup_baselines.sh DLinear   # clone one
 
-# === Main sweep (Phase 4) ===
-# Save checkpoints so robustness can reuse them. --save_model saves ALL 8
-# datasets by default (~42GB; TimesNet-on-Traffic alone is ~24GB). If disk
-# gets tight, --no_save_data "Traffic" skips Traffic's .pth (still trained
-# + scored into the CSV; Traffic isn't a robustness dataset) → ~16GB.
-python run_forecast.py --check                                           # show what's missing
-python run_forecast.py --num_seeds 5 --num_epochs 50 --exp_tag main --save_model
-python run_forecast.py --model FEATHer --save_model                      # one model across all datasets/horizons
-python run_forecast.py --data ETTh1 --pred_len 96 --save_model           # one (data, horizon) across all models
-python run_forecast.py --exclude TimesNet,MDMLP_EIA                      # skip heavy models for a fast pass
-python run_forecast.py --num_seeds 1 --num_epochs 2 --exp_tag smoke      # quick verify (no checkpoints)
+# === Manufacturing main table (default group; 6 datasets) ===
+python run_forecast.py --check --exp_tag main             # 1,440 mfg runs (12×6×4×5)
+python run_forecast.py --exp_tag main --save_model        # group=mfg by default; --save_model makes robustness ckpts
+python run_forecast.py --group ltsf --exp_tag main --save_model   # LTSF-8 generalization (1,920)
+python run_forecast.py --group cmapss --exp_tag main --save_model # PdM shelf (540; NOT in paper)
+python run_forecast.py --group all  --exp_tag main --save_model   # mfg + ltsf = 3,360
+python run_forecast.py --model FEATHer --save_model                # one model across group
+python run_forecast.py --data ETTh1 --pred_len 96 --save_model     # one (data, horizon)
+python run_forecast.py --exclude TimesNet,MDMLP_EIA                # skip heavy models
+python run_forecast.py --num_seeds 1 --num_epochs 2 --exp_tag smoke
 
-# Multi-GPU (2026-07-03): all four orchestrators (run_forecast / run_hp_search
-# / run_lr_search / run_robustness) take `--ngpu N` — a CF-JEPA-style DYNAMIC
-# job queue (utils/dispatch_queue.py): one worker subprocess per GPU (indices
-# --gpu .. --gpu+N-1); a free GPU grabs the next job, so fast models never
-# idle a GPU. No torchrun/DDP/file locks — the orchestrator owns an in-memory
-# queue. ngpu=1 (default) = old sequential behavior.
-#   python run_forecast.py --exp_tag main --save_model --ngpu 2
-# Manual alternative (two processes, disjoint --exclude splits, one per
-# --gpu) still works; sharing one results CSV is fine either way (one
-# append per finished run).
+# Multi-GPU: all four orchestrators take --ngpu N (dynamic queue, one worker
+# subprocess per GPU; utils/dispatch_queue.py; no DDP) and --jobs_per_gpu M
+# (ngpu×M workers, auto OMP/MKL pinning). ngpu=1 default = sequential.
+python run_forecast.py --exp_tag main --save_model --ngpu 2 --jobs_per_gpu 3
 
-# SML is robustness-only: train its checkpoints under exp_tag=main
-# (240 runs, see Status) but it stays OUT of the main accuracy table —
-# the paper's main table is the 8 LTSF datasets; SML appears only in
-# Sec VIII (its clean rows double as accuracy there).
-
-# === Ablation sweep (after main; 30 FEATHer variants, 5 axes) ===
-# DECIDED SCOPE (2026-06-11): ETTh1 + Weather + Electricity x 4 horizons
-# x 5 seeds = 1,800 runs. Diversity (hourly-7ch / 10min-21ch / hourly-321ch)
-# + answers R8 #6d (Electricity ablations promised but unreported in TPAMI).
-python run_forecast.py --ablation_axis all --data ETTh1       --exp_tag ablation
-python run_forecast.py --ablation_axis all --data Weather     --exp_tag ablation
-python run_forecast.py --ablation_axis all --data Electricity --exp_tag ablation
-# axes: ms (15) / gate (4) / dtk (4) / head (4) / complexity (3)
-# single axis: python run_forecast.py --ablation_axis dtk --data ETTh1 --exp_tag ablation
-
-# === Manufacturing main table (JMS pivot) ===
-# Default sweep group is `mfg` (3 datasets: TEP dropped 2026-06-26, PMSM 2026-07-02).
-python run_forecast.py --check --exp_tag main             # 720 mfg runs (12x3x4x5)
-python run_forecast.py --exp_tag main --save_model        # group=mfg by default
-python run_forecast.py --group cmapss --exp_tag main --save_model # short-horizon PdM: CMAPSS+CMAPSS3+PMSM (540)
-python run_forecast.py --group ltsf --exp_tag main --save_model   # generalization section
-python run_forecast.py --group all  --exp_tag main --save_model   # mfg + cmapss + ltsf
-
-# === lr search for the manufacturing main table (Option B, before the sweep) ===
-# Per-(method, dataset) lr selected on val; arch fixed at each method's paper
-# default. 12 models × 5 lr × 6 datasets × 2 horizons × 2 seeds = 1,440
-# (Steel/GasTurbine/WindSCADA at {96,720}; CMAPSS/CMAPSS3/PMSM at {24,96}).
+# === lr search for the mfg main table (Option B; runs BEFORE the main sweep) ===
+# 12 models × 5 lr × 9 datasets (6 mfg + 3 PdM shelf) × 2 horizons × 2 seeds = 2,160.
+# Bypasses _DATASET_OVERRIDES (default arch) — period overrides only affect the main sweep.
 python run_lr_search.py --check
-python run_lr_search.py                     # run all missing (resumable)
-python run_lr_search.py --summary           # best lr per (method,dataset) + _DATASET_OVERRIDES lines
+python run_lr_search.py --ngpu 2            # resumable
+python run_lr_search.py --summary           # best lr per (method,dataset) → MERGE into _DATASET_OVERRIDES
+                                            # (merge into EXISTING period entries — no duplicate keys!)
 
-# === FEATHer OFAT HP search (LTSF generalization section / sensitivity only) ===
-# Superseded for the MAIN table by run_lr_search.py; still used for the LTSF-8
-# generalization configs + the R2 #23 sensitivity curves.
-python run_hp_search.py --check
-python run_hp_search.py
-python run_hp_search.py --summary     # per-dataset OFAT recommendation
-python run_hp_search.py --validate    # run the combined recommendations (≤32 runs)
-python run_hp_search.py --summary     # final verdict: combo adopted, or best
-                                      #   observed single-change config as fallback
+# === FEATHer OFAT HP search (LTSF generalization only; DONE, rows frozen) ===
+python run_hp_search.py --check / --summary / --validate
+# Windows gotcha: run --summary with PYTHONUTF8=1 PYTHONIOENCODING=utf-8 (em-dash vs cp949)
 
-# === Robustness sweep (Phase 4b) ===
-# Requires `--save_model` to have populated results/checkpoints/<train_exp_tag>/.
-python run_robustness.py --check
+# === Robustness sweep (after mfg-main checkpoints exist) ===
+# ⚠ BLOCKED on audit P0 fixes (override forwarding etc.) — see
+# manuscript/notes/code_audit_2026-07-14.md before launching.
+python run_robustness.py --check            # 1,200 ckpt × 20 cond = 24,000 rows
 python run_robustness.py --train_exp_tag main --exp_tag robust
-python run_robustness.py --train_exp_tag main --fault_types gauss,miss   # subset
-python run_robustness.py --model FEATHer --train_exp_tag main            # one model
+python run_robustness.py --model FEATHer --train_exp_tag main
 
-# === Worker (rarely called directly; orchestrator dispatches) ===
-python scripts/benchmarks/run_forecast.py \
-    --model FEATHer --data ETTh1 --pred_len 96 \
-    --seeds "2025,2026,2027,2028,2029" --exp_tag main --save_model
+# === Ablation sweep (5 axes × 30 FEATHer variants; scope extends to mfg) ===
+python run_forecast.py --ablation_axis all --data ETTh1 --exp_tag ablation
+# axes: ms (15) / gate (4) / dtk (4) / head (4) / complexity (3)
 
 # === Progress audit ===
-python tools/audit/check_progress.py                  # default results/fcst_results.csv
-python tools/audit/check_progress.py --exp_tag main   # filter by experiment
-python tools/audit/check_progress.py --model FEATHer  # filter by model
+python tools/audit/check_progress.py --exp_tag main
+python tools/audit/check_duplicates.py      # fcst_results.csv ONLY (not robust CSV)
 
 # === Paper artifact generators (Phase 5) ===
 python tools/paper/main_table.py --metric MSE --format latex > main_mse.tex
 python tools/paper/wilcoxon.py --reference FEATHer
 python tools/paper/ablation_table.py --axis ms --format latex
 python tools/paper/robust_summary.py --output_dir manuscript/figures/
+python tools/paper/gate_logging.py --data Steel --pred_len 96 --ckpt <path>
 
-# === Cortex-M3 edge cost estimator (Layer 1, simulation-based) ===
-python -m deployment.cortex_m3.run --check                # show pending cells
-python -m deployment.cortex_m3.run                         # full sweep -> results/edge_estimates.csv
-python -m deployment.cortex_m3.run --model FEATHer --data ETTh1 --pred_len 96
+# === Data regen (data/ is gitignored) ===
+python tools/prep_manufacturing.py            # all 6 mfg recipes
+python tools/prep_manufacturing.py EWELD      # one (BlastFurnace needs openpyxl)
 
-# === Cortex-M3 QEMU validation (Layer 2, WSL) ===
-# Inside WSL2 (Ubuntu 22.04 with arm-none-eabi-gcc + qemu-system-arm installed):
-python -m deployment.cortex_m3.qemu.codegen --model FEATHer --data ETTh1 --pred_len 96 \
-    --ckpt results/checkpoints/main/FEATHer_ETTh1_H96_L96_s2025.pth
+# === Cortex-M3 edge cost estimator / QEMU (Layer 1 / Layer 2, WSL) ===
+python -m deployment.cortex_m3.run --check
 bash deployment/cortex_m3/qemu/run_qemu.sh FEATHer ETTh1 96 64
 
-# === Manuscript build ===
+# === Manuscript build (IoT-J tex now legacy; JMS = Word via drafts/*.md) ===
 cd manuscript/tex_workspace
 pdflatex feather_iotj && bibtex feather_iotj && pdflatex feather_iotj && pdflatex feather_iotj
 ```
@@ -893,7 +280,7 @@ print(list_models())
 |---|---|---|---|
 | DiPE_Linear | DASFAA | 2026 | 267 |
 | SparseTSF | ICML Oral | 2024 | 41 |
-| FEATHer (ours) | (IoT-J) | 2026 | 453 |
+| FEATHer (ours) | (JMS) | 2026 | 453 |
 | FITS | ICLR Spotlight | 2024 | 1,200 |
 | DLinear | AAAI | 2023 | 18,624 |
 | PatchTST | ICLR | 2023 | 35,171 |
@@ -904,32 +291,22 @@ print(list_models())
 | iTransformer | ICLR | 2024 | 841,568 |
 | MDMLP_EIA | AAAI | 2026 | 1,632,832 |
 
-(SCINet was briefly added 2026-07-13 then REMOVED — a reviewer only named it as
-prior multi-scale work in a novelty critique, not as a baseline-to-add request,
-and it has no config for the seq_len=96 LTSF protocol; kept to Related-Work
-differentiation instead.)
-
-→ 5 orders of magnitude (267 → 1.6M) across the lineup. **Two 2026 SOTA
-papers (DiPE-Linear DASFAA, MDMLP-EIA AAAI)** address R4's "outdated
-baselines" critique.
+(SCINet was briefly added 2026-07-13 then REMOVED — reviewer only named it as
+prior multi-scale work, not a baseline request; Related-Work differentiation
+instead.) → 5 orders of magnitude (267 → 1.6M). Two 2026 SOTA papers
+(DiPE-Linear, MDMLP-EIA) address R4's "outdated baselines" critique.
 
 Each baseline lives at `baselines/<Name>/`. `wrapper.py` exposes
 `build(args, n_features, seq_len, pred_len)` that:
 1. Uses `_import_helper.isolated_import(repo_root, "models.Foo")` to load
-   the upstream `Model` class with full `sys.modules` isolation (otherwise
-   `utils.masking`, `layers.X`, etc. collide between baselines).
+   the upstream `Model` class with full `sys.modules` isolation.
 2. Constructs an `argparse.Namespace` with paper-default hyperparameters.
-3. Wraps non-standard forward signatures (`forward(x_enc, x_mark, x_dec,
-   x_mark_dec)`, `forward(x, cycle_index)`, tuple returns) into our
-   uniform `forward(x) -> (B, pred_len, D)`.
+3. Wraps non-standard forward signatures into uniform `forward(x) -> (B, pred_len, D)`.
 
 ### Excluded from benchmark (cite in Related Work only)
 
-- **S-Mamba** (wzhwzhwzh0921/S-D-Mamba) — selective-scan CUDA kernels
-  (`selective_scan_cuda`, `causal_conv1d_cuda`) have no Cortex-M / STM32
-  port. Out of scope for edge-deployable comparison.
-- **TimeCMA** (ChenxiLiu-HNU/TimeCMA, AAAI 2025) — depends on frozen GPT-2
-  (~124M params) features, 5 orders of magnitude above our sub-1K budget.
+- **S-Mamba** — selective-scan CUDA kernels have no Cortex-M port.
+- **TimeCMA** (AAAI 2025) — frozen GPT-2 features, 5 orders of magnitude above budget.
 
 Reviewer-defense paragraph (paper draft):
 > "We deliberately exclude architectures incompatible with our deployment
@@ -948,10 +325,10 @@ Resolved 2026-06-02 via TFB-style per-(method, dataset) overrides. See
 
 | Axis | Value | Reason |
 |---|---|---|
-| `seq_len` | 96 | LTSF benchmark convention (iTransformer/PatchTST conventions) |
+| `seq_len` | 96 | LTSF benchmark convention |
 | `batch_size` | 32 | Memory protocol axis |
 | `num_epochs` | 50 | Epoch-budget protocol axis |
-| `patience` | 10 | Early stop on val loss; model selection = best-val epoch, test evaluated once on that model (matches every baseline's official protocol) |
+| `patience` | 10 | Early stop on val loss; selection = best-val epoch, test evaluated once on that model |
 | Optimizer | Adam | Standard |
 | Scheduler | CosineAnnealingLR | Standard |
 | AMP | **OFF** | Fairness + FITS complex grads + TimesNet cuFFT half-precision |
@@ -959,68 +336,40 @@ Resolved 2026-06-02 via TFB-style per-(method, dataset) overrides. See
 | `deterministic` | `cudnn.deterministic=True` | Reproducibility |
 | Data split | identical | All baselines see the same train/val/test |
 
-### ⚠️ Per-(method, dataset) from each repo's official ETT* / ECL / Traffic / Weather / Exchange script
+### ⚠️ Per-(method, dataset) overrides
 
 | Axis | Source |
 |---|---|
-| `lr` | each paper's per-dataset script (1e-4 → 5e-2) |
+| `lr` | baselines: each paper's per-dataset script; mfg: `run_lr_search.py` (merge pending) |
 | `loss` | each paper's default (MSE for baselines, L1 for FEATHer) |
-| Architecture HPs (`d_model`, `d_ff`, `e_layers`, `n_heads`, `dropout`) | paper Table or official script |
-| Data-frequency-tied (`cycle` for TQNet, `period_len` for SparseTSF) | dataset's native sampling rate |
+| Architecture HPs | paper Table or official script; FEATHer LTSF-8 rows from OFAT (frozen) |
+| Freq-tied (`cycle`, `period_len`, FEATHer `period`) | data-driven per mfg dataset (FFT-detected), same rule for all 3 period-models |
 
-Routing implementation:
-- `baselines/__init__.py` holds `_METHOD_DEFAULTS` (canonical ETTh1 config
-  per method) and `_DATASET_OVERRIDES` (per-(method, dataset) diff).
-- Orchestrator merges defaults + overrides + any CLI `--lr` / `--loss`,
-  then forwards `lr` / `loss` as top-level worker flags and the rest as
-  `--model_overrides "key=value;key2=value2"`.
-- Worker's `_apply_overrides()` parses with int/float/bool coercion and
-  sets each key on `args` before model construction; wrapper's
-  `getattr(args, "key", default)` picks up the dataset-specific value.
-
-### FEATHer's protocol — per-dataset config (revised 2026-06-17)
-
-**Superseded:** FEATHer originally used a single config across all 8
-datasets ("generalizes without tuning" narrative). Decided 2026-06-17 to
-tune FEATHer **per-dataset like every baseline** so the main table shows
-its best numbers — a single untuned config risked losing cells to
-per-dataset-tuned baselines. `run_hp_search.py --summary` emits the
-per-dataset winners; they go into `_DATASET_OVERRIDES` as `("FEATHer",
-<data>)` rows. The single-config sensitivity data still falls out of the
-search for free (the `hp_base` rows) if ever wanted as a side analysis.
-
-Fair-comparison framing (now symmetric):
-
-> *"Every method, including FEATHer, uses per-dataset hyperparameters
-> selected on the validation split, ensuring an apples-to-apples
-> comparison at each method's best operating point."*
+Routing: `_METHOD_DEFAULTS` + `_DATASET_OVERRIDES` in `baselines/__init__.py`;
+orchestrator merges defaults + overrides + CLI, forwards `lr`/`loss` as worker
+flags and the rest as `--model_overrides "k=v;k2=v2"`; worker's
+`_apply_overrides()` sets each key on `args` before model construction.
+FEATHer is tuned per-dataset like every baseline (symmetric fair-comparison
+framing); canonical mfg arch = base d8/k7/p12/B3.
 
 ## Architecture (FEATHer model)
 
-The FEATHer model (`baselines/FEATHer/FEATHer.py`) has four components:
+`baselines/FEATHer/FEATHer.py`, four components:
 
 1. **Multi-band Decomposition** — depthwise 1D convs separate input into
-   frequency bands (POINT, HIGH?, MID, LOW). Configurable `num_bands ∈ {2,3,4}`.
-2. **DenseTemporalKernel (DTK)** — project to latent space → depthwise
-   causal conv → project back. Shared across all bands.
-3. **FFTFrequencyGate** — FFT magnitude → Conv1d → softmax weights, one
-   weight per band, adaptive per sample. Casts to float32 to avoid cuFFT
-   half-precision restriction.
-4. **SparsePeriodKernel (SPK)** — period-aware forecasting head. Reshapes
-   by period phases, shared linear projection across periods, reconstruct.
+   frequency bands (POINT, HIGH?, MID, LOW). `num_bands ∈ {2,3,4}`.
+2. **DenseTemporalKernel (DTK)** — project to latent → depthwise causal conv
+   → project back. Shared across all bands.
+3. **FFTFrequencyGate** — FFT magnitude → Conv1d → softmax weights, one per
+   band, adaptive per sample. Casts to float32 (cuFFT half-precision).
+4. **SparsePeriodKernel (SPK)** — period-aware head: reshape by period phases,
+   shared linear projection, reconstruct.
 
-Loss = main (L1/MSE) + `lambda_spec` × spectral-separation loss. Spectral
-loss is FEATHer-specific; the worker skips it for other baselines.
+Loss = main (L1/MSE) + `lambda_spec` × spectral-separation loss (FEATHer-only;
+⚠ band-order inversion bug — audit P1-1 — fix pending).
 
-Key training args (FEATHer-specific):
-
-| Argument | Default | Description |
-|---|---|---|
-| `--d_state` | 8 | DTK latent dimension |
-| `--kernel_size` | 7 | DTK conv kernel size |
-| `--period` | 12 | SPK period (must divide both seq_len and pred_len) |
-| `--num_bands` | 3 | Frequency bands (2, 3, or 4) |
-| `--lambda_spec` | 0.01 | Spectral-separation loss weight |
+Key FEATHer args: `--d_state 8` (DTK latent), `--kernel_size 7`, `--period 12`
+(must divide seq_len AND pred_len), `--num_bands 3`, `--lambda_spec 0.01`.
 
 ## Results CSV schema
 
@@ -1031,135 +380,94 @@ Columns (resume key in bold):
 **`seed`**, `MSE`, `MAE`, `RMSE`, `CORR`, `R2`, `val_loss`, `best_epoch`,
 `num_params`, `timestamp`
 
-Test metrics are computed once on the best-val-epoch model (early stopping
-patience=10); `val_loss` is that epoch's validation loss and `best_epoch`
-its index. The saved checkpoint is the same best-val model.
-
-`exp_tag` partitions experiments — e.g. `main`, `robustness_gauss`,
-`ablation_dtk`, `smoke`. Use `--results_csv PATH` to redirect for
-verification runs without contaminating the main CSV.
+Test metrics computed once on the best-val-epoch model. `exp_tag` partitions
+experiments (`main`, `robust`, `ablation_dtk`, `smoke`, `lr_*`, `hp_*`).
+Use `--results_csv PATH` to redirect verification runs.
 
 ## Datasets
 
-Loaded via `utils/data_factory.py`. Lazy darts import — only datasets that
-actually use darts trigger the import.
+Loaded via `utils/data_factory.py` (lazy darts import; `data_dict` = 18 keys
+after the 2026-07-13c Tier-2 prune).
 
 | Dataset | Source | Horizon set |
 |---|---|---|
-| **Steel / GasTurbine / WindSCADA** (MFG, **main table**; PMSM dropped 2026-07-02) | local CSV (see `tools/prep_manufacturing.py`) | [96, 192, 336, 720] |
-| **CMAPSS / CMAPSS3 / PMSM** (short-horizon PdM section: C-MAPSS FD001, FD003, Paderborn motor multi-session) | local CSV (unit-aware `Dataset_CMAPSS`) | [24, 48, 96] |
-| ETTh1/ETTh2/ETTm1/ETTm2/Weather/Exchange/Electricity/Traffic (now generalization) | darts library | [96, 192, 336, 720] |
-| SML, Volatility | local CSV | [24, 48, 96, 192] |
-| PEMS03/04/08/PEMS_BAY/METR | local CSV | [12, 24, 48, 96] |
-| AirQuality, PM, nrel | local CSV | [96, 192, 336, 720] |
+| **Steel · WindSCADA · BlastFurnace · N2O · MetroPT3 · EWELD** (MFG **main table**; BlastFurnace D=28 = stress tier) | local CSV (`tools/prep_manufacturing.py`) | [96, 192, 336, 720] |
+| CMAPSS / CMAPSS3 / PMSM (PdM **shelf**, not in paper; unit-aware `Dataset_CMAPSS`) | local CSV | [24, 48, 96] |
+| ETTh1/ETTh2/ETTm1/ETTm2/Weather/Exchange/Electricity/Traffic (generalization) | darts | [96, 192, 336, 720] |
+| nrel (kept per user) | local CSV | [96, 192, 336, 720] |
 
-Manufacturing datasets (JMS pivot): each `data/<name>/` holds the raw source
-+ the cleaned `data.csv` that `data_factory.py` loads. Regenerate any
-`data.csv` from raw with `python tools/prep_manufacturing.py [<name> ...]`.
-`data/` is gitignored — transfer raw (or data.csv) to the server manually.
+Robustness set: `run_robustness.py:ROBUSTNESS_DATASETS` =
+**[Steel, WindSCADA, EWELD, ETTh1, Weather]** (EWELD's 5,741 extreme-weather
+event windows = the only non-synthetic distribution-shift test).
+EWELD gotcha: strong daily cycle → MUST report a seasonal-naive baseline
+(copy-last-day ~0.55). Each `data/<name>/` holds raw + cleaned `data.csv`;
+regenerate with `python tools/prep_manufacturing.py [<name> ...]`
+(BlastFurnace needs `openpyxl`). `data/` is gitignored — transfer manually.
 
 ## Known issues / gotchas
 
-- **`--ngpu N` + upstream hardcoded `.cuda()` (fixed 2026-07-13)**: several
-  upstream baselines create tensors on the DEFAULT cuda device via bare
-  `.cuda()` / `.to('cuda')` (on-path: `MDMLP_EIA/layers/ema.py`+`dema.py`;
-  latent: TimeMixer DWT, iTransformer LSH — off the default path). Under
-  `--ngpu 2` a worker on `cuda:1` then crashes with *"Expected all tensors to
-  be on the same device, cuda:1 and cuda:0"*. Fix = both workers call
-  `torch.cuda.set_device(args.gpu)` at startup so bare-`cuda` resolves to the
-  worker's GPU. Do NOT sed the upstream files — `baselines/*/*-main/` is
-  gitignored + re-cloned by `setup_baselines.sh`, so the set_device fix in our
-  worker is the durable one.
+- **⚑ AUDIT (2026-07-14c)** — P0/P1/P2-1/2 batch FIXED + validated (see
+  Current status). Still open from
+  `manuscript/notes/code_audit_2026-07-14.md`: `check_duplicates.py --fix`
+  must NOT be pointed at robust_results.csv (its key lacks fault/severity —
+  it would delete 95% of the sweep); manual FEATHer sensitivity runs: CLI
+  arch flags are silently beaten by `_DATASET_OVERRIDES` (sweeps unaffected);
+  pre-fix Weather rows and stored-RMSE values in old CSVs are stale (purge /
+  derive sqrt(MSE) respectively).
+- **`--ngpu N` + upstream hardcoded `.cuda()` (fixed 2026-07-13)**: workers
+  call `torch.cuda.set_device(args.gpu)` at startup. Do NOT sed the upstream
+  `baselines/*/*-main/` files (gitignored, re-cloned).
 - **`reformer_pytorch` is an import-time dep of 4 baselines** (iTransformer,
-  LMS_AutoTSF, TimeMixer, TimesNet — they share a `layers/SelfAttention_Family.py`
-  that does `from reformer_pytorch import LSHSelfAttention` even though LSH is
-  never used). A fresh env (e.g. server `lee`) without it fails those 4 models
-  with `No module named 'reformer_pytorch'` — and since failed worker runs write
-  NO csv row, the orchestrator silently skips them (they just look "not yet
-  run"). `setup_baselines.sh` now `pip install reformer_pytorch==1.4.4`; manual:
-  `pip install reformer_pytorch==1.4.4`. After installing, just re-run the sweep
-  — resume fills the missing cells.
-- **AMP is forcibly disabled** in `scripts/benchmarks/run_forecast.py`.
-  Re-enabling will break FITS (complex grads) and TimesNet (half-precision
-  cuFFT on non-power-of-2 sizes).
+  LMS_AutoTSF, TimeMixer, TimesNet). Missing → those 4 die at import, write
+  no CSV row, and look "not yet run" (failed workers currently exit 0 —
+  audit P2-1). `setup_baselines.sh` installs `reformer_pytorch==1.4.4`.
+- **AMP is forcibly disabled** in the worker. Re-enabling breaks FITS
+  (complex grads) and TimesNet (half-precision cuFFT).
 - **`_import_helper.isolated_import`** must be used for every upstream
-  baseline import. Direct `from baselines.X.Y import Model` will leak
-  `sys.modules` entries (`utils`, `layers`, `models`, etc.) across
-  baselines and produce `ModuleNotFoundError: No module named
-  'utils.masking'` or similar.
-- **TQNet** receives `cycle_index = torch.zeros(B)` from the wrapper since
-  our DataLoader does not expose per-sample cycle position. Sub-optimal vs
-  paper but consistent across all batches.
-- **R2 metric** can explode to extreme negatives (~-3e7 observed on
-  Traffic) when channels are near-constant within a window (SST≈0).
-  MSE/MAE/RMSE are unaffected; R2/CORR are supplementary only. The old
-  `-1e9` placeholder bug is gone (single-pass test evaluation since
-  2026-06-11). Triage later.
-- **FEATHer params scale as D²** (`in_proj = Linear(D, D)`): 453 @ D=7
-  (ETT), 866 @ D=14 (Volatility) — sub-1K holds only for D≤14. Weather
-  1.4K, Electricity 115K, Traffic 776K. Paper scopes the sub-1K claim
-  to edge-typical channel counts; Traffic/Electricity are framed as
-  scalability stress tests. A channel-independent variant is a possible
-  future ablation axis, not a pre-sweep change.
-- **FEATHer params also scale with pred_len** (SPK `backbone = Linear(n, m)`,
-  n=seq/P, m=H/P): all quoted counts (402/677/738/866) are **H=96** values.
-  At H=720 with the base config, D≥11 exceeds 1K (GasTurbine 1,093 / PMSM
-  1,154 / WindSCADA 1,282). The manuscript's sub-1K claim must be scoped to
-  H=96 or report per-horizon counts (flagged 2026-07-03, unresolved).
+  baseline import (sys.modules collisions otherwise).
+- **TQNet** receives `cycle_index = torch.zeros(B)` (our DataLoader has no
+  per-sample cycle position) — consistent across all batches.
+- **R2 metric** can explode to extreme negatives on near-constant channels
+  (SST≈0); MSE/MAE/RMSE unaffected; R2/CORR supplementary only.
+- **FEATHer params scale as D²** (`in_proj`): sub-1K holds for D≤14 only.
+  Weather 1.4K / Electricity 115K / Traffic 776K / BlastFurnace(D=28) 1,986
+  are framed as stress tests.
+- **FEATHer params also scale with pred_len** (SPK backbone): quoted counts
+  are H=96 values; at H=720 D≥11 exceeds 1K. Sub-1K claim must be scoped to
+  H=96 in the manuscript (flagged 2026-07-03, unresolved).
 
 ## Workflow phases
 
-- **Phase 1** ✅ Multi-seed infrastructure (set_seed, registry, orchestrator,
-  worker, audit dashboard).
-- **Phase 2** ✅ Clone 11 baselines + write wrappers. 12-model lineup
-  (FEATHer + 11), S-Mamba/TimeCMA dropped as out-of-scope. DiPE-Linear +
-  MDMLP-EIA added 2026-06-02 to address R4 "outdated baselines".
-- **Phase 3** ✅ Noise robustness infra — `utils/noise.py` (Gaussian /
-  missing / impulse / quantization), `scripts/benchmarks/run_robustness.py`,
-  top-level `run_robustness.py` orchestrator. **IoT-J selling point.**
-- **Phase 4** (next) Main 5-seed sweep: 12 models × 8 datasets × 4
-  horizons × 5 seeds = **1,920 runs**. GPU days. Run on server, not here.
-- **Phase 4b** Robustness sweep: 12 models × **4 representative datasets**
-  (ETTh1 / Weather / Electricity / SML — canonical / real-sensor /
-  smart-grid / smart-home) × 4 horizons × 5 seeds × 20 conditions (1 clean
-  + 5 gauss + 5 miss + 4 impulse + 5 quant) = **19,200 rows**. Inference
-  only (loads `--save_model` checkpoints). The 4-dataset scope is set in
-  `run_robustness.py:ROBUSTNESS_DATASETS` and keeps the sweep tractable
-  vs. the 8-dataset main table.
-- **Phase 5** Paper artifacts under `tools/paper/` — main table, robustness
-  figure, statistical significance (Wilcoxon).
+- **Phase 1–3** ✅ infra (multi-seed, 12-model registry, 4-axis noise).
+- **Phase 4** (running) main sweeps on server: mfg 1,440 + LTSF 1,920.
+- **Phase 4b** (blocked on P0 fixes + mfg checkpoints) robustness sweep:
+  12 models × 5 datasets × 4 horizons × 5 seeds × 20 conditions = 24,000 rows,
+  inference-only from `--save_model` checkpoints.
+- **Phase 5** paper artifacts under `tools/paper/` (+ still to write:
+  ablation-under-corruption aggregation, Pareto plot).
 
 ## Paper context
 
-- Target venue: **Journal of Manufacturing Systems (JMS)**, Elsevier/SME, Q1
-  (changed 2026-06-25 from IEEE IoT-J — see the manufacturing-pivot status at
-  the top). Manuscript needs a major rewrite toward manufacturing/predictive-
-  maintenance framing; `feather_iotj.tex` IoT-J framing is now largely
-  obsolete. Manufacturing-LTSF precedent caveat: Steel/GasTurbine/PMSM are
-  established as datasets but not as long-term-forecasting benchmarks
-  (WindSCADA forecasting is) — frame as "first to cast these as edge PdM LTSF".
-- **Submission format (decided 2026-06-25): Word** (user prefers Word over
-  LaTeX). Elsevier "Your Paper Your Way" → NO rigid template needed at initial
-  submission; write a plain single-column Word doc following the JMS Guide for
-  Authors (sections, structured content, Highlights 3–5 bullets ≤85 chars,
-  Vancouver-numbered refs via Mendeley/Zotero, CRediT + competing-interest +
-  data-availability declarations). The generic Elsevier "Research Article
-  template and guidance.docx" is COMPAG-branded (wrong journal) — not used.
-- **Manuscript writing plan**: existing `feather_iotj.tex` is structurally
-  near-complete — reuse map: **Methodology (Sec III) + Theoretical Analysis
-  (Sec IV) reusable ~as-is** (trim theory for an applied venue); **Intro,
-  Related Work, Datasets need manufacturing/PdM reframe**; Results/Ablation/
-  Robustness wait for sweep numbers (placeholders). Drafting medium: write
-  markdown in `manuscript/drafts/` → paste into Word. Order: Intro → Datasets
-  → Related → Method/Theory/Setup polish → results when sweeps land.
-- **Proposed story (pending final user OK)**: edge predictive-maintenance /
-  process-monitoring forecasting that runs on machine-side MCUs; FEATHer =
-  sub-1K-param Cortex-M3-deployable forecaster, robust to shop-floor sensor
-  faults, validated across 5 manufacturing domains. Contributions: (1) sub-1K
-  multiscale-frequency forecaster for edge PdM, (2) 5 heterogeneous mfg sensor
-  domains, (3) robustness to sensor faults, (4) Cortex-M3 deployment evidence.
-- Repositioning: stronger emphasis on Cortex-M3 deployment, sensor-noise
-  robustness, missing-value handling. Lighter on theoretical claims (R8
-  flagged Theorem 1/2/3-5 numbering inconsistency in TPAMI manuscript).
-- Detailed reviewer-by-reviewer notes and excluded-baseline rationale in
-  memory.
+- Target venue: **Journal of Manufacturing Systems (JMS)**, Elsevier/SME, Q1.
+  Story: edge PdM/process-monitoring forecasting on machine-side MCUs;
+  FEATHer = sub-1K Cortex-M3-deployable forecaster, robust to shop-floor
+  sensor faults, validated across 6 industrial domains. Contributions:
+  (1) sub-1K multiscale-frequency forecaster, (2) first edge/sub-1K mfg LTSF
+  benchmark (6 domains), (3) sensor-fault robustness, (4) Cortex-M3
+  deployment evidence.
+- **Submission format: Word** (Elsevier "Your Paper Your Way"; no rigid
+  template; Highlights 3–5 bullets ≤85 chars; Vancouver refs; CRediT +
+  declarations). Draft in markdown under `manuscript/drafts/` → paste into
+  Word. Order: Intro (A+C framing) → Datasets → Related → Method polish →
+  results when sweeps land.
+- Reuse map from `feather_iotj.tex`: Methodology + Theoretical Analysis
+  ~as-is (trim theory); Intro/Related/Datasets need the manufacturing
+  reframe; Results/Ablation/Robustness wait for sweep numbers.
+- Wording guards: CMAPSS = "first to cast as a fixed-horizon multivariate
+  sensor forecasting BENCHMARK" (not "first to forecast"); PMSM cite AIP
+  Advances 16(4):045101; Steel all-channels departure stated explicitly;
+  mfg-LTSF precedent = "first to cast as edge PdM LTSF"
+  (`manuscript/notes/dataset_precedent_audit.md`).
+- Reviewer-by-reviewer notes in memory; reject letter at
+  `manuscript/notes/reject_mail.md`; robustness protocol citations at
+  `manuscript/notes/robustness_justification_evidence.md`.

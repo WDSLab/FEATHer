@@ -48,7 +48,8 @@ def spectral_separation_loss_scales(H: torch.Tensor, eps: float = 1e-6) -> torch
         P_s = _power_spectrum(H[s])
         P_list.append(P_s)
 
-    # Divide frequency axis into S equal bands
+    # Divide frequency axis into S equal bands.
+    # bands[0] = lowest rfft bins ... bands[S-1] = highest bins.
     B0, Lf = P_list[0].shape
     step = Lf // S
     bands = []
@@ -69,16 +70,24 @@ def spectral_separation_loss_scales(H: torch.Tensor, eps: float = 1e-6) -> torch
     # For each scale s:
     #   - Maximize energy ratio in its own band (close to 1)
     #   - Minimize energy ratio in other bands (close to 0)
+    #
+    # H is stacked in FEATHer.forward's bands_list order [POINT, (HIGH,)
+    # (MID,) LOW] — scale 0 is the HIGHEST-frequency band and scale S-1 the
+    # lowest (AvgPool-smoothed). Band slices run low→high along the rfft
+    # axis, so scale s owns bands[S-1-s]. (Indexing bands[s] directly would
+    # push the POINT band into the lowest bins and demand high-frequency
+    # energy from the band-limited LOW scale.)
     for s in range(S):
         P_s = P_list[s]
+        own = S - 1 - s
 
         # Energy ratio in own frequency band
-        r_main = band_ratio(P_s, bands[s])
+        r_main = band_ratio(P_s, bands[own])
         main_terms.append((1.0 - r_main) ** 2)
 
         # Energy ratio in other bands (should be minimal)
         for t in range(S):
-            if t == s:
+            if t == own:
                 continue
             r_other = band_ratio(P_s, bands[t])
             overlap_terms.append(r_other ** 2)

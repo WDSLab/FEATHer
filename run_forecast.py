@@ -305,7 +305,7 @@ def main():
                    help="Single dataset; omit to sweep a --group.")
     p.add_argument("--group",   type=str, default="mfg",
                    choices=["mfg", "ltsf", "cmapss", "all"],
-                   help="Dataset group when --data is omitted: mfg (4 "
+                   help="Dataset group when --data is omitted: mfg (6 "
                         "manufacturing, MAIN table [96..720]; default), cmapss "
                         "(C-MAPSS short-horizon PdM section [24,48,96]), ltsf "
                         "(8 LTSF generalization), or all.")

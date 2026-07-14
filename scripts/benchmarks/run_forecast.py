@@ -55,10 +55,15 @@ CSV_FIELDS = [
 def append_result_row(csv_path, row):
     os.makedirs(os.path.dirname(csv_path) or ".", exist_ok=True)
     df_new = pd.DataFrame([row], columns=CSV_FIELDS)
-    if os.path.exists(csv_path):
+    # Atomic create-with-header: under --ngpu/--jobs_per_gpu several workers
+    # can race on a FRESH csv; a non-atomic exists()-then-write can leave a
+    # second header mid-file and break resume parsing. open(mode="x") is
+    # O_CREAT|O_EXCL — exactly one worker wins the header.
+    try:
+        with open(csv_path, "x", newline="") as f:
+            df_new.to_csv(f, index=False)
+    except FileExistsError:
         df_new.to_csv(csv_path, mode="a", header=False, index=False)
-    else:
-        df_new.to_csv(csv_path, index=False)
 
 
 def checkpoint_path(exp_tag, model_name, data_name, pred_len, seq_len, seed):
@@ -221,7 +226,7 @@ def train_single(args, data_name, pred_len, device, seed):
         model.load_state_dict(best_state)
     model.eval()
     sum_vector = np.zeros(num_metrics, dtype=np.float64)
-    cnt = 0
+    cnt_vector = np.zeros(num_metrics, dtype=np.float64)
     with torch.no_grad():
         for batch_x, batch_y, _, _ in test_loader:
             batch_x = batch_x.float().to(device)
@@ -231,9 +236,15 @@ def train_single(args, data_name, pred_len, device, seed):
             y_pred = output[:, -pred_len:].cpu().numpy()
             bs = y_true.shape[0]
             m = np.array(metrics.metric(y_pred, y_true), dtype=np.float64)
-            sum_vector += m * bs
-            cnt += bs
-    test_metric = sum_vector / max(1, cnt)
+            # NaN-aware accumulation: a single all-NaN batch (near-constant
+            # channels -> undefined CORR/R2) must not poison the aggregate.
+            valid = np.isfinite(m)
+            sum_vector[valid] += m[valid] * bs
+            cnt_vector[valid] += bs
+    test_metric = sum_vector / np.maximum(cnt_vector, 1)
+    # Batch-weighted mean-of-sqrt understates RMSE (Jensen) and breaks the
+    # RMSE == sqrt(MSE) identity within a row; derive it from the global MSE.
+    test_metric[2] = float(np.sqrt(test_metric[0]))
 
     # ---------- Persist ----------
     timestamp = now.strftime("%Y%m%d_%H%M%S")
@@ -293,14 +304,25 @@ def train(args):
     if args.pred_len <= 0:
         raise ValueError("--pred_len must be > 0 in worker mode (orchestrator picks it)")
 
+    n_failed = 0
     for seed in seeds:
         try:
             train_single(args, args.data, args.pred_len, device, seed)
         except Exception as e:
+            n_failed += 1
             print(f"[ERROR] {args.model} / {args.data} / {args.pred_len} / seed={seed}: {e}")
             import traceback; traceback.print_exc()
         torch.cuda.empty_cache()
         gc.collect()
+
+    if n_failed:
+        # A failed run writes NO csv row, so without a non-zero exit the
+        # orchestrator would silently treat it as "not yet run" forever
+        # (this is exactly how the missing-reformer_pytorch incident hid
+        # 4 models). Finish the remaining seeds, then flag the group.
+        print(f"[FATAL] {n_failed}/{len(seeds)} seed run(s) failed — "
+              f"exiting non-zero so the orchestrator reports this group.")
+        sys.exit(1)
 
 
 def parse_args():

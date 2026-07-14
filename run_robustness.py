@@ -27,7 +27,7 @@ import sys
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from baselines import list_models
+from baselines import list_models, get_method_defaults, get_dataset_overrides
 from utils import noise as noise_mod
 from utils.dispatch_queue import run_on_gpus
 from scripts.benchmarks.run_forecast import checkpoint_path
@@ -51,8 +51,6 @@ DEFAULT_MODELS = list_models()
 # ETTh1/Weather/Electricity/SML.)
 ROBUSTNESS_DATASETS = ["Steel", "WindSCADA", "EWELD", "ETTh1", "Weather"]
 LTSF_PREDS = [96, 192, 336, 720]
-SHORT_PREDS = [24, 48, 96, 192]      # SML
-SHORT_DATASETS = {"SML", "Volatility"}
 
 DEFAULT_BASE_SEED = 2025
 DEFAULT_NUM_SEEDS = 5
@@ -63,7 +61,7 @@ RESULTS_CSV = "results/robust_results.csv"
 
 
 def pred_lens_for(dataset):
-    return SHORT_PREDS if dataset in SHORT_DATASETS else LTSF_PREDS
+    return LTSF_PREDS
 
 
 def expected_rows(fault_types):
@@ -90,6 +88,10 @@ def load_robust_set(csv_path, fault_types):
     df_keep = df[df["fault_type"].isin(keep_faults)]
     grp_cols = ["exp_tag", "train_exp_tag", "model", "data",
                 "pred_len", "seq_len", "seed"]
+    # Count DISTINCT (fault_type, severity) conditions, not raw rows:
+    # duplicate rows (e.g. from a pre-resume retry) must not let a combo with
+    # missing tail conditions masquerade as complete.
+    df_keep = df_keep.drop_duplicates(subset=grp_cols + ["fault_type", "severity"])
     counts = df_keep.groupby(grp_cols).size().reset_index(name="n")
     done = counts[counts["n"] >= need]
 
@@ -185,6 +187,15 @@ def dispatch(combos, done, args, fault_types):
         if not os.path.exists(ckpt):
             continue  # surfaced by print_status already
 
+        # Mirror run_forecast.py's training-time merge EXACTLY, so the worker
+        # reconstructs the same architecture the checkpoint was trained with
+        # (per-dataset FEATHer period/d_state, sparsetsf_period_len,
+        # tqnet_cycle, patchtst_d_model, ... all change parameter shapes).
+        # lr/loss are training-only — irrelevant at inference.
+        merged = {**get_method_defaults(m), **get_dataset_overrides(m, d)}
+        hp_overrides = {k: v for k, v in merged.items() if k not in ("lr", "loss")}
+        overrides_str = ";".join(f"{k}={v}" for k, v in sorted(hp_overrides.items()))
+
         label = f"{m} | {d} | H={h} | seed={s}"
         cmd = [
             sys.executable,
@@ -198,12 +209,16 @@ def dispatch(combos, done, args, fault_types):
             "--exp_tag", args.exp_tag,
             "--results_csv", args.results_csv,
             "--batch_size", str(args.batch_size),
-            # FEATHer hyperparameters — needed to reconstruct architecture
+            # FEATHer hyperparameters — worker-CLI baseline, same as the
+            # training dispatch; --model_overrides is applied AFTER parsing
+            # and therefore wins, exactly like at training time.
             "--d_state", str(args.d_state),
             "--kernel_size", str(args.kernel_size),
             "--period", str(args.period),
             "--num_bands", str(args.num_bands),
         ]
+        if overrides_str:
+            cmd += ["--model_overrides", overrides_str]
         if args.fault_types:
             cmd += ["--fault_types", args.fault_types]
         jobs.append((label, cmd))

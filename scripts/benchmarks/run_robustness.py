@@ -35,8 +35,11 @@ from utils import metrics
 from utils import noise as noise_mod
 from utils.seed import set_seed
 
-# Reuse the trained-checkpoint path convention.
-from scripts.benchmarks.run_forecast import checkpoint_path
+# Reuse the trained-checkpoint path convention + the override parser, so the
+# model is reconstructed with EXACTLY the architecture the checkpoint was
+# trained with (the orchestrator forwards the same _DATASET_OVERRIDES merge
+# that run_forecast.py used at training time).
+from scripts.benchmarks.run_forecast import checkpoint_path, _apply_overrides
 
 warnings.filterwarnings("ignore")
 
@@ -53,10 +56,39 @@ CSV_FIELDS = [
 def append_row(csv_path, row):
     os.makedirs(os.path.dirname(csv_path) or ".", exist_ok=True)
     df = pd.DataFrame([row], columns=CSV_FIELDS)
-    if os.path.exists(csv_path):
+    # Atomic create-with-header (see run_forecast.append_result_row): avoids
+    # a duplicate mid-file header when concurrent workers race on a fresh CSV.
+    try:
+        with open(csv_path, "x", newline="") as f:
+            df.to_csv(f, index=False)
+    except FileExistsError:
         df.to_csv(csv_path, mode="a", header=False, index=False)
-    else:
-        df.to_csv(csv_path, index=False)
+
+
+def load_done_conditions(csv_path, args):
+    """(fault_type, severity) pairs already in the CSV for THIS worker's key.
+
+    Lets a retried worker skip conditions it already wrote instead of
+    re-appending the full 20-row sweep (which would duplicate rows and
+    corrupt count/paired analyses downstream)."""
+    if not os.path.exists(csv_path):
+        return set()
+    try:
+        df = pd.read_csv(csv_path)
+    except Exception:
+        return set()
+    if df.empty:
+        return set()
+    sel = df[
+        (df["exp_tag"].astype(str) == str(args.exp_tag))
+        & (df["train_exp_tag"].astype(str) == str(args.train_exp_tag))
+        & (df["model"].astype(str) == str(args.model))
+        & (df["data"].astype(str) == str(args.data))
+        & (df["pred_len"].astype(int) == int(args.pred_len))
+        & (df["seq_len"].astype(int) == int(args.seq_len))
+        & (df["seed"].astype(int) == int(args.seed))
+    ]
+    return set(zip(sel["fault_type"].astype(str), sel["severity"].astype(float)))
 
 
 def evaluate_on_test(model, test_loader, n_features, pred_len, device,
@@ -68,7 +100,7 @@ def evaluate_on_test(model, test_loader, n_features, pred_len, device,
     """
     model.eval()
     sum_vec = np.zeros(5, dtype=np.float64)
-    cnt = 0
+    cnt_vec = np.zeros(5, dtype=np.float64)
     with torch.no_grad():
         for batch_x, batch_y, _, _ in test_loader:
             batch_x = batch_x.float().to(device)
@@ -81,9 +113,15 @@ def evaluate_on_test(model, test_loader, n_features, pred_len, device,
             y_pred = output[:, -pred_len:].cpu().numpy()
             bs = y_true.shape[0]
             m = np.array(metrics.metric(y_pred, y_true), dtype=np.float64)
-            sum_vec += m * bs
-            cnt += bs
-    return sum_vec / cnt
+            # NaN-aware accumulation: an all-NaN CORR/R2 batch must not
+            # poison the aggregate (mirrors run_forecast.py's test loop).
+            valid = np.isfinite(m)
+            sum_vec[valid] += m[valid] * bs
+            cnt_vec[valid] += bs
+    out = sum_vec / np.maximum(cnt_vec, 1)
+    # RMSE = sqrt(global MSE), not the Jensen-biased batch mean-of-sqrt.
+    out[2] = float(np.sqrt(out[0]))
+    return out
 
 
 def run(args):
@@ -127,7 +165,14 @@ def run(args):
     model.load_state_dict(state)
     model = model.float().to(device)
 
-    # Clean baseline
+    # Per-condition resume: skip (fault, severity) rows this key already has,
+    # so a retried worker never appends duplicates.
+    done_conditions = load_done_conditions(args.results_csv, args)
+    if done_conditions:
+        print(f"  resume: {len(done_conditions)} condition(s) already in CSV — skipping those")
+
+    # Clean baseline — always re-evaluated (deterministic: no corruption
+    # involved) because Dw needs mse_clean; only WRITTEN if missing.
     clean_metric = evaluate_on_test(model, test_loader, n_features,
                                     args.pred_len, device,
                                     fault_type=None, severity=None)
@@ -160,7 +205,8 @@ def run(args):
 
     # 1) Bake the clean baseline into the CSV under fault_type="clean"
     #    severity=0 so plotting code can include it without special-casing.
-    write("clean", 0.0, clean_metric)
+    if ("clean", 0.0) not in done_conditions:
+        write("clean", 0.0, clean_metric)
 
     # 2) Restrict to a fault subset if requested
     fault_types = args.fault_types.split(",") if args.fault_types else noise_mod.FAULT_TYPES
@@ -170,8 +216,13 @@ def run(args):
             print(f"  [skip] unknown fault type: {ft}")
             continue
         for sev in noise_mod.SEVERITY_SWEEPS[ft]:
-            # Reseed per (fault, severity) so corruption is reproducible.
-            set_seed(args.seed * 1000 + hash((ft, sev)) % 1000,
+            if (ft, float(sev)) in done_conditions:
+                print(f"  [skip] {ft}={sev} already in CSV")
+                continue
+            # Reseed per (fault, severity) so every process draws the SAME
+            # corruption realization (matched noise across models/re-runs).
+            # NOT hash(): string hashing is PYTHONHASHSEED-salted per process.
+            set_seed(noise_mod.corruption_seed(args.seed, ft, sev),
                      deterministic=args.deterministic)
             m = evaluate_on_test(model, test_loader, n_features,
                                  args.pred_len, device,
@@ -202,6 +253,14 @@ def parse_args():
     p.add_argument("--use_topk_gate", action="store_true")
     p.add_argument("--topk",        type=int, default=2)
 
+    # Per-(model, dataset) HP injection — MUST mirror the training-time merge
+    # or per-dataset architectures (FEATHer period/d_state, sparsetsf_period_len,
+    # tqnet_cycle, patchtst_d_model, ...) won't match the checkpoint and the
+    # strict load_state_dict fails. Same format as run_forecast.py.
+    p.add_argument("--model_overrides", type=str, default="",
+                   help='Semicolon-separated key=value HP overrides '
+                        '(e.g. "period=24;sparsetsf_period_len=48").')
+
     # Data
     p.add_argument("--root_path", type=str, default="data/")
     p.add_argument("--features",  type=str, default="M")
@@ -225,4 +284,5 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
+    _apply_overrides(args)
     run(args)

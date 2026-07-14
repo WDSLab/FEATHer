@@ -2,8 +2,9 @@
 """
 Per-(method, dataset) LEARNING-RATE search for the manufacturing main table.
 
-Why this exists: the manufacturing datasets (Steel/GasTurbine/WindSCADA +
-C-MAPSS, JMS pivot) are NOT in any baseline's paper, so there are no published
+Why this exists: the manufacturing datasets (Steel/WindSCADA/BlastFurnace/
+MetroPT3/N2O/EWELD + the CMAPSS shelf, JMS pivot) are NOT in any baseline's
+paper, so there are no published
 per-dataset hyperparameters to copy. Per the protocol decision (2026-06-25,
 Option B), we keep each method's architecture fixed at its paper default and
 select ONLY the learning rate per (method, dataset) on the validation split —

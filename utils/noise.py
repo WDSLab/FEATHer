@@ -143,6 +143,21 @@ CLEAN_SENTINEL: Dict[str, float] = {
 FAULT_TYPES = list(SEVERITY_SWEEPS.keys())
 
 
+def corruption_seed(base_seed: int, fault_type: str, severity: float) -> int:
+    """Deterministic RNG seed for a (fault_type, severity) evaluation cell.
+
+    Every process that corrupts the same (base_seed, fault, severity) cell
+    must draw the SAME noise realization, so that (a) re-runs reproduce rows
+    bit-for-bit and (b) different models are compared under matched noise
+    (which is what makes the paired per-cell Wilcoxon tight). Do NOT use
+    Python's `hash()` here — string hashing is salted per interpreter
+    (PYTHONHASHSEED), so it differs across worker processes.
+    """
+    fi = FAULT_TYPES.index(fault_type)
+    si = SEVERITY_SWEEPS[fault_type].index(severity)
+    return base_seed * 1000 + fi * 100 + si
+
+
 def apply_corruption(x: torch.Tensor, fault_type: str, severity: float) -> torch.Tensor:
     """Single dispatch for all four fault axes.
 

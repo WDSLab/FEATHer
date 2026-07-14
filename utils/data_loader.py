@@ -245,24 +245,19 @@ class Dataset_Custom(Dataset):
         cols.remove('date')
         self.df_raw = self.df_raw[['date'] + cols + [self.target]]
 
-        if self.data_name == 'PM':
-            border1s = [0, 4 * 30 * 24 * 4 - self.seq_len, 6 * 30 * 24 * 4 + 2 * 30 * 24 * 4 - self.seq_len]
-            border2s = [4 * 30 * 24 * 4, 4 * 30 * 24 * 4 + 1 * 30 * 24 * 4, 6 * 30 * 24 * 4 + 4 * 30 * 24 * 4]
-        elif self.data_name == 'Weather':
-            border1s = [0, 8 * 30 * 24 * 6 - self.seq_len, 10 * 30 * 24 * 6 + 1 * 30 * 24 * 6 - self.seq_len]
-            border2s = [4 * 30 * 24 * 6, 8 * 30 * 24 * 6 + 1 * 30 * 24 * 6, 10 * 30 * 24 * 6 + 3 * 30 * 24 * 6]
-        elif self.data_name == 'PEMS_BAY':
-            border1s = [12*24*14, 12*24*59 - self.seq_len, 12*24*120 - self.seq_len]
-            border2s = [12*24*58, 12*24*73, 12*24*134]
-        elif self.data_name == 'METR':
-            border1s = [12*24*1, 12*24*45 - self.seq_len, 12*24*61- self.seq_len]
-            border2s = [12*24*45, 12*24*61, 12*24*76]
-        else:
-            num_train = int(len(self.df_raw) * 0.7)
-            num_test = int(len(self.df_raw) * 0.2)
-            num_vali = len(self.df_raw) - num_train - num_test
-            border1s = [0, num_train - self.seq_len, len(self.df_raw) - num_test - self.seq_len]
-            border2s = [num_train, num_train + num_vali, len(self.df_raw)]
+        # Standard LTSF (Autoformer-convention) 0.7/0.1/0.2 contiguous split
+        # for EVERY Dataset_Custom dataset. Historical note (2026-07-14):
+        # Weather previously hit a hard-coded legacy border branch here
+        # (train = first 33% of rows, ~49% of the data in no split, test
+        # truncated) inherited from an old project alongside dead
+        # PM/PEMS_BAY/METR branches; all removed — Weather rows produced
+        # before this fix are NOT comparable and must be purged + re-run
+        # (tools/audit/purge_rows.py).
+        num_train = int(len(self.df_raw) * 0.7)
+        num_test = int(len(self.df_raw) * 0.2)
+        num_vali = len(self.df_raw) - num_train - num_test
+        border1s = [0, num_train - self.seq_len, len(self.df_raw) - num_test - self.seq_len]
+        border2s = [num_train, num_train + num_vali, len(self.df_raw)]
 
         border1 = border1s[self.set_type]
         border2 = border2s[self.set_type]
