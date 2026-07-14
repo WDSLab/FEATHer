@@ -10,6 +10,57 @@ parameter / edge-MCU constraints. It combines multi-scale frequency
 decomposition with a shared temporal kernel and a period-aware sparse
 forecasting head.
 
+**Status (2026-07-14b) — ⚑ ROBUSTNESS ANALYSIS CODE DONE + 🟢 R3 RESOLVED
+(A+C framing). Committed dbf8179 (LOCAL only, NOT pushed).**
+- **Robustness analysis code (Thread A) DONE** — `tools/paper/robust_summary.py`
+  gained 4 metrics: **μ_rel** = MSE_clean/MSE_corrupt (retention, higher=better);
+  **AUC** = normalized-severity integral of Dw (quant bit-axis reversed so "more
+  severe" always increases; lower=more robust); **mCE** normalized to SparseTSF
+  (Hendrycks ICLR'19 ratio; <1 = beats the 41p linear rival); **FEATHer-vs-
+  SparseTSF degradation curve** = per-fault slope + top-severity paired Wilcoxon
+  (reuses `wilcoxon.py`) + PNG. Also fixed `dw_table` ratio/delta unit mix; added
+  `--reference`/`--focus`; ALL comparisons anchored to SparseTSF (framing guard).
+  **Validated end-to-end on a SYNTHETIC robust_results.csv** (μ_rel/AUC/mCE/curve
+  directionality all correct, figures render). ⚠ REAL sweep still UNRUN — code is
+  ready, needs mfg-main checkpoints first.
+- **Robustness set: GasTurbine→EWELD** in `run_robustness.py:ROBUSTNESS_DATASETS`
+  = **[Steel, WindSCADA, EWELD, ETTh1, Weather]** (GasTurbine was the last stale
+  active ref to the removed dataset; all others were comments). EWELD earns it:
+  its 5,741 extreme-weather event windows are the ONLY non-synthetic
+  distribution-shift robustness test (backs up the 4 synthetic axes). Count = 5.
+- **🟢 R3 RESOLVED — A+C framing, NO short-term experiments in the paper.** KEY
+  realization: reject_mail is a TPAMI **REJECT**; we are a **FRESH JMS submission**
+  → **no obligation to rebut R3**. R3 is one voice in a premise-attack CLUSTER
+  (also reject_mail 269/98/427: "sub-1K+long+edge is contrived / why 1K / sub-1K
+  is config-limited"). Resolution:
+  * **A (justify premise)**: long-horizon MUST run on-device in INDUSTRIAL edge —
+    air-gap/OT isolation (no cloud egress), per-machine-sensor scale (offload
+    doesn't scale), autonomy under network outage. R3's premise "long-horizon can
+    offload" fails for industry. OUR DATASETS ARE THE EVIDENCE: WindSCADA (remote
+    turbines), MetroPT3 (moving asset), Steel/BlastFurnace/N2O (OT-isolated
+    plants), EWELD (factory). R3 generalized from CONSUMER IoT (edge=short);
+    industrial edge ≠ that.
+  * **C (decouple axes)**: "edge" = param/memory budget (sub-1K/MCU); "horizon" =
+    task. ORTHOGONAL — never claimed edge⟹short. Reframe "why 1K" → accuracy-per-
+    param **Pareto FRONTIER** (not a magic threshold) → also kills the 269/98
+    cluster.
+  * **Short-term NOT in paper** — preserves the 07-13c long-horizon identity +
+    avoids the co-equal "does-both" muddle (subordination logic). Stays **lr-
+    BANKED insurance (option a)**: if a JMS reviewer forces it, run the 540 CMAPSS
+    sweep in revision — do NOT pre-run (GPU busy w/ real work; don't pre-spend on a
+    hypothetical). If ever included, use INDUSTRIAL short-horizon (CMAPSS PdM), NOT
+    generic M4/GIFT-Eval — justified by R3's own "edge does short INDUSTRIAL tasks"
+    logic (aikido).
+- **▶ NEXT (this session's handoff)**: (1) **A+C Intro/Motivation draft NOT yet
+  written** (user deferred) → needs air-gap/OT-isolation **citations**, scope to
+  genuinely-local settings (remote assets / secure OT / mass sensors) so "why not
+  offload" holds → `manuscript/drafts/`. (2) server sweeps continue: lr search →
+  `--summary` → MERGE into `_DATASET_OVERRIDES` period entries → mfg main sweep
+  (`--group mfg --save_model`, makes robustness checkpoints) → robustness sweep →
+  run the new `robust_summary.py`. (3) FFT gate-under-corruption logging +
+  component ablation + Pareto plot (need sweep results). (4) push dbf8179 to
+  ijaehun when user OKs. (5) OPEN: raw-data cleanup under `data/` — deciding.
+
 **Status (2026-07-14) — ⚑ MANUFACTURING LINEUP LOCKED at 6 (EWELD in,
 GasTurbine out); baseline stays 12; period HPs data-driven. UNCOMMITTED.**
 - **FINAL manufacturing 6 (LOCKED after exhaustive vetting)**: **Steel** (energy)
@@ -50,13 +101,16 @@ GasTurbine out); baseline stays 12; period HPs data-driven. UNCOMMITTED.**
 - **SCINet was added then REVERTED** (4d8cf8e): reviewer only named it as multi-
   scale prior work (novelty critique), not a benchmark request; no LTSF config.
   Baseline stays **12**.
-- **▶ OPEN STRATEGIC ISSUE (unresolved)**: TPAMI **R3 said "long-term on edge is
+- **▶ STRATEGIC ISSUE (RESOLVED 2026-07-14b → A+C framing; see top Status
+  block)**: TPAMI **R3 said "long-term on edge is
   contrived; edge does SHORT-horizon; add short-term (GIFT-Eval/M4)"** (reject_mail
   #1). Our 2026-07-13c "drop short-term PdM for identity" decision DIRECTLY
   conflicts with R3 and doubles down on the attacked premise. Leaning: reframe as
   "one sub-1K model spans short→long horizons = edge versatility" (address R3
-  without the does-both muddle) — **NOT yet decided**. Resolve before finalizing
-  the long-term-only framing.
+  without the does-both muddle) — ~~NOT yet decided~~ **RESOLVED 2026-07-14b: went
+  with A+C (justify industrial on-device long-horizon + decouple edge≠horizon),
+  NO short-term in paper. The versatility/does-both route was REJECTED as
+  unnecessary — it's a fresh JMS submission, not a TPAMI rebuttal. See top block.**
 - **▶ NEXT (handoff 2026-07-14, all committed: cdf36c7 latest, pushed ijaehun
   ONLY)**: (1) **lr search IS RUNNING on the server** for the new mfg data
   (`run_lr_search.py --ngpu 2`, 9 datasets incl EWELD; data/EWELD/data.csv
@@ -66,12 +120,11 @@ GasTurbine out); baseline stays 12; period HPs data-driven. UNCOMMITTED.**
   **manufacturing main sweep** `run_forecast --group mfg --exp_tag main
   --save_model --ngpu 2` (1,440; --save_model makes the robustness checkpoints).
   (3) **LTSF sweep** resume also running (12 models, back to 1,920 after SCINet
-  revert). (4) **🔴 RESOLVE R3** (short-vs-long edge framing — see OPEN ISSUE
-  above; blocks the paper's core positioning; do this while GPU runs). (5) then
-  **robustness sweep + analysis code** (Thread A: `robust_summary.py` μ_rel/AUC/
-  mCE-vs-SparseTSF/degradation-curve; EWELD's real extreme-weather windows are a
-  bonus real-shift test). lr search bypasses overrides (default arch) so period
-  settings don't affect it; periods are for the main sweep only.
+  revert). (4) ~~🔴 RESOLVE R3~~ **🟢 R3 RESOLVED 2026-07-14b (A+C — see top
+  block)**. (5) **analysis code DONE 2026-07-14b** (Thread A: `robust_summary.py`
+  μ_rel/AUC/mCE-vs-SparseTSF/degradation-curve — see top block); robustness SWEEP
+  still pending mfg-main checkpoints. lr search bypasses overrides (default arch)
+  so period settings don't affect it; periods are for the main sweep only.
 
 **Status (2026-07-13c) — ⚑ DATASET SCOPE RESHAPED: short-horizon PdM DROPPED,
 manufacturing expanded 3→6 (read FIRST; all UNCOMMITTED).**
