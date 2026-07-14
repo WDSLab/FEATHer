@@ -121,10 +121,9 @@ fixed location with its finding ID.
 incl EWELD); LTSF baseline sweep resuming (12 models, 1,920). GPU box =
 2×94.5GB, shared with CF-JEPA.
 
-**Local git**: 5 commits LOCAL only, NOT pushed (dbf8179 robust_summary
-metrics + 54e3407 gate_logging + cfd90c5/c8f61e0 audit P0/P1 + the P2/P3
-close-out commit). Push policy: **ijaehun (personal) ONLY**, not WDSLab,
-unless asked.
+**Local git**: main fully PUSHED to personal/ijaehun through 59c85da
+(P2/P3 close-out) — confirmed 2026-07-14d. Push policy: **ijaehun
+(personal) ONLY**, not WDSLab, unless asked.
 
 **▶ NEXT**
 1. ✅ ~~Apply audit fixes~~ — ENTIRE audit closed 2026-07-14d (P0/P1 in
@@ -143,7 +142,7 @@ unless asked.
 4. **Still-missing analysis code**: component ablation UNDER corruption
    (gate-off/band-off variants through the robustness sweep) + Pareto plot
    generator (MSE-vs-params frontier).
-5. Push dbf8179 + 54e3407 + the audit-fix commit to ijaehun when user OKs.
+5. ✅ ~~Push to ijaehun~~ — done 2026-07-14d (through 59c85da).
 6. Raw-data cleanup under `data/`: DECIDED skip (raw = regen safety net; drop
    PMSM raw first if disk pressure).
 
