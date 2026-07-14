@@ -51,15 +51,35 @@ forecasting head.
     hypothetical). If ever included, use INDUSTRIAL short-horizon (CMAPSS PdM), NOT
     generic M4/GIFT-Eval — justified by R3's own "edge does short INDUSTRIAL tasks"
     logic (aikido).
-- **▶ NEXT (this session's handoff)**: (1) **A+C Intro/Motivation draft NOT yet
-  written** (user deferred) → needs air-gap/OT-isolation **citations**, scope to
-  genuinely-local settings (remote assets / secure OT / mass sensors) so "why not
-  offload" holds → `manuscript/drafts/`. (2) server sweeps continue: lr search →
-  `--summary` → MERGE into `_DATASET_OVERRIDES` period entries → mfg main sweep
-  (`--group mfg --save_model`, makes robustness checkpoints) → robustness sweep →
-  run the new `robust_summary.py`. (3) FFT gate-under-corruption logging +
-  component ablation + Pareto plot (need sweep results). (4) push dbf8179 to
-  ijaehun when user OKs. (5) OPEN: raw-data cleanup under `data/` — deciding.
+- **FFT gate-under-corruption logging DONE** (`tools/paper/gate_logging.py`,
+  committed 54e3407) — loads a FEATHer checkpoint, forward-hooks the
+  `FFTFrequencyGate` (non-invasive), dumps mean per-band gate weights on clean +
+  every fault/severity → CSV + re-allocation shift table + PNG. Interpretability
+  = does the gate route AROUND corrupted bands (answers reject_mail R2#3/R3#3).
+  Plumbing validated on an untrained FEATHer; real figures need mfg-main ckpts.
+- **⚠ EVIDENCE STATE (verified from `hp_search.csv` this session)**: only
+  **num_bands is confirmed FLAT on clean** LTSF-8 (B2/B3/B4 mean MSE
+  0.4505/0.4418/0.4457, mean-rank 2.13/1.97/1.91 — no meaningful separation).
+  The **gate on/off clean effect is UNTESTED** (no `hp_gate_*` in OFAT; needs the
+  ablation sweep), and **everything robustness is UNTESTED** (sweep unrun). So the
+  "extra params buy ROBUSTNESS not accuracy" thesis rests on ONE confirmed fact
+  (bands flat) + an unproven bet (gate/bands help robustness). Robustness sweep
+  is still the #1 risk.
+- **▶ NEXT (this session's handoff — 2 commits LOCAL only: dbf8179 + 54e3407,
+  NOT pushed)**: (1) **A+C Intro/Motivation draft NOT yet written** (user
+  deferred) → needs air-gap/OT-isolation **citations**, scope to genuinely-local
+  settings (remote assets / secure OT / mass sensors) so "why not offload" holds →
+  `manuscript/drafts/`. (2) server sweeps continue: lr search → `--summary` →
+  MERGE into `_DATASET_OVERRIDES` period entries → mfg main sweep (`--group mfg
+  --save_model`, makes robustness checkpoints) → robustness sweep → run
+  `robust_summary.py` + `gate_logging.py`. (3) STILL TODO code: **component
+  ablation UNDER corruption** (run gate-off/band-off variants through the
+  robustness sweep → "removing gate hurts robustness ≫ accuracy") + **Pareto plot
+  generator** (MSE-vs-params frontier; neither exists — `ablation_table.py` is
+  clean-accuracy only). (4) push dbf8179+54e3407 to ijaehun when user OKs. (5)
+  raw-data cleanup under `data/` — DECIDED: **skip** (gitignored, 1.6G trivial,
+  raw = regen safety net, dir already clean of dead datasets; if disk pressure,
+  drop PMSM raw first).
 
 **Status (2026-07-14) — ⚑ MANUFACTURING LINEUP LOCKED at 6 (EWELD in,
 GasTurbine out); baseline stays 12; period HPs data-driven. UNCOMMITTED.**
