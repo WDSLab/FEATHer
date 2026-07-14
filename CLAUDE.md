@@ -88,10 +88,10 @@ python tools/audit/purge_rows.py --csv results/fcst_results.csv --data Weather -
 python tools/audit/purge_rows.py --csv results/hp_search.csv    --data Weather --apply
 python tools/audit/purge_rows.py --csv results/fcst_results.csv --model FEATHer --apply
 python tools/audit/purge_rows.py --csv results/lr_search.csv    --model FEATHer --apply
-# λ-confound (see Evidence state): ALSO purge the λ OFAT slice + hp_base
-# (the λ=0.01 anchor) so the λ axis refills under the corrected loss
-# (4 tags × 8 datasets × 2H × 2seeds = 128 tiny FEATHer runs):
-python tools/audit/purge_rows.py --csv results/hp_search.csv --exp_tag hp_lambda_spec_0.0,hp_lambda_spec_0.001,hp_lambda_spec_0.1,hp_base --apply
+# (07-14e 결정 — λ 슬라이스 부분퍼지를 대체) FEATHer OFAT 전면 재실행:
+# hp_search를 통째로 비우고 run_hp_search.py가 512런 전부 재탐색
+# (교정된 spectral loss + 표준 Weather split 아래에서):
+python tools/audit/purge_rows.py --csv results/hp_search.csv --model FEATHer --apply
 # (P3 data regen, 2026-07-14d) transfer the 4 regenerated data.csv files
 # from local (WindSCADA / BlastFurnace / N2O / MetroPT3 — Steel/EWELD
 # unchanged), THEN purge their lr rows so lr is re-selected on the new data
@@ -107,13 +107,12 @@ confirmed FLAT on clean** LTSF-8 (B2/B3/B4 mean MSE 0.4505/0.4418/0.4457).
 Gate on/off clean effect UNTESTED (needs ablation sweep); ALL robustness
 UNTESTED (sweep unrun). The robustness thesis = 1 confirmed fact + an unproven
 bet → the robustness sweep is the #1 risk.
-⚠ **λ-flat is CONFOUNDED** (user-flagged 2026-07-14): the OFAT "lambda_spec
-flat" verdict was measured under the INVERTED spectral loss (P1-1) — small λ
-plausibly = val-tuning suppressing a broken regularizer, not insensitivity.
-λ's true effect under the corrected loss is UNMEASURED → re-run the
-`hp_lambda_*` OFAT slice (~<100 tiny runs) when refilling Weather OFAT.
-Rest of OFAT deliberately kept (λ≤0.01 vs L1 ~0.3-0.5 → rank flips unlikely;
-mild provenance caveat only). Memory: project_lambda_flat_confound.md.
+⚠ **λ-flat confound → 해소 방식 격상 (user 결정 2026-07-14e)**: λ 슬라이스만
+재는 대신 **FEATHer OFAT 512런 전면 재실행** — 모든 FEATHer HP가 교정된
+loss + 표준 Weather split 아래에서 탐색되어 provenance caveat 자체가 소멸.
+07-06 동결분과의 diff를 기록할 것 (크게 다르면 그 자체가 버그 영향의 증거).
+canonical mfg 아키텍처(d8/k7/p12/B3)도 재집계로 재확인 (sub-1K 제약이
+지배적이라 유지 예상). Memory: project_lambda_flat_confound.md.
 All audit-fix sites are tagged in-code — `grep -rn "AUDIT-FIX"` lists every
 fixed location with its finding ID.
 
@@ -129,13 +128,12 @@ incl EWELD); LTSF baseline sweep resuming (12 models, 1,920). GPU box =
 1. ✅ ~~Apply audit fixes~~ — ENTIRE audit closed 2026-07-14d (P0/P1 in
    cfd90c5, P2-3..8+P3 in the close-out commit). Nothing left in the audit
    doc.
-2. **Server**: run the purge + resume procedure above (Weather + FEATHer
-   rows + the λ OFAT slice), **transfer the 4 regenerated data.csv
-   (WindSCADA/BlastFurnace/N2O/MetroPT3) and purge their lr rows**, then
-   continue the chain: lr search finishes → `--summary` → MERGE lr into the
-   EXISTING period entries in `_DATASET_OVERRIDES` (no dup keys) → mfg main
-   sweep (`--group mfg --exp_tag main --save_model --ngpu 2`, 1,440, makes
-   robustness checkpoints) → robustness sweep → `robust_summary.py` +
+2. **Server (07-14e 체인 — ROADMAP.md가 단일 소스)**: purge + 4개 data.csv
+   전송 후 3개 동시 재발사: LTSF `--exclude FEATHer` / **FEATHer OFAT 전면
+   재실행**(hp_search 통째 퍼지 → 512런) / lr `--exclude FEATHer`. OFAT
+   완료 → `--validate` → `--summary` → 8행 재동결 + canonical 재확인 + λ
+   판정 → FEATHer LTSF 160런 + FEATHer lr → lr `--summary` MERGE → mfg 본
+   스윕 1,440 (`--save_model`) → robustness → `robust_summary.py` +
    `gate_logging.py`.
 3. **A+C Intro/Motivation draft** (`manuscript/drafts/`) — needs air-gap /
    OT-isolation citations; scope to genuinely-local settings.

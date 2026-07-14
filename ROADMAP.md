@@ -1,148 +1,162 @@
-# FEATHer 실험 로드맵 (JMS) — 2026-07-14d 갱신
+# FEATHer 실험 로드맵 (JMS) — 2026-07-14e 갱신
 
-> 코드 감사(P0~P3) **전부 종결**, purge+resume 체제로 전환된 이후의 진행
-> 순서. 세부 배경은 `CLAUDE.md` 상태 블록(2026-07-14d)과
-> `manuscript/notes/code_audit_2026-07-14.md` 참고.
-> 각 단계 사이의 사람 루프: **summary 가져오기 → 붙여넣기(로컬) → 커밋 →
-> 서버 pull**. 푸시는 ijaehun(personal)만.
+> 코드 감사(P0~P3) **전부 종결**. 사용자 결정(07-14e): λ-confound를
+> 리트머스로 판정하지 않고 **FEATHer OFAT를 처음부터 전면 재실행** —
+> 모든 FEATHer HP가 "교정된 spectral loss + 표준 Weather split" 아래에서
+> 탐색되도록 하여 provenance caveat 자체를 소멸시킨다.
+> 세부 배경: `CLAUDE.md` 상태 블록 + `manuscript/notes/code_audit_2026-07-14.md`.
+> 사람 루프: **summary 전달 → 붙여넣기(로컬) → 커밋 → 서버 pull**.
+> 푸시는 ijaehun(personal)만.
 
-## 현재 상태 보드 (2026-07-14d 기준)
-
-### A. 서버에서 지금 돌고 있는 것 (2026-07-14 발사 완료)
-
-| # | 실험 | 커맨드 | 채우는 것 | 상태 |
-|---|---|---|---|---|
-| 1 | LTSF 스윕 재개 | `run_forecast.py --group ltsf --exp_tag main --save_model --ngpu 2` | 베이스라인 잔여 + **Weather 전 모델 재충전(P1-2)** + **FEATHer LTSF 160런 재충전(P1-1, 동결 HP로 첫 유효런)** + ETTh1/Weather robustness 체크포인트 | 🔄 진행 중 |
-| 2 | 제조 lr 서치 재개 | `run_lr_search.py --ngpu 2` | 잔여 + **FEATHer 행 재충전(P1-1)** + **WindSCADA/BlastFurnace/N2O/MetroPT3 전 모델 재충전(P3 데이터 재생성)** | 🔄 진행 중 |
-
-⚠ **전제 확인**: 위 두 개가 "재충전"이 되려면 발사 전에 purge 6건 + 4개
-data.csv 전송이 서버에서 끝나 있어야 함. 확인법 — `--check`에서 Weather/
-FEATHer/4개 데이터셋 셀이 missing으로 잡히면 OK:
-
-```bash
-python run_forecast.py --check --group ltsf --exp_tag main
-python run_lr_search.py --check
-```
-
-### B. 서버에서 다음에 발사할 것 (지금 가능)
-
-| # | 실험 | 커맨드 | 규모 | 비고 |
-|---|---|---|---|---|
-| 3 | hp_search 재충전 | `python run_hp_search.py --ngpu 2` | Weather OFAT 슬라이스 + **λ축 4태그×8데이터셋×2H×2시드=128런** | 전부 초소형 FEATHer 런 — A와 동시 실행 무방 (다른 CSV) |
-
-### C. 결과 도착 시 사람 루프 (순서대로)
-
-| 순서 | 트리거 | 하는 일 |
-|---|---|---|
-| 1 | #3 완료 | `PYTHONUTF8=1 python run_hp_search.py --summary` → **Weather 행 재동결** + **λ-confound 최종 판정** (flat이 진짜였는지; 판정 바뀌면 동결 8행의 lambda_spec 갱신) → 로컬 커밋 → 서버 pull. λ 판정은 `memory/project_lambda_flat_confound.md`에도 기록 |
-| 2 | #2 완료 | `python run_lr_search.py --summary` → lr을 `_DATASET_OVERRIDES`의 **기존 period 엔트리에 MERGE (키 중복 금지!)** → 커밋 → pull. `(incomplete)`/`(seeds n/2)` 플래그 붙은 셀은 동결 전에 마저 채울 것 |
-| 3 | 1+2 끝 | ⑤ 제조 본 스윕 발사 (아래) |
-
-## ⑤ 제조 본 스윕 — 논문 메인 숫자 (GPU 며칠)
-
-```bash
-python run_forecast.py --group mfg --exp_tag main --save_model --ngpu 2   # 1,440런
-```
-
-- 12모델 × 6데이터셋(Steel/WindSCADA/BlastFurnace/MetroPT3/N2O/EWELD) × 4호라이즌 × 5시드
-- `--save_model` 필수 — ⑥ robustness가 이 체크포인트를 재사용
-- 진행률: `python tools/audit/check_progress.py --exp_tag main`
-- (PdM 셸프 540런은 논문 밖 — 리뷰어가 요구할 때만 `--group cmapss`)
-
-## ⑥ Robustness 스윕 — 논문 #1 기둥 (추론만, 상대적으로 빠름)
-
-체크포인트 준비 조건: ⑤(mfg 3종) + A#1(ETTh1/Weather)이 `--save_model`로
-완주. ROBUSTNESS_DATASETS = [Steel, WindSCADA, EWELD, ETTh1, Weather] (설정 완료).
-
-```bash
-python run_robustness.py --check                                  # 1,200 ckpt × 20조건 = 24,000행
-python run_robustness.py --train_exp_tag main --exp_tag robust --ngpu 2
-```
-
-감사로 잡은 P0 버그들(override 미전달/시딩/resume) 전부 수정·검증된 상태 —
-발사 블로커 없음. per-condition resume이라 중간에 죽어도 그냥 재실행.
-
-## ⑦ Ablation (⑤와 겹쳐 돌려도 됨 — 다른 exp_tag)
-
-```bash
-python run_forecast.py --ablation_axis all --data Steel --exp_tag ablation --ngpu 2
-# 스코프(전체 mfg vs 대표 데이터셋)는 ⑤ 진행 보며 확정
-```
-
-ms축 결과 = num_bands 논거. **추가로 아직 코드가 없는 것 2개** (Claude 작업,
-서버 기다리는 동안 로컬에서 선행 가능):
-
-- [ ] **corruption 하 component ablation**: gate-off/band-off 변형을
-      robustness 스윕에 통과시키는 배선 (robustness가 "FFT 게이트 덕분"임을
-      보이는 직접 증거 — 리뷰어 선제 방어)
-- [ ] **Pareto plot 생성기**: MSE-vs-params 프런티어 (R3 "why 1K" 답변용)
-
-## ⑧ 표/그림 생성 체인 (전부 로컬, Claude가 함)
-
-`results/*.csv`를 로컬로 복사한 뒤:
-
-| 순서 | 커맨드 | 산출물 |
-|---|---|---|
-| 1 | `main_table.py --metric MSE --format latex` | 메인표 (퍼시스턴스 열 자동; **EWELD는 seasonal-naive ~0.55도 병기**) |
-| 2 | `wilcoxon.py --reference FEATHer` | 유의성 |
-| 3 | `robust_summary.py --output_dir manuscript/figures/` | μ_rel/AUC/mCE-vs-SparseTSF/열화곡선+히트맵 |
-| 4 | `gate_logging.py --data Steel --pred_len 96 --ckpt <path>` | 게이트 해석 그림 |
-| 5 | `ablation_table.py` | ablation 표 (데이터셋별 분리 출력) |
-| 6 | `deployment/cortex_m3/run.py` | 엣지 비용 (mfg 행) |
-
-주의: 감사 이전에 쓰인 CSV의 RMSE 열은 편향값 → 표에서는 sqrt(MSE)로 유도
-(main_table은 이미 그렇게 함).
-
-## ⑨ 원고 (서버 도는 동안 병행 — 지금 가장 병목)
-
-- [ ] **A+C Intro/Motivation 초안** (`manuscript/drafts/`) — air-gap/OT
-      isolation 인용 필요; "진짜 로컬" 설정으로 스코프
-- [ ] Related/Datasets 제조 리프레임 (워딩 가드:
-      `manuscript/notes/dataset_precedent_audit.md`)
-- [ ] Method: half-RevIN(means만 detach)을 서술할 거면 코드 그대로 정확히
-      기술 (FEATHer.py에 deliberate 주석 있음)
-- [ ] 갭-필 정책 서술 추가: "≤1h 선형보간, 그 이상 hold-last(미래 미참조)"
-      + BlastFurnace winsorize train-영역 (prep_manufacturing.py 주석 참고)
-- 숫자 자리는 ⑧이 채움. 제출 포맷: Word (Elsevier YPYW)
-
----
-
-## 한눈에
+## 체인 한눈에 (07-14e 확정)
 
 ```
-[지금 돌고 있음]  ① LTSF 재개(Weather+FEATHer 재충전, --save_model)
-                 ② lr 서치 재개(FEATHer+4데이터셋 재충전)
-[지금 발사 가능]  ③ hp_search 재충전 (Weather OFAT + λ축 128런)
-                            ▼
-  사람 루프 1: hp --summary → Weather 행 재동결 + λ 판정 → 커밋 → pull
-  사람 루프 2: lr --summary → lr 72칸 MERGE → 커밋 → pull
-                            ▼
-⑤ 제조 본 스윕 1,440 (--save_model)     ∥  ⑦ ablation (겹쳐 가능)
-                            ▼
+① LTSF 스윕 (FEATHer 제외, --exclude FEATHer)     ┐
+② FEATHer OFAT 전면 재실행 512런 → validate 32    ├─ 동시 실행 (CSV 분리)
+④a 제조 lr 서치 (FEATHer 제외)                     ┘
+                     ▼  ② 완료
+  사람 루프 1: hp --validate → --summary → LTSF 8행 재동결
+              + canonical mfg 아키텍처 재확인 + λ 최종 판정 → 커밋 → pull
+                     ▼
+③ FEATHer LTSF 160런 (새 HP)   ∥   ④b FEATHer 제조 lr
+                     ▼  ④ 완료
+  사람 루프 2: lr --summary → lr 72칸 MERGE (기존 period 엔트리에, 키 중복 금지) → 커밋 → pull
+                     ▼
+⑤ 제조 본 스윕 1,440 (--save_model)   ∥   ⑦ ablation (겹쳐 가능)
+                     ▼
 ⑥ Robustness 24,000행 (추론)  +  corruption-ablation/Pareto 코드
-                            ▼
+                     ▼
 ⑧ 표/그림/엣지  →  ⑨ 원고 완성
 [상시 병행] ⑨ Intro/Related 초안 — 서버와 무관, 지금 제일 병목
 ```
 
+## 서버 즉시 실행 절차 (07-14e 재발사)
+
+07-14에 발사했던 LTSF/lr 스윕은 FEATHer가 옛 HP로 섞여 들어가므로 중단 후
+재발사한다:
+
+```bash
+# 1. 돌고 있는 run_forecast / run_lr_search 오케스트레이터 Ctrl-C
+
+# 2. 그 사이 옛 HP로 쓰였을 수 있는 FEATHer 행 재퍼지 (멱등)
+python tools/audit/purge_rows.py --csv results/fcst_results.csv --model FEATHer --apply
+python tools/audit/purge_rows.py --csv results/lr_search.csv    --model FEATHer --apply
+
+# 3. OFAT 전면 재실행 준비 — hp_search 전체 퍼지 (OFAT 512 + combo 32)
+python tools/audit/purge_rows.py --csv results/hp_search.csv --model FEATHer --apply
+
+# 4. 재발사 (3개 동시 — 서로 다른 CSV라 충돌 없음)
+python run_forecast.py --group ltsf --exp_tag main --save_model --exclude FEATHer --ngpu 2
+python run_hp_search.py --ngpu 2
+python run_lr_search.py --exclude FEATHer --ngpu 2
+```
+
+⚠ 전제(이미 완료 여부 확인): Weather/데이터재생성 purge 4건 + 4개 data.csv
+전송이 끝나 있어야 함. `--check`에서 Weather·4개 데이터셋 셀이 missing으로
+잡히면 OK.
+
+## 진행 보드
+
+| # | 실험 | 커맨드 | 규모 | 상태 |
+|---|---|---|---|---|
+| ① | LTSF 베이스라인 (FEATHer 제외) | `run_forecast.py --group ltsf --exp_tag main --save_model --exclude FEATHer --ngpu 2` | 11모델 잔여 + Weather 재충전 | ▶ 재발사 대기 |
+| ② | FEATHer OFAT 전면 재실행 | `run_hp_search.py --ngpu 2` → `--validate` | 512 + 32 | ▶ 재발사 대기 |
+| ④a | 제조 lr (FEATHer 제외) | `run_lr_search.py --exclude FEATHer --ngpu 2` | 11모델 몫 (재생성 4데이터셋 재충전 포함) | ▶ 재발사 대기 |
+| ③ | FEATHer LTSF 본실험 | `run_forecast.py --model FEATHer --group ltsf --exp_tag main --save_model --ngpu 2` | 160 | ⏳ 사람 루프 1 후 |
+| ④b | FEATHer 제조 lr | `run_lr_search.py --model FEATHer --ngpu 2` | 5lr×9데이터셋×2H×2시드=180 | ⏳ 사람 루프 1 후 (canonical 아키텍처 재확인 뒤) |
+| ⑤ | 제조 본 스윕 | `run_forecast.py --group mfg --exp_tag main --save_model --ngpu 2` | 1,440 | ⏳ 사람 루프 2 후 |
+| ⑥ | Robustness | `run_robustness.py --train_exp_tag main --exp_tag robust --ngpu 2` | 24,000행 | ⏳ ⑤ + ①의 ckpt |
+| ⑦ | Ablation | `run_forecast.py --ablation_axis all --data <mfg> --exp_tag ablation --ngpu 2` | 스코프 ⑤때 확정 | ⏳ ⑤와 병행 가능 |
+
+페이스 확인:
+```bash
+python run_forecast.py --check --group ltsf --exp_tag main
+python run_hp_search.py --check
+python run_lr_search.py --check
+python tools/audit/check_progress.py --exp_tag main
+```
+
+## 사람 루프 상세
+
+### 루프 1 — ② OFAT 완료 시
+
+```bash
+python run_hp_search.py --validate --ngpu 2          # 추천 조합 검증 (~32런)
+PYTHONUTF8=1 python run_hp_search.py --summary       # 최종 판정 출력 전달
+```
+
+Claude가 하는 일 (로컬):
+1. **LTSF 8행 재동결** → `_DATASET_OVERRIDES` 교체 (직전 동결분과 diff 기록)
+2. **canonical mfg 아키텍처 재확인** — 횡단 집계 + sub-1K 제약. 종전 결론
+   d8/k7/p12/B3가 유지되는지; 바뀌면 ④b·⑤의 FEATHer 몫 전제가 바뀌므로
+   여기서 확정하고 넘어감
+3. **λ 최종 판정 기록** — 교정 loss 아래 λ축이 진짜 flat인지;
+   `memory/project_lambda_flat_confound.md` 갱신 (confound 해소로 종결)
+4. 커밋 → 서버 pull → ③·④b 발사
+
+`--summary`의 `(incomplete)`/`(seeds n/2)` 플래그가 붙은 셀은 동결 전에
+마저 채울 것.
+
+### 루프 2 — ④a+④b 완료 시
+
+```bash
+python run_lr_search.py --summary
+```
+→ lr 72칸(12모델×6데이터셋)을 `_DATASET_OVERRIDES`의 **기존 period 엔트리에
+MERGE (키 중복 금지!)** → 커밋 → pull → ⑤ 발사.
+
+## ⑥ Robustness — 논문 #1 기둥 (추론만)
+
+체크포인트 조건: ⑤(mfg 3종) + ①·③(ETTh1/Weather)이 `--save_model`로 완주.
+ROBUSTNESS_DATASETS = [Steel, WindSCADA, EWELD, ETTh1, Weather].
+감사 P0 버그(override 미전달/시딩/resume) 전부 수정·검증 — 발사 블로커 없음.
+per-condition resume이라 중간에 죽어도 재실행만 하면 됨.
+
+## 아직 없는 코드 (Claude, 서버 도는 동안 로컬 선행)
+
+- [ ] **corruption 하 component ablation**: gate-off/band-off 변형을
+      robustness 스윕에 통과시키는 배선 ("robustness가 FFT 게이트 덕분"의
+      직접 증거)
+- [ ] **Pareto plot 생성기**: MSE-vs-params 프런티어 (R3 "why 1K" 답변)
+
+## ⑧ 표/그림 생성 체인 (전부 로컬)
+
+`results/*.csv` 로컬 복사 후: `main_table.py`(퍼시스턴스 열 자동; EWELD는
+seasonal-naive ~0.55 병기) → `wilcoxon.py --reference FEATHer` →
+`robust_summary.py` → `gate_logging.py` → `ablation_table.py`(데이터셋별
+분리 출력) → `deployment/cortex_m3/run.py`.
+주의: 감사 이전 CSV의 RMSE 열은 편향값 → 표에서 sqrt(MSE) 유도.
+퍼시스턴스 베이스라인은 **데이터 재생성 4종 때문에 재계산 필요**:
+`python tools/paper/persistence_baseline.py`.
+
+## ⑨ 원고 (상시 병행 — 현재 최대 병목)
+
+- [ ] **A+C Intro/Motivation 초안** (`manuscript/drafts/`) — air-gap/OT
+      isolation 인용; "진짜 로컬" 설정으로 스코프
+- [ ] Related/Datasets 제조 리프레임 (워딩 가드:
+      `manuscript/notes/dataset_precedent_audit.md`)
+- [ ] Method: half-RevIN(means만 detach) 서술은 코드 그대로 정확히
+- [ ] 갭-필 정책 서술: "≤1h 선형보간, 그 이상 hold-last(미래 미참조)" +
+      BlastFurnace winsorize train-영역 (prep_manufacturing.py 주석 참고)
+- 제출 포맷: Word (Elsevier YPYW)
+
 ## 리스크 메모
 
-- **robustness 스윕 = 논문 논지의 #1 리스크**: "num_bands clean-flat"은
-  확인된 사실이지만 "corruption에서 FEATHer가 우아하게 열화한다"는 아직
-  베팅. ⑥ 결과가 약하면 프레이밍 재조정 필요 (EWELD 실제 분포-이동
-  윈도우가 백업 증거).
-- λ 재측정(③)에서 판정이 바뀌면 FEATHer LTSF 160런(①에서 재충전된 것)의
-  lambda_spec과 불일치 가능 → 그 경우 해당 데이터셋만 한 번 더 purge+재런
-  (작음). 바뀌지 않으면 그대로 진행.
+- **robustness 스윕 = 논지 #1 리스크**: "num_bands clean-flat"은 확인된
+  사실이지만 "corruption에서 우아한 열화"는 아직 베팅. ⑥ 결과가 약하면
+  프레이밍 재조정 (EWELD 실제 분포-이동 윈도우가 백업 증거).
+- ~~λ-confound~~ → **OFAT 전면 재실행으로 구조적으로 해소** (07-14e 결정).
+  재실행 후 새 8행이 종전과 크게 다르면 그 자체가 "버그 영향이 실재했다"는
+  기록이 되므로 diff를 남길 것.
+- canonical mfg 아키텍처가 재집계에서 바뀔 가능성: 낮음(sub-1K 제약이
+  지배적)이지만, 바뀌면 ④b 이후 전부 새 canonical로 진행하면 됨 —
+  ④b를 루프 1 뒤로 배치한 이유.
 
 ## 아카이브 (완료된 옛 단계)
 
-- ~~OFAT 512 + combo 32~~ ✅ 2026-07-06 완료, LTSF 8행 동결 (Weather 행만
-  P1-2로 재동결 대기)
-- ~~표준 제조 아키텍처 확정~~ ✅ base d8/k7/p12/B3 (d16/p6는 sub-1K 초과로
-  기각)
 - ~~코드 감사 P0~P3~~ ✅ 2026-07-14c/d 전부 수정·검증·푸시 (`59c85da`)
+- ~~구(舊) OFAT 512 + combo 32 (07-06 동결)~~ → 07-14e 결정으로 **전면
+  재실행 대상** (교정 loss + 표준 Weather split 아래에서 재탐색)
 - ~~GasTurbine/SML/TEP/PM~~ 제거됨; PdM(CMAPSS/CMAPSS3/PMSM)은 논문 밖 셸프
-- 퍼시스턴스 베이스라인: `results/persistence_baseline.csv` 계산 완료
-  (단, mfg 데이터 4종이 갭-정책으로 재생성됨 → ⑧ 전에 재계산 권장:
-  `python tools/paper/persistence_baseline.py`)
+- 갭-정책 데이터 재생성 ✅ (MetroPT3 16.6%/N2O 2.7%/WindSCADA 1.1%/
+  BlastFurnace 0.9% 셀 변경; 서버 전송 + lr purge는 SERVER PROCEDURE 참고)
