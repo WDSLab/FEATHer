@@ -57,8 +57,21 @@ GasTurbine out); baseline stays 12; period HPs data-driven. UNCOMMITTED.**
   "one sub-1K model spans short→long horizons = edge versatility" (address R3
   without the does-both muddle) — **NOT yet decided**. Resolve before finalizing
   the long-term-only framing.
-- **▶ NEXT**: commit → transfer data/EWELD/data.csv (+ raw zip if regenerating) to
-  server → resolve R3 → robustness analysis code (Thread A).
+- **▶ NEXT (handoff 2026-07-14, all committed: cdf36c7 latest, pushed ijaehun
+  ONLY)**: (1) **lr search IS RUNNING on the server** for the new mfg data
+  (`run_lr_search.py --ngpu 2`, 9 datasets incl EWELD; data/EWELD/data.csv
+  transferred, code pulled) → when done: `--summary` → **MERGE the lr into the
+  EXISTING period entries in `_DATASET_OVERRIDES`** (do NOT paste dup keys — e.g.
+  `("SparseTSF","EWELD"): {"sparsetsf_period_len": 24, "lr": X}`). (2) then
+  **manufacturing main sweep** `run_forecast --group mfg --exp_tag main
+  --save_model --ngpu 2` (1,440; --save_model makes the robustness checkpoints).
+  (3) **LTSF sweep** resume also running (12 models, back to 1,920 after SCINet
+  revert). (4) **🔴 RESOLVE R3** (short-vs-long edge framing — see OPEN ISSUE
+  above; blocks the paper's core positioning; do this while GPU runs). (5) then
+  **robustness sweep + analysis code** (Thread A: `robust_summary.py` μ_rel/AUC/
+  mCE-vs-SparseTSF/degradation-curve; EWELD's real extreme-weather windows are a
+  bonus real-shift test). lr search bypasses overrides (default arch) so period
+  settings don't affect it; periods are for the main sweep only.
 
 **Status (2026-07-13c) — ⚑ DATASET SCOPE RESHAPED: short-horizon PdM DROPPED,
 manufacturing expanded 3→6 (read FIRST; all UNCOMMITTED).**
