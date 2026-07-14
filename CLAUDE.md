@@ -28,9 +28,11 @@ GasTurbine out); baseline stays 12; period HPs data-driven. UNCOMMITTED.**
   copy-last-STEP 1.27-1.47 (non-trivial) but seasonal copy-last-DAY ~0.55 →
   MUST report a seasonal-naive baseline; robustness value lives in the event
   windows. Regenerate: `prep_manufacturing.py EWELD` (reads data/EWELD/raw/EWELD.zip).
-- **GasTurbine ARCHIVED** (data-verified: ~15% hours missing/year + synthetic
-  hourly index mixes non-adjacent real times = broken sliding window). Loader/
-  prep KEPT as shelf.
+- **GasTurbine fully REMOVED** (data + loader + prep + period-override all
+  deleted) — data-verified ~15% hours missing/year + synthetic hourly index
+  mixes non-adjacent real times = broken sliding window. Treated as REJECTED
+  (broken), NOT deferred-shelf like CMAPSS — no revival path (re-download from
+  UCI #551 if ever needed).
 - **Vetted + REJECTED this round** (record so they don't resurface): TEP
   (simulation + anomaly-native), Machine-health/ziya07 (SYNTHETIC + 34 short
   per-machine segments), AI4I (synthetic), UCI Gas-Sensor (real but mediocre

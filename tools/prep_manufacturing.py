@@ -6,7 +6,6 @@ re-running regenerates data.csv from raw without touching the raw files.
 
 RAW PROVENANCE (download once, place in data/<name>/):
   Steel       UCI #851  -> Steel_industry_data.csv   (direct UCI zip)
-  GasTurbine  UCI #551  -> gt_2011.csv .. gt_2015.csv (direct UCI zip)
   WindSCADA   Zenodo rec 5841834, Kelmarsh_SCADA_2017_3083.zip
               -> Turbine_Data_Kelmarsh_1_2017-..csv (saved as turbine1_2017.csv)
               (Zenodo Cloudflare-blocks scripted downloads -> download via browser)
@@ -45,16 +44,6 @@ def steel():
     out = df[["date"] + chans].copy()
     out["date"] = out["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
     _w(out, "Steel")
-
-
-def gasturbine():
-    # UCI #551 combined-cycle gas turbine (TR), hourly, 2011-2015. No native
-    # timestamp -> synthetic hourly index. target=NOX last.
-    files = [os.path.join(DATA, "GasTurbine", f"gt_{y}.csv") for y in range(2011, 2016)]
-    df = pd.concat([pd.read_csv(f) for f in files], ignore_index=True)
-    df.insert(0, "date", pd.date_range("2011-01-01 00:00:00", periods=len(df), freq="h")
-              .strftime("%Y-%m-%d %H:%M:%S"))
-    _w(df, "GasTurbine")  # NOX already last column in source
 
 
 def windscada():
@@ -286,7 +275,7 @@ def cmapss():
     _w(df[["unit"] + keep].copy(), "CMAPSS")
 
 
-RECIPES = {"Steel": steel, "GasTurbine": gasturbine,
+RECIPES = {"Steel": steel,
            "WindSCADA": windscada, "PMSM": pmsm, "CMAPSS": cmapss,
            "CMAPSS3": cmapss3, "BlastFurnace": blastfurnace,
            "MetroPT3": metropt3, "N2O": n2o, "EWELD": eweld}

@@ -21,11 +21,11 @@ def _darts():
         "Electricity": ElectricityDataset, "Traffic": TrafficDataset,
     }
 
-# Active scope only (2026-07-13c cleanup): LTSF-8 (darts ETT/Weather/Exchange/
-# Traffic + local electricity.csv) + manufacturing 6 (Steel/GasTurbine/WindSCADA/
-# BlastFurnace/MetroPT3/N2O) + short-horizon PdM shelf (CMAPSS/CMAPSS3/PMSM) +
-# nrel (solar, kept). Out-of-scope loaders (PEMS/METR/ninja/era_ssr/KnowAir/astd/
-# AirQuality/Volatility/SML/TEP/PM) were removed — re-add from git history if needed.
+# Active scope only: LTSF-8 (darts ETT/Weather/Exchange/Traffic + local
+# electricity.csv) + manufacturing 6 (Steel/WindSCADA/BlastFurnace/MetroPT3/N2O/
+# EWELD, locked 2026-07-14) + short-horizon PdM shelf (CMAPSS/CMAPSS3/PMSM) +
+# nrel (solar, kept). Removed loaders (PEMS/METR/ninja/era_ssr/KnowAir/astd/
+# AirQuality/Volatility/SML/TEP/PM/GasTurbine) — re-add from git history if needed.
 data_dict = {
     'ETTh1': Dataset_ETT_hour,
     'ETTh2': Dataset_ETT_hour,
@@ -36,7 +36,6 @@ data_dict = {
     'Traffic': Dataset_Custom,
     'Electricity': Dataset_Custom,
     'Steel': Dataset_Custom,
-    'GasTurbine': Dataset_Custom,
     'WindSCADA': Dataset_Custom,
     'BlastFurnace': Dataset_Custom,
     'MetroPT3': Dataset_Custom,
@@ -125,17 +124,6 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         df = df.reset_index(drop=True)
         target = 'Usage_kWh'
         freq = 'm'
-        embed = 'timeF'
-
-    elif data == 'GasTurbine':
-        # Combined-cycle gas turbine (Turkey, UCI #551) — 11 sensor channels,
-        # hourly aggregates 2011-2015. No native timestamp (synthetic hourly
-        # index in data.csv). Target = NOX emissions (PEMS forecasting).
-        df = pd.read_csv(root_path + data + '/data' + '.csv')
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        target = 'NOX'
-        freq = 'h'
         embed = 'timeF'
 
     elif data == 'WindSCADA':
@@ -356,15 +344,6 @@ def data_select(data, root_path):
         df = df.dropna()
         df = df.reset_index(drop=True)
         freq = 'm'
-        embed = 'timeF'
-        print(df)
-        print(df.columns)
-        print(f'freq: {freq} / embed: {embed}')
-    elif data == 'GasTurbine':
-        df = pd.read_csv(root_path + data + '/data' + '.csv')
-        df = df.dropna()
-        df = df.reset_index(drop=True)
-        freq = 'h'
         embed = 'timeF'
         print(df)
         print(df.columns)

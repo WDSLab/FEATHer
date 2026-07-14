@@ -55,8 +55,8 @@ DEFAULT_MODELS = list_models()  # all registered
 # 27 hourly process channels + Si (hot-metal silicon = product-quality target,
 # asof-merged). D=28 -> above sub-1K, so it is the manufacturing STRESS/breadth
 # tier (like Weather/Electricity in LTSF); the sub-1K claim stays on the D<=14
-# core (Steel/GasTurbine/WindSCADA). Forecasting-native, gapless, no LTSF
-# precedent -> "first to cast as edge-PdM LTSF" holds.
+# core (Steel/WindSCADA/MetroPT3/N2O/EWELD). Forecasting-native, gapless, no
+# LTSF precedent -> "first to cast as edge-PdM LTSF" holds.
 # MetroPT3 added 2026-07-13 (UCI #791, metro-train APU compressor): 7 analog
 # channels @ 1-min mean, D=7 -> sub-1K CORE. Persistence-audited non-trivial
 # (0.80-1.14 std). Native anomaly-detection set cast as forecasting (TIME
@@ -71,10 +71,12 @@ DEFAULT_MODELS = list_models()  # all registered
 # precedent), BlastFurnace (iron process, gapless), N2O (WWTP process),
 # MetroPT3 (compressor machine-sensor), EWELD (factory load — 6-yr ANNUAL cycle
 # showcases the multi-band head + labeled extreme-weather windows = real
-# distribution-shift robustness). GasTurbine ARCHIVED 2026-07-14 (data-verified
-# discontinuity: ~15% hours missing/year, synthetic index mixes non-adjacent
-# real times) -> shelf (loader/prep kept). Vetted+rejected: TEP/Machine-health/
-# AI4I (synthetic), Gas-Sensor (mediocre lab). CMAPSS/CMAPSS3/PMSM = PdM shelf.
+# distribution-shift robustness). GasTurbine fully REMOVED 2026-07-14 (data +
+# loader + prep deleted — data-verified discontinuity: ~15% hours missing/year,
+# synthetic index mixes non-adjacent real times = broken sliding window; rejected
+# as BROKEN, not deferred-shelf). Vetted+rejected likewise: TEP/Machine-health/
+# AI4I (synthetic), Gas-Sensor (mediocre lab). CMAPSS/CMAPSS3/PMSM = PdM shelf
+# (good data, deferred section — kept).
 MFG_DATASETS = ["Steel", "WindSCADA", "BlastFurnace", "MetroPT3", "N2O", "EWELD"]
 MFG_PREDS = [96, 192, 336, 720]
 
