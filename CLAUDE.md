@@ -68,9 +68,13 @@ python tools/audit/purge_rows.py --csv results/fcst_results.csv --data Weather -
 python tools/audit/purge_rows.py --csv results/hp_search.csv    --data Weather --apply
 python tools/audit/purge_rows.py --csv results/fcst_results.csv --model FEATHer --apply
 python tools/audit/purge_rows.py --csv results/lr_search.csv    --model FEATHer --apply
+# λ-confound (see Evidence state): ALSO purge the λ OFAT slice + hp_base
+# (the λ=0.01 anchor) so the λ axis refills under the corrected loss
+# (4 tags × 8 datasets × 2H × 2seeds = 128 tiny FEATHer runs):
+python tools/audit/purge_rows.py --csv results/hp_search.csv --exp_tag hp_lambda_spec_0.0,hp_lambda_spec_0.001,hp_lambda_spec_0.1,hp_base --apply
 # then just re-run the same sweep commands — resume fills the gaps.
-# Weather OFAT slice (hp_search) refills via run_hp_search.py; re-freeze the
-# Weather row in _DATASET_OVERRIDES from --summary afterwards.
+# Weather + lambda OFAT slices (hp_search) refill via run_hp_search.py;
+# re-freeze the Weather row in _DATASET_OVERRIDES from --summary afterwards.
 ```
 
 **Evidence state (verified from hp_search.csv)**: only **num_bands is
@@ -78,6 +82,15 @@ confirmed FLAT on clean** LTSF-8 (B2/B3/B4 mean MSE 0.4505/0.4418/0.4457).
 Gate on/off clean effect UNTESTED (needs ablation sweep); ALL robustness
 UNTESTED (sweep unrun). The robustness thesis = 1 confirmed fact + an unproven
 bet → the robustness sweep is the #1 risk.
+⚠ **λ-flat is CONFOUNDED** (user-flagged 2026-07-14): the OFAT "lambda_spec
+flat" verdict was measured under the INVERTED spectral loss (P1-1) — small λ
+plausibly = val-tuning suppressing a broken regularizer, not insensitivity.
+λ's true effect under the corrected loss is UNMEASURED → re-run the
+`hp_lambda_*` OFAT slice (~<100 tiny runs) when refilling Weather OFAT.
+Rest of OFAT deliberately kept (λ≤0.01 vs L1 ~0.3-0.5 → rank flips unlikely;
+mild provenance caveat only). Memory: project_lambda_flat_confound.md.
+All audit-fix sites are tagged in-code — `grep -rn "AUDIT-FIX"` lists every
+fixed location with its finding ID.
 
 **Server state**: lr search running (`run_lr_search.py --ngpu 2`, 9 datasets
 incl EWELD); LTSF baseline sweep resuming (12 models, 1,920). GPU box =

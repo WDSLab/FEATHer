@@ -246,13 +246,13 @@ class Dataset_Custom(Dataset):
         self.df_raw = self.df_raw[['date'] + cols + [self.target]]
 
         # Standard LTSF (Autoformer-convention) 0.7/0.1/0.2 contiguous split
-        # for EVERY Dataset_Custom dataset. Historical note (2026-07-14):
-        # Weather previously hit a hard-coded legacy border branch here
-        # (train = first 33% of rows, ~49% of the data in no split, test
-        # truncated) inherited from an old project alongside dead
-        # PM/PEMS_BAY/METR branches; all removed — Weather rows produced
-        # before this fix are NOT comparable and must be purged + re-run
-        # (tools/audit/purge_rows.py).
+        # for EVERY Dataset_Custom dataset.
+        # AUDIT-FIX (2026-07-14, cfd90c5, P1-2): Weather previously hit a
+        # hard-coded legacy border branch here (train = first 33% of rows,
+        # ~49% of the data in no split, test truncated) inherited from an
+        # old project alongside dead PM/PEMS_BAY/METR branches; all removed.
+        # Weather rows produced before this fix are NOT comparable and must
+        # be purged + re-run (tools/audit/purge_rows.py).
         num_train = int(len(self.df_raw) * 0.7)
         num_test = int(len(self.df_raw) * 0.2)
         num_vali = len(self.df_raw) - num_train - num_test

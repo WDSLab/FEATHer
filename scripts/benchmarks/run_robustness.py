@@ -35,10 +35,12 @@ from utils import metrics
 from utils import noise as noise_mod
 from utils.seed import set_seed
 
-# Reuse the trained-checkpoint path convention + the override parser, so the
-# model is reconstructed with EXACTLY the architecture the checkpoint was
-# trained with (the orchestrator forwards the same _DATASET_OVERRIDES merge
-# that run_forecast.py used at training time).
+# AUDIT-FIX (2026-07-14, cfd90c5, P0-1): reuse the trained-checkpoint path
+# convention + the override parser, so the model is reconstructed with
+# EXACTLY the architecture the checkpoint was trained with (the orchestrator
+# forwards the same _DATASET_OVERRIDES merge that run_forecast.py used at
+# training time). Before this fix the worker rebuilt bare paper defaults and
+# the strict load_state_dict failed on every per-dataset architecture.
 from scripts.benchmarks.run_forecast import checkpoint_path, _apply_overrides
 
 warnings.filterwarnings("ignore")
@@ -56,8 +58,9 @@ CSV_FIELDS = [
 def append_row(csv_path, row):
     os.makedirs(os.path.dirname(csv_path) or ".", exist_ok=True)
     df = pd.DataFrame([row], columns=CSV_FIELDS)
-    # Atomic create-with-header (see run_forecast.append_result_row): avoids
-    # a duplicate mid-file header when concurrent workers race on a fresh CSV.
+    # AUDIT-FIX (2026-07-14, cfd90c5, P2-2) — atomic create-with-header (see
+    # run_forecast.append_result_row): avoids a duplicate mid-file header
+    # when concurrent workers race on a fresh CSV.
     try:
         with open(csv_path, "x", newline="") as f:
             df.to_csv(f, index=False)
@@ -68,9 +71,10 @@ def append_row(csv_path, row):
 def load_done_conditions(csv_path, args):
     """(fault_type, severity) pairs already in the CSV for THIS worker's key.
 
-    Lets a retried worker skip conditions it already wrote instead of
-    re-appending the full 20-row sweep (which would duplicate rows and
-    corrupt count/paired analyses downstream)."""
+    AUDIT-FIX (2026-07-14, cfd90c5, P0-3): lets a retried worker skip
+    conditions it already wrote instead of re-appending the full 20-row
+    sweep (which would duplicate rows and corrupt count/paired analyses
+    downstream)."""
     if not os.path.exists(csv_path):
         return set()
     try:
@@ -113,13 +117,15 @@ def evaluate_on_test(model, test_loader, n_features, pred_len, device,
             y_pred = output[:, -pred_len:].cpu().numpy()
             bs = y_true.shape[0]
             m = np.array(metrics.metric(y_pred, y_true), dtype=np.float64)
-            # NaN-aware accumulation: an all-NaN CORR/R2 batch must not
-            # poison the aggregate (mirrors run_forecast.py's test loop).
+            # AUDIT-FIX (2026-07-14, cfd90c5, P1-3): NaN-aware accumulation —
+            # an all-NaN CORR/R2 batch must not poison the aggregate
+            # (mirrors run_forecast.py's test loop).
             valid = np.isfinite(m)
             sum_vec[valid] += m[valid] * bs
             cnt_vec[valid] += bs
     out = sum_vec / np.maximum(cnt_vec, 1)
-    # RMSE = sqrt(global MSE), not the Jensen-biased batch mean-of-sqrt.
+    # AUDIT-FIX (P1-3): RMSE = sqrt(global MSE), not the Jensen-biased
+    # batch mean-of-sqrt.
     out[2] = float(np.sqrt(out[0]))
     return out
 
@@ -219,9 +225,10 @@ def run(args):
             if (ft, float(sev)) in done_conditions:
                 print(f"  [skip] {ft}={sev} already in CSV")
                 continue
-            # Reseed per (fault, severity) so every process draws the SAME
-            # corruption realization (matched noise across models/re-runs).
-            # NOT hash(): string hashing is PYTHONHASHSEED-salted per process.
+            # AUDIT-FIX (2026-07-14, cfd90c5, P0-2): reseed per (fault,
+            # severity) so every process draws the SAME corruption
+            # realization (matched noise across models/re-runs). NOT hash():
+            # string hashing is PYTHONHASHSEED-salted per process.
             set_seed(noise_mod.corruption_seed(args.seed, ft, sev),
                      deterministic=args.deterministic)
             m = evaluate_on_test(model, test_loader, n_features,

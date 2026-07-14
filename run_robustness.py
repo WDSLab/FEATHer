@@ -88,9 +88,10 @@ def load_robust_set(csv_path, fault_types):
     df_keep = df[df["fault_type"].isin(keep_faults)]
     grp_cols = ["exp_tag", "train_exp_tag", "model", "data",
                 "pred_len", "seq_len", "seed"]
-    # Count DISTINCT (fault_type, severity) conditions, not raw rows:
-    # duplicate rows (e.g. from a pre-resume retry) must not let a combo with
-    # missing tail conditions masquerade as complete.
+    # AUDIT-FIX (2026-07-14, cfd90c5, P0-3): count DISTINCT (fault_type,
+    # severity) conditions, not raw rows: duplicate rows (e.g. from a
+    # pre-resume retry) must not let a combo with missing tail conditions
+    # masquerade as complete.
     df_keep = df_keep.drop_duplicates(subset=grp_cols + ["fault_type", "severity"])
     counts = df_keep.groupby(grp_cols).size().reset_index(name="n")
     done = counts[counts["n"] >= need]
@@ -187,11 +188,13 @@ def dispatch(combos, done, args, fault_types):
         if not os.path.exists(ckpt):
             continue  # surfaced by print_status already
 
-        # Mirror run_forecast.py's training-time merge EXACTLY, so the worker
-        # reconstructs the same architecture the checkpoint was trained with
-        # (per-dataset FEATHer period/d_state, sparsetsf_period_len,
-        # tqnet_cycle, patchtst_d_model, ... all change parameter shapes).
-        # lr/loss are training-only — irrelevant at inference.
+        # AUDIT-FIX (2026-07-14, cfd90c5, P0-1): mirror run_forecast.py's
+        # training-time merge EXACTLY, so the worker reconstructs the same
+        # architecture the checkpoint was trained with (per-dataset FEATHer
+        # period/d_state, sparsetsf_period_len, tqnet_cycle, patchtst_d_model,
+        # ... all change parameter shapes). lr/loss are training-only —
+        # irrelevant at inference. Before this fix NO overrides were
+        # forwarded and nearly every checkpoint failed to load.
         merged = {**get_method_defaults(m), **get_dataset_overrides(m, d)}
         hp_overrides = {k: v for k, v in merged.items() if k not in ("lr", "loss")}
         overrides_str = ";".join(f"{k}={v}" for k, v in sorted(hp_overrides.items()))

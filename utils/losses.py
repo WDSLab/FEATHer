@@ -71,12 +71,18 @@ def spectral_separation_loss_scales(H: torch.Tensor, eps: float = 1e-6) -> torch
     #   - Maximize energy ratio in its own band (close to 1)
     #   - Minimize energy ratio in other bands (close to 0)
     #
-    # H is stacked in FEATHer.forward's bands_list order [POINT, (HIGH,)
-    # (MID,) LOW] — scale 0 is the HIGHEST-frequency band and scale S-1 the
-    # lowest (AvgPool-smoothed). Band slices run low→high along the rfft
-    # axis, so scale s owns bands[S-1-s]. (Indexing bands[s] directly would
-    # push the POINT band into the lowest bins and demand high-frequency
-    # energy from the band-limited LOW scale.)
+    # AUDIT-FIX (2026-07-14, commit cfd90c5): this mapping was INVERTED from
+    # inception — the code indexed bands[s] directly, pushing the POINT
+    # (high-freq) band into the lowest bins and demanding high-frequency
+    # energy from the band-limited LOW scale. Every FEATHer run trained
+    # before this fix (incl. the 2026-07-03 OFAT, so its "lambda flat"
+    # verdict is confounded) used the inverted loss.
+    # See manuscript/notes/code_audit_2026-07-14.md P1-1.
+    #
+    # Correct mapping: H is stacked in FEATHer.forward's bands_list order
+    # [POINT, (HIGH,) (MID,) LOW] — scale 0 is the HIGHEST-frequency band
+    # and scale S-1 the lowest (AvgPool-smoothed). Band slices run low→high
+    # along the rfft axis, so scale s owns bands[S-1-s].
     for s in range(S):
         P_s = P_list[s]
         own = S - 1 - s

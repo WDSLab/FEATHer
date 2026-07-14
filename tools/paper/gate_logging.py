@@ -155,11 +155,12 @@ def run(args):
         args.seq_len, args.label_len, args.pred_len, "test",
         starting_percent=args.starting_percent, percent=args.percent)
 
-    # Reconstruct the TRAINED architecture: apply the same method-default +
-    # per-dataset override merge run_forecast.py used at training time (the
-    # overrides win over the CLI flags, exactly as in the training worker) —
-    # otherwise per-dataset arch HPs (e.g. Steel period=24, ETTh1 d16/k3/p8/B4)
-    # break the strict load_state_dict below.
+    # AUDIT-FIX (2026-07-14, cfd90c5, P0-1): reconstruct the TRAINED
+    # architecture — apply the same method-default + per-dataset override
+    # merge run_forecast.py used at training time (the overrides win over
+    # the CLI flags, exactly as in the training worker) — otherwise
+    # per-dataset arch HPs (e.g. Steel period=24, ETTh1 d16/k3/p8/B4) break
+    # the strict load_state_dict below.
     merged = {**get_method_defaults(args.model),
               **get_dataset_overrides(args.model, args.data)}
     for k, v in merged.items():
@@ -188,8 +189,9 @@ def run(args):
     fault_types = args.fault_types.split(",") if args.fault_types else noise_mod.FAULT_TYPES
     for ft in fault_types:
         for sev in noise_mod.SEVERITY_SWEEPS[ft]:
-            # Same deterministic derivation as the robustness worker, so the
-            # gate sees the EXACT noise realizations the sweep was scored on.
+            # AUDIT-FIX (2026-07-14, cfd90c5, P0-2): same deterministic
+            # derivation as the robustness worker, so the gate sees the
+            # EXACT noise realizations the sweep was scored on.
             set_seed(noise_mod.corruption_seed(args.seed, ft, sev),
                      deterministic=True)
             log(ft, sev)

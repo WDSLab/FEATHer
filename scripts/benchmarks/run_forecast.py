@@ -55,10 +55,11 @@ CSV_FIELDS = [
 def append_result_row(csv_path, row):
     os.makedirs(os.path.dirname(csv_path) or ".", exist_ok=True)
     df_new = pd.DataFrame([row], columns=CSV_FIELDS)
-    # Atomic create-with-header: under --ngpu/--jobs_per_gpu several workers
-    # can race on a FRESH csv; a non-atomic exists()-then-write can leave a
-    # second header mid-file and break resume parsing. open(mode="x") is
-    # O_CREAT|O_EXCL — exactly one worker wins the header.
+    # AUDIT-FIX (2026-07-14, cfd90c5, P2-2) — atomic create-with-header:
+    # under --ngpu/--jobs_per_gpu several workers can race on a FRESH csv; a
+    # non-atomic exists()-then-write can leave a second header mid-file and
+    # break resume parsing. open(mode="x") is O_CREAT|O_EXCL — exactly one
+    # worker wins the header.
     try:
         with open(csv_path, "x", newline="") as f:
             df_new.to_csv(f, index=False)
@@ -236,14 +237,17 @@ def train_single(args, data_name, pred_len, device, seed):
             y_pred = output[:, -pred_len:].cpu().numpy()
             bs = y_true.shape[0]
             m = np.array(metrics.metric(y_pred, y_true), dtype=np.float64)
-            # NaN-aware accumulation: a single all-NaN batch (near-constant
-            # channels -> undefined CORR/R2) must not poison the aggregate.
+            # AUDIT-FIX (2026-07-14, cfd90c5, P1-3) — NaN-aware accumulation:
+            # a single all-NaN batch (near-constant channels -> undefined
+            # CORR/R2) must not poison the aggregate.
             valid = np.isfinite(m)
             sum_vector[valid] += m[valid] * bs
             cnt_vector[valid] += bs
     test_metric = sum_vector / np.maximum(cnt_vector, 1)
-    # Batch-weighted mean-of-sqrt understates RMSE (Jensen) and breaks the
-    # RMSE == sqrt(MSE) identity within a row; derive it from the global MSE.
+    # AUDIT-FIX (2026-07-14, cfd90c5, P1-3): batch-weighted mean-of-sqrt
+    # understates RMSE (Jensen) and breaks the RMSE == sqrt(MSE) identity
+    # within a row; derive it from the global MSE. Rows written BEFORE this
+    # fix carry the biased RMSE — derive sqrt(MSE) at table time for those.
     test_metric[2] = float(np.sqrt(test_metric[0]))
 
     # ---------- Persist ----------
@@ -316,10 +320,11 @@ def train(args):
         gc.collect()
 
     if n_failed:
-        # A failed run writes NO csv row, so without a non-zero exit the
-        # orchestrator would silently treat it as "not yet run" forever
-        # (this is exactly how the missing-reformer_pytorch incident hid
-        # 4 models). Finish the remaining seeds, then flag the group.
+        # AUDIT-FIX (2026-07-14, cfd90c5, P2-1): a failed run writes NO csv
+        # row, so without a non-zero exit the orchestrator would silently
+        # treat it as "not yet run" forever (this is exactly how the
+        # missing-reformer_pytorch incident hid 4 models). Finish the
+        # remaining seeds, then flag the group.
         print(f"[FATAL] {n_failed}/{len(seeds)} seed run(s) failed — "
               f"exiting non-zero so the orchestrator reports this group.")
         sys.exit(1)

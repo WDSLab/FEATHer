@@ -146,6 +146,10 @@ FAULT_TYPES = list(SEVERITY_SWEEPS.keys())
 def corruption_seed(base_seed: int, fault_type: str, severity: float) -> int:
     """Deterministic RNG seed for a (fault_type, severity) evaluation cell.
 
+    AUDIT-FIX (2026-07-14, commit cfd90c5): replaces the workers' previous
+    `hash((ft, sev))` derivation, which was PYTHONHASHSEED-salted and thus
+    differed across processes. See code_audit_2026-07-14.md P0-2.
+
     Every process that corrupts the same (base_seed, fault, severity) cell
     must draw the SAME noise realization, so that (a) re-runs reproduce rows
     bit-for-bit and (b) different models are compared under matched noise
