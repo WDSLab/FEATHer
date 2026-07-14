@@ -36,16 +36,20 @@ from scripts.benchmarks.run_forecast import checkpoint_path
 # Defaults — mirror run_forecast.py
 DEFAULT_MODELS = list_models()
 
-# JMS robustness is the paper's core sensor-fault story, so it leads with the
-# 3 manufacturing main-table datasets (Steel / GasTurbine / WindSCADA) and
-# keeps 2 standard-LTSF anchors (ETTh1 canonical, Weather real-sensor) as a
-# cross-domain comparison — "robust on both standard and manufacturing data".
+# JMS robustness is the paper's core sensor-fault story, so it leads with 3
+# manufacturing main-table datasets (Steel energy / WindSCADA wind / EWELD
+# factory-load) and keeps 2 standard-LTSF anchors (ETTh1 canonical, Weather
+# real-sensor) as a cross-domain comparison — "robust on both standard and
+# manufacturing data". EWELD earns its slot: its 5,741 labeled extreme-weather
+# event windows are a REAL distribution shift, so its checkpoints double as the
+# only non-synthetic robustness test (backing up the four synthetic fault axes).
 # 5 datasets x 4 horizons x 5 seeds x 20 conditions keeps the sweep tractable;
 # PdM sets (CMAPSS/CMAPSS3/PMSM, short-horizon) are a revision-time extension.
 # The ETTh1/Weather checkpoints already come from the LTSF main sweep; the 3
 # mfg ones come from the mfg main sweep (both under --save_model).
-# (Superseded IoT-J set was ETTh1/Weather/Electricity/SML.)
-ROBUSTNESS_DATASETS = ["Steel", "GasTurbine", "WindSCADA", "ETTh1", "Weather"]
+# (GasTurbine was removed 2026-07-14; superseded IoT-J set was
+# ETTh1/Weather/Electricity/SML.)
+ROBUSTNESS_DATASETS = ["Steel", "WindSCADA", "EWELD", "ETTh1", "Weather"]
 LTSF_PREDS = [96, 192, 336, 720]
 SHORT_PREDS = [24, 48, 96, 192]      # SML
 SHORT_DATASETS = {"SML", "Volatility"}
