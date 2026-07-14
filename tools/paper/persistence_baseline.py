@@ -39,10 +39,10 @@ from utils import data_factory  # noqa: E402
 
 MFG = [("Steel", [96, 192, 336, 720]),
        ("MetroPT3", [96, 192, 336, 720]),
-       ("GasTurbine", [96, 192, 336, 720]),
        ("WindSCADA", [96, 192, 336, 720]),
        ("N2O", [96, 192, 336, 720]),
-       ("BlastFurnace", [96, 192, 336, 720])]
+       ("BlastFurnace", [96, 192, 336, 720]),
+       ("EWELD", [96, 192, 336, 720])]  # GasTurbine archived 2026-07-14
 # ARCHIVED 2026-07-13 (short-horizon PdM section dropped from the paper); kept
 # as a shelf list reachable via --group pdm, but out of the default "all".
 PDM = [("CMAPSS", [24, 48, 96]),

@@ -10,6 +10,54 @@ parameter / edge-MCU constraints. It combines multi-scale frequency
 decomposition with a shared temporal kernel and a period-aware sparse
 forecasting head.
 
+**Status (2026-07-14) — ⚑ MANUFACTURING LINEUP LOCKED at 6 (EWELD in,
+GasTurbine out); baseline stays 12; period HPs data-driven. UNCOMMITTED.**
+- **FINAL manufacturing 6 (LOCKED after exhaustive vetting)**: **Steel** (energy)
+  · **WindSCADA** (wind, ≥4 forecasting papers) · **BlastFurnace** (iron process,
+  gapless-verified) · **N2O** (WWTP process) · **MetroPT3** (compressor machine-
+  sensor) · **EWELD** (factory 15-min load — the star add). All real, continuous,
+  persistence-audited non-trivial, domain-diverse. Run counts: mfg **1,440**
+  (12×6×4×5) · lr **2,160** (9 = 6 mfg + 3 PdM shelf) · all **3,360**.
+- **EWELD** (Sci Data 2023, Figshare 10.6084/m9.figshare.21893808, CC-BY) —
+  386-user industrial load bank; we use **Section-C metals (C24+C25), 14 lowest-
+  ID users covering gap-free 2018-01-01..2020-12-31** (D=14 sub-1K core, 105,216
+  rows @ 15-min). UNIQUE value = 6-yr source → **daily+weekly+ANNUAL** multi-
+  period (only dataset that showcases the multi-band head) + **5,741 labeled
+  extreme-weather events = REAL distribution-shift robustness** (upgrades the
+  robustness pillar beyond synthetic corruption). ⚠ strong daily cycle →
+  copy-last-STEP 1.27-1.47 (non-trivial) but seasonal copy-last-DAY ~0.55 →
+  MUST report a seasonal-naive baseline; robustness value lives in the event
+  windows. Regenerate: `prep_manufacturing.py EWELD` (reads data/EWELD/raw/EWELD.zip).
+- **GasTurbine ARCHIVED** (data-verified: ~15% hours missing/year + synthetic
+  hourly index mixes non-adjacent real times = broken sliding window). Loader/
+  prep KEPT as shelf.
+- **Vetted + REJECTED this round** (record so they don't resurface): TEP
+  (simulation + anomaly-native), Machine-health/ziya07 (SYNTHETIC + 34 short
+  per-machine segments), AI4I (synthetic), UCI Gas-Sensor (real but mediocre
+  chemical-lab, weak periodicity). **PyTSF-MfG** (Farahani 2025 RCIM, arXiv:
+  2411.17499) = closest prior mfg-TSF benchmark — verified its `DATASET_POOL` is
+  mostly toy/generic (AirPassengers, Seoul Bike, Brent Oil, ETT, ECL, grid); only
+  Steel + 2 gas-sensors are real-mfg → confirms mfg data scarcity (cite for scope
+  + "first EDGE/sub-1K mfg benchmark" gap; consider N-HiTS/TiDE as full-size
+  mfg-SOTA reference baselines, they crown those but they're ~10^5-10^6 params).
+- **Freq-tied period HPs now DATA-DRIVEN** (fairness — default hourly period was
+  crippling SparseTSF harder than FEATHer): FFT-detected dominant period per mfg
+  dataset in `_DATASET_OVERRIDES` for all 3 period-models (FEATHer/SparseTSF
+  period ≤48 divisor; TQNet cycle = daily). lr for mfg cells MERGES IN later from
+  run_lr_search (edit dicts, don't paste dup keys).
+- **SCINet was added then REVERTED** (4d8cf8e): reviewer only named it as multi-
+  scale prior work (novelty critique), not a benchmark request; no LTSF config.
+  Baseline stays **12**.
+- **▶ OPEN STRATEGIC ISSUE (unresolved)**: TPAMI **R3 said "long-term on edge is
+  contrived; edge does SHORT-horizon; add short-term (GIFT-Eval/M4)"** (reject_mail
+  #1). Our 2026-07-13c "drop short-term PdM for identity" decision DIRECTLY
+  conflicts with R3 and doubles down on the attacked premise. Leaning: reframe as
+  "one sub-1K model spans short→long horizons = edge versatility" (address R3
+  without the does-both muddle) — **NOT yet decided**. Resolve before finalizing
+  the long-term-only framing.
+- **▶ NEXT**: commit → transfer data/EWELD/data.csv (+ raw zip if regenerating) to
+  server → resolve R3 → robustness analysis code (Thread A).
+
 **Status (2026-07-13c) — ⚑ DATASET SCOPE RESHAPED: short-horizon PdM DROPPED,
 manufacturing expanded 3→6 (read FIRST; all UNCOMMITTED).**
 - **Big decision — short-horizon PdM section (CMAPSS/CMAPSS3/PMSM) DROPPED from

@@ -52,7 +52,7 @@ MODEL_ORDER = [
 # the long-term identity or the robustness story; its lr search is still banked
 # (run_lr_search) so it can return in a revision.
 DATASET_ORDER = [
-    "Steel", "MetroPT3", "GasTurbine", "WindSCADA", "N2O", "BlastFurnace",
+    "Steel", "MetroPT3", "WindSCADA", "N2O", "BlastFurnace", "EWELD",
     "ETTh1", "ETTh2", "ETTm1", "ETTm2",
     "Weather", "Exchange", "Electricity", "Traffic",
 ]

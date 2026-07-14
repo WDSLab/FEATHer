@@ -62,8 +62,10 @@ MODELS = list_models()                                   # all 12
 # archived from the PAPER, but their lr search is cheap insurance — if a
 # reviewer asks for the PdM section, the lr is already banked (just run the
 # main sweep). Only run_forecast/paper-table scope drops them.
-LR_DATASETS = ["Steel", "GasTurbine", "WindSCADA", "BlastFurnace", "MetroPT3",
-               "N2O", "CMAPSS", "CMAPSS3", "PMSM"]
+# FINAL mfg 6 (locked 2026-07-14; GasTurbine archived). CMAPSS/CMAPSS3/PMSM
+# kept for shelf-readiness (lr banked in case a reviewer wants the PdM section).
+LR_DATASETS = ["Steel", "WindSCADA", "BlastFurnace", "MetroPT3", "N2O", "EWELD",
+               "CMAPSS", "CMAPSS3", "PMSM"]
 LR_PREDS = [96, 720]                                     # representative short/long
 LR_PREDS_SHORT = [24, 96]                                # short-horizon PdM group
 SHORT_DATASETS = ("CMAPSS", "CMAPSS3", "PMSM")

@@ -449,6 +449,12 @@ _DATASET_OVERRIDES: Dict = {
     ("FEATHer", "BlastFurnace"): {"period": 48},
     ("FEATHer", "MetroPT3"):     {"period": 24},
     ("FEATHer", "N2O"):          {"period": 24},
+    # EWELD (15-min factory load, added 2026-07-14): strong daily cycle ->
+    # FEATHer/SparseTSF period 24 (snap of the [2,48] dominant), TQNet cycle 96
+    # (daily = 96 samples/day), same rule as Steel (also 15-min).
+    ("SparseTSF", "EWELD"): {"sparsetsf_period_len": 24},
+    ("TQNet", "EWELD"):     {"tqnet_cycle": 96},
+    ("FEATHer", "EWELD"):   {"period": 24},
 }
 
 

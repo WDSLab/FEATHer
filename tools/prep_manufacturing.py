@@ -163,6 +163,47 @@ def blastfurnace():
     _w(merged[["date"] + chans + ["Si"]].copy(), "BlastFurnace")
 
 
+def eweld():
+    # EWELD (Liu et al., Scientific Data 10:615, 2023, DOI 10.1038/
+    # s41597-023-02503-6; Figshare 10.6084/m9.figshare.21893808) — 386
+    # industrial/commercial 15-min smart-meter load series (2016-2022) with
+    # 5,741 labeled extreme-weather events. Each user file = [Time, Value(kWh)]
+    # = a single load channel. We build a manufacturing multivariate load-bank
+    # from Section C (Manufacturing) METAL divisions (C24 basic metals + C25
+    # fabricated metals — domain-aligned with Steel/BlastFurnace): the 14
+    # lowest-ID users that fully cover a gap-free 3-year window 2018-01-01..
+    # 2020-12-31 (>99% complete on the 15-min grid; residual forward-filled).
+    # D=14 -> sub-1K CORE. 15-min sampling -> daily(96)/weekly/ANNUAL multi-
+    # period (6-year source gives a real annual harmonic) -> showcases the
+    # multi-band head; the marked extreme-weather windows feed the real
+    # distribution-shift robustness story (vs synthetic corruption).
+    # NOTE: strong daily cycle -> copy-last-STEP persistence 1.27-1.47 (non-
+    # trivial) but seasonal copy-last-DAY ~0.55 -> MUST report a seasonal-naive
+    # baseline; the hard/robustness value lives in the extreme-weather windows.
+    # target = last selected user (all channels forecast in M mode).
+    import zipfile
+    S, E = pd.Timestamp("2018-01-01"), pd.Timestamp("2020-12-31 23:45")
+    grid = pd.date_range(S, E, freq="15min")
+    z = zipfile.ZipFile(os.path.join(DATA, "EWELD", "raw", "EWELD.zip"))
+    cand = sorted(
+        [n for n in z.namelist() if n.endswith(".csv") and "/C/" in n
+         and ("C24 Manufacture of basic metals" in n
+              or "C25 Manufacture of fabricated metal" in n)],
+        key=lambda n: int(n.split("/")[-1].replace("U", "").replace(".csv", "")))
+    cols = {}
+    for n in cand:
+        df = pd.read_csv(z.open(n)); df["Time"] = pd.to_datetime(df["Time"])
+        if df["Time"].min() <= S and df["Time"].max() >= E:
+            s = df.set_index("Time")["Value"].reindex(grid)
+            if s.isna().mean() < 0.01:
+                cols[n.split("/")[-1].replace(".csv", "")] = s.ffill().bfill().values
+        if len(cols) >= 14:
+            break
+    out = pd.DataFrame(cols, index=grid).reset_index().rename(columns={"index": "date"})
+    out["date"] = out["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
+    _w(out, "EWELD")
+
+
 def n2o():
     # Full-scale wastewater-treatment plant (Avedore, DK) process + N2O
     # emission monitoring (Mendeley 10.17632/xmbxhscgpr.1; arXiv:2407.05959,
@@ -248,7 +289,7 @@ def cmapss():
 RECIPES = {"Steel": steel, "GasTurbine": gasturbine,
            "WindSCADA": windscada, "PMSM": pmsm, "CMAPSS": cmapss,
            "CMAPSS3": cmapss3, "BlastFurnace": blastfurnace,
-           "MetroPT3": metropt3, "N2O": n2o}
+           "MetroPT3": metropt3, "N2O": n2o, "EWELD": eweld}
 
 if __name__ == "__main__":
     todo = sys.argv[1:] or list(RECIPES)

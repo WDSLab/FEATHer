@@ -41,6 +41,7 @@ data_dict = {
     'BlastFurnace': Dataset_Custom,
     'MetroPT3': Dataset_Custom,
     'N2O': Dataset_Custom,
+    'EWELD': Dataset_Custom,
     'PMSM': Dataset_CMAPSS,   # rebuilt 2026-07-02: 69 sessions, unit-aware
     'CMAPSS': Dataset_CMAPSS,
     'CMAPSS3': Dataset_CMAPSS,
@@ -160,6 +161,18 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         df = df.reset_index(drop=True)
         target = 'Si'
         freq = 'h'
+        embed = 'timeF'
+
+    elif data == 'EWELD':
+        # EWELD (Sci Data 2023) — manufacturing (Section-C metals) 15-min load
+        # bank, 14 users over 2018-2020 (3 annual cycles). D=14 -> sub-1K core.
+        # daily/weekly/annual multi-period; extreme-weather event windows =
+        # real distribution-shift robustness. target = last user (M mode).
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        target = df.columns[-1]
+        freq = 'm'
         embed = 'timeF'
 
     elif data == 'N2O':
@@ -371,6 +384,16 @@ def data_select(data, root_path):
         df = df.dropna()
         df = df.reset_index(drop=True)
         freq = 'h'
+        embed = 'timeF'
+        print(df)
+        print(df.columns)
+        print(f'freq: {freq} / embed: {embed}')
+    elif data == 'EWELD':
+        # 15 cols (date + 14 user load channels) -> n_features = 14.
+        df = pd.read_csv(root_path + data + '/data' + '.csv')
+        df = df.dropna()
+        df = df.reset_index(drop=True)
+        freq = 'm'
         embed = 'timeF'
         print(df)
         print(df.columns)

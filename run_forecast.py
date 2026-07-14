@@ -66,8 +66,16 @@ DEFAULT_MODELS = list_models()  # all registered
 # non-trivial (1.10-1.53 std). Forecasting-native. Adds a continuous
 # industrial-process (bio-chemical) domain; frame as "industrial process
 # monitoring" (it is a utility process, not discrete manufacturing).
-MFG_DATASETS = ["Steel", "GasTurbine", "WindSCADA", "BlastFurnace",
-                "MetroPT3", "N2O"]
+# Manufacturing MAIN table — FINAL 6 (locked 2026-07-14). All real, continuous,
+# non-trivial, domain-diverse: Steel (energy), WindSCADA (wind, forecasting
+# precedent), BlastFurnace (iron process, gapless), N2O (WWTP process),
+# MetroPT3 (compressor machine-sensor), EWELD (factory load — 6-yr ANNUAL cycle
+# showcases the multi-band head + labeled extreme-weather windows = real
+# distribution-shift robustness). GasTurbine ARCHIVED 2026-07-14 (data-verified
+# discontinuity: ~15% hours missing/year, synthetic index mixes non-adjacent
+# real times) -> shelf (loader/prep kept). Vetted+rejected: TEP/Machine-health/
+# AI4I (synthetic), Gas-Sensor (mediocre lab). CMAPSS/CMAPSS3/PMSM = PdM shelf.
+MFG_DATASETS = ["Steel", "WindSCADA", "BlastFurnace", "MetroPT3", "N2O", "EWELD"]
 MFG_PREDS = [96, 192, 336, 720]
 
 # ARCHIVED 2026-07-13 — short-horizon PdM section DROPPED from the paper.
