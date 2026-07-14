@@ -30,38 +30,31 @@
 [상시 병행] ⑨ Intro/Related 초안 — 서버와 무관, 지금 제일 병목
 ```
 
-## 서버 즉시 실행 절차 (07-14e 재발사)
+## 서버 재발사 — ✅ 완료 (2026-07-14e, 터미널 3개)
 
-07-14에 발사했던 LTSF/lr 스윕은 FEATHer가 옛 HP로 섞여 들어가므로 중단 후
-재발사한다:
+퍼지(FEATHer fcst/lr 행 + hp_search 통째) 후 3개 동시 발사됨:
 
 ```bash
-# 1. 돌고 있는 run_forecast / run_lr_search 오케스트레이터 Ctrl-C
-
-# 2. 그 사이 옛 HP로 쓰였을 수 있는 FEATHer 행 재퍼지 (멱등)
-python tools/audit/purge_rows.py --csv results/fcst_results.csv --model FEATHer --apply
-python tools/audit/purge_rows.py --csv results/lr_search.csv    --model FEATHer --apply
-
-# 3. OFAT 전면 재실행 준비 — hp_search 전체 퍼지 (OFAT 512 + combo 32)
-python tools/audit/purge_rows.py --csv results/hp_search.csv --model FEATHer --apply
-
-# 4. 재발사 (3개 동시 — 서로 다른 CSV라 충돌 없음)
 python run_forecast.py --group ltsf --exp_tag main --save_model --exclude FEATHer --ngpu 2
 python run_hp_search.py --ngpu 2
 python run_lr_search.py --exclude FEATHer --ngpu 2
 ```
 
-⚠ 전제(이미 완료 여부 확인): Weather/데이터재생성 purge 4건 + 4개 data.csv
-전송이 끝나 있어야 함. `--check`에서 Weather·4개 데이터셋 셀이 missing으로
-잡히면 OK.
+발사 직후 사니티 체크 (숫자 이상하면 퍼지가 안 먹은 것):
+
+```bash
+python run_forecast.py --check --group ltsf --exp_tag main   # Weather 셀 missing, FEATHer는 목록에 없어야 정상
+python run_hp_search.py --check                              # Missing = 512 (전체)
+python run_lr_search.py --check                              # 4개 재생성 데이터셋 셀 missing
+```
 
 ## 진행 보드
 
 | # | 실험 | 커맨드 | 규모 | 상태 |
 |---|---|---|---|---|
-| ① | LTSF 베이스라인 (FEATHer 제외) | `run_forecast.py --group ltsf --exp_tag main --save_model --exclude FEATHer --ngpu 2` | 11모델 잔여 + Weather 재충전 | ▶ 재발사 대기 |
-| ② | FEATHer OFAT 전면 재실행 | `run_hp_search.py --ngpu 2` → `--validate` | 512 + 32 | ▶ 재발사 대기 |
-| ④a | 제조 lr (FEATHer 제외) | `run_lr_search.py --exclude FEATHer --ngpu 2` | 11모델 몫 (재생성 4데이터셋 재충전 포함) | ▶ 재발사 대기 |
+| ① | LTSF 베이스라인 (FEATHer 제외) | `run_forecast.py --group ltsf --exp_tag main --save_model --exclude FEATHer --ngpu 2` | 11모델 잔여 + Weather 재충전 | 🔄 진행 중 (07-14e 발사, 터미널 1) |
+| ② | FEATHer OFAT 전면 재실행 | `run_hp_search.py --ngpu 2` → `--validate` | 512 + 32 | 🔄 진행 중 (07-14e 발사, 터미널 2) |
+| ④a | 제조 lr (FEATHer 제외) | `run_lr_search.py --exclude FEATHer --ngpu 2` | 11모델 몫 (재생성 4데이터셋 재충전 포함) | 🔄 진행 중 (07-14e 발사, 터미널 3) |
 | ③ | FEATHer LTSF 본실험 | `run_forecast.py --model FEATHer --group ltsf --exp_tag main --save_model --ngpu 2` | 160 | ⏳ 사람 루프 1 후 |
 | ④b | FEATHer 제조 lr | `run_lr_search.py --model FEATHer --ngpu 2` | 5lr×9데이터셋×2H×2시드=180 | ⏳ 사람 루프 1 후 (canonical 아키텍처 재확인 뒤) |
 | ⑤ | 제조 본 스윕 | `run_forecast.py --group mfg --exp_tag main --save_model --ngpu 2` | 1,440 | ⏳ 사람 루프 2 후 |
