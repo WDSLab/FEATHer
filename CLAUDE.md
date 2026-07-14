@@ -10,7 +10,16 @@ parameter / edge-MCU constraints. It combines multi-scale frequency
 decomposition with a shared temporal kernel and a period-aware sparse
 forecasting head.
 
-## Current status (2026-07-14d)
+## Current status (2026-07-14e)
+
+**⚡ 지금 서버 상태 (07-14e, 터미널 3개 발사됨 — 체인의 단일 소스는
+`ROADMAP.md`):** ① LTSF 베이스라인(`--exclude FEATHer`, Weather 재충전 +
+ETTh1/Weather ckpt) ∥ ② **FEATHer OFAT 512 전면 재실행**(교정 loss + 표준
+Weather split — 07-06 동결분 전부 대체 예정) ∥ ④a 제조 lr(`--exclude
+FEATHer`, 재생성 4데이터셋 재충전). **다음 사람 루프**: ② 완료 →
+`--validate`(32) → `PYTHONUTF8=1 --summary` 출력 전달받아 8행 재동결 +
+07-06 diff 기록 + canonical mfg 아키텍처 재확인 + λ 최종 판정 → 커밋 →
+pull → ③ FEATHer LTSF 160 + ④b FEATHer lr 발사.
 
 **Positioning (settled):** Fresh **JMS** submission (TPAMI reject → IoT-J →
 JMS manufacturing pivot). Main table = **6 manufacturing datasets** (Steel ·
@@ -116,24 +125,24 @@ canonical mfg 아키텍처(d8/k7/p12/B3)도 재집계로 재확인 (sub-1K 제�
 All audit-fix sites are tagged in-code — `grep -rn "AUDIT-FIX"` lists every
 fixed location with its finding ID.
 
-**Server state**: lr search running (`run_lr_search.py --ngpu 2`, 9 datasets
-incl EWELD); LTSF baseline sweep resuming (12 models, 1,920). GPU box =
+**Server state**: 07-14e 3-터미널 발사 (위 ⚡ 블록 + ROADMAP.md 보드).
+사용자가 purge + 4개 data.csv 전송 + 재발사까지 직접 완료. GPU box =
 2×94.5GB, shared with CF-JEPA.
 
-**Local git**: main fully PUSHED to personal/ijaehun through 59c85da
-(P2/P3 close-out) — confirmed 2026-07-14d. Push policy: **ijaehun
-(personal) ONLY**, not WDSLab, unless asked.
+**Local git**: main fully PUSHED to personal/ijaehun through 30f037d
+(ROADMAP 07-14e). Push policy: **ijaehun (personal) ONLY**, not WDSLab,
+unless asked.
 
 **▶ NEXT**
 1. ✅ ~~Apply audit fixes~~ — ENTIRE audit closed 2026-07-14d (P0/P1 in
    cfd90c5, P2-3..8+P3 in the close-out commit). Nothing left in the audit
    doc.
-2. **Server (07-14e 체인 — ROADMAP.md가 단일 소스)**: purge + 4개 data.csv
-   전송 후 3개 동시 재발사: LTSF `--exclude FEATHer` / **FEATHer OFAT 전면
-   재실행**(hp_search 통째 퍼지 → 512런) / lr `--exclude FEATHer`. OFAT
-   완료 → `--validate` → `--summary` → 8행 재동결 + canonical 재확인 + λ
-   판정 → FEATHer LTSF 160런 + FEATHer lr → lr `--summary` MERGE → mfg 본
-   스윕 1,440 (`--save_model`) → robustness → `robust_summary.py` +
+2. **Server (07-14e 체인 — ROADMAP.md가 단일 소스)**: ✅ purge + 4개
+   data.csv 전송 + 3개 동시 재발사까지 완료(사용자, 터미널 3개). 남은
+   체인: **② OFAT 완료 대기** → `--validate` → `--summary` 전달 → (Claude)
+   8행 재동결 + 07-06 diff + canonical 재확인 + λ 판정 → 커밋 → pull →
+   ③ FEATHer LTSF 160 + ④b FEATHer lr → lr `--summary` MERGE → mfg 본 스윕
+   1,440 (`--save_model`) → robustness → `robust_summary.py` +
    `gate_logging.py`.
 3. **A+C Intro/Motivation draft** (`manuscript/drafts/`) — needs air-gap /
    OT-isolation citations; scope to genuinely-local settings.
@@ -146,6 +155,12 @@ incl EWELD); LTSF baseline sweep resuming (12 models, 1,920). GPU box =
 
 ### Decision history (compact — full blocks in `manuscript/notes/CLAUDE_STATUS_ARCHIVE_2026-07-14.md`)
 
+- **2026-07-14d/e**: 감사 P2-3..8+P3 전부 수정(23-check 검증, `59c85da`) →
+  감사 종결; prep 갭 정책으로 데이터 4종 재생성(MetroPT3 16.6% 등) +
+  BlastFurnace winsorize train-영역; **07-14e 사용자 결정: λ-슬라이스
+  재측정 대신 FEATHer OFAT 512 전면 재실행**(07-06 동결 8행 대체 예정,
+  diff 기록); LTSF/lr은 `--exclude FEATHer`로 재발사, FEATHer 몫(③④b)은
+  재동결 후; TSLib 대조로 eval 프로토콜 정석 확인; push through 30f037d.
 - **2026-07-14b**: `robust_summary.py` +4 metrics (μ_rel / AUC / mCE-vs-
   SparseTSF / degradation curve) + `gate_logging.py`, both synthetic-validated;
   R3 resolved (A+C, no short-term in paper); ROBUSTNESS_DATASETS
