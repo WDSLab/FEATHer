@@ -204,7 +204,7 @@ class Dataset_Custom(Dataset):
     def __init__(self, df, data_name, flag='train', size=None,
                  features='S', data_path='ETTh1.csv',
                  target='OT', scale=True, timeenc=0, freq='h',
-                 starting_percent=0,percent=100):
+                 starting_percent=0,percent=100, mask_df=None):
         # size [seq_len, label_len, pred_len]
         # info
         if size == None:
@@ -226,11 +226,16 @@ class Dataset_Custom(Dataset):
         self.scale = scale
         self.timeenc = timeenc
         self.freq = freq
-        
+
         self.percent = percent
         self.starting_percent = starting_percent
 
         self.df_raw = df
+        # MASK-FIX (2026-07-15): optional companion observed-mask (1=observed,
+        # 0=imputed), same rows/channel-columns as `df` (see prep mask.csv).
+        # When present, imputed TARGET cells are NaN-ed so the loss/metrics
+        # score observed values only; INPUT keeps the hold-last fill.
+        self.mask_df = mask_df
 
         self.__read_data__()
 
@@ -295,6 +300,19 @@ class Dataset_Custom(Dataset):
         self.data_x = data[border1:border2]
         self.data_y = data[border1:border2]
         self.data_stamp = data_stamp
+
+        # MASK-FIX (2026-07-15): observed-only scoring. NaN-out imputed TARGET
+        # cells (data_y) via the companion mask so the loss/metrics ignore
+        # hold-last-filled values; INPUT (data_x) keeps the fill. No mask ->
+        # unchanged (all cells observed -> byte-identical to the old path).
+        if self.mask_df is not None:
+            assert len(self.mask_df) == len(self.df_raw), (
+                f"{self.data_name}: mask rows {len(self.mask_df)} != "
+                f"data rows {len(self.df_raw)}")
+            mcols = list(cols_data) if self.features in ('M', 'MS') else [self.target]
+            obs = self.mask_df[mcols].to_numpy().astype(bool)[border1:border2]
+            self.data_y = np.asarray(self.data_y, dtype=float).copy()
+            self.data_y[~obs] = np.nan
 
     def __getitem__(self, index):
         s_begin = index

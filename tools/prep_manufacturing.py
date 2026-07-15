@@ -7,11 +7,18 @@ already in data/<name>/ and writes the cleaned data/<name>/data.csv that
 utils/data_factory.py loads. Idempotent: re-running regenerates data.csv
 from raw without touching the raw files.
 
-GAP-FILL POLICY (audit P3, 2026-07-14): for the gridded sensor sets, short
-gaps (<= ~1 h) are linearly interpolated; LONGER outages are held at the
-last observation (no linear bridging across outages, no lookahead) and only
-the leading edge is back-filled. `_fill_gaps` prints the gap audit on every
-run so a changed raw re-download is visible. State this policy in the paper.
+GAP-FILL POLICY (MASK-FIX 2026-07-15, supersedes audit-P3 interp): for the
+gridded sensor sets ALL gaps are held at the last observation (hold-last,
+fully causal — no interpolation, no lookahead; leading edge back-filled), and
+a companion `mask.csv` (1=observed, 0=imputed) is written alongside data.csv.
+The loader NaN-outs imputed TARGET cells so the training loss and test metrics
+are computed on OBSERVED values only — the standard convention for datasets
+that natively contain missing samples (traffic/medical/sensor). The filled
+values are still used as model INPUT. `_fill_gaps` prints the gap audit on
+every run so a changed raw re-download is visible. State this policy (hold-last
++ observed-only scoring) in the paper. NB: MetroPT/BlastFurnace raw are
+gap-free per their source papers — gaps here are resampling/logger-off
+artifacts, so describe them as unobserved time, not sensor NaNs.
 
 RAW PROVENANCE (download once, place in data/<name>/):
   Steel        UCI #851  -> Steel_industry_data.csv   (direct UCI zip)
@@ -43,11 +50,29 @@ import pandas as pd
 DATA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data")
 
 
-def _w(df, name):
+def _w(df, name, mask=None):
     out = os.path.join(DATA, name, "data.csv")
     assert df.isna().sum().sum() == 0, f"{name}: NaN present"
     df.to_csv(out, index=False)
-    print(f"{name:10s} -> data.csv  rows={len(df):>7d}  D={df.shape[1]-1}")
+    msg = f"{name:10s} -> data.csv  rows={len(df):>7d}  D={df.shape[1]-1}"
+    if mask is not None:
+        # MASK-FIX (2026-07-15): companion mask.csv (1=observed, 0=imputed),
+        # POSITIONALLY aligned to the WRITTEN data.csv channel columns (`mask`
+        # must already be reordered/renamed to match — the loader NaN-outs
+        # imputed TARGET cells from the loss/metrics, i.e. observed-only
+        # scoring, the standard convention for natively-missing sensor data).
+        chan_cols = list(df.columns[1:])                    # drop 'date'
+        m = np.asarray(mask).astype("int8")
+        assert m.shape == (len(df), len(chan_cols)), (
+            f"{name}: mask shape {m.shape} != data "
+            f"{(len(df), len(chan_cols))} — column/row misalignment")
+        mdf = pd.DataFrame(m, columns=chan_cols)
+        mdf.insert(0, "date", df["date"].values)
+        mdf.to_csv(os.path.join(DATA, name, "mask.csv"), index=False)
+        n_imp = int((m == 0).sum())
+        msg += (f"  | mask.csv imputed={n_imp} "
+                f"({100.0 * n_imp / max(1, m.size):.2f}%)")
+    print(msg)
 
 
 def _fill_gaps(df, cols, name, interp_limit, step_desc, max_gap_bound=None):
@@ -93,7 +118,14 @@ def _fill_gaps(df, cols, name, interp_limit, step_desc, max_gap_bound=None):
         keep = col_na & (run_len <= interp_limit)      # short gaps -> linear
         out[c] = out[c].where(~keep, interp[c])
     out[cols] = out[cols].ffill().bfill()              # long gaps -> hold
-    return out
+    # MASK-FIX (2026-07-15): observed-mask (1=originally present, 0=imputed),
+    # same rows/cols as `cols`. Callers now pass interp_limit=0 -> ALL gaps are
+    # hold-last (causal input, no lookahead) and EVERY imputed cell is marked
+    # unobserved so the training loss and test metrics score observed cells
+    # only. The input (data_x) still uses the filled values; only the TARGET
+    # (data_y) is masked downstream (utils/data_loader.py).
+    observed = (~isna).astype("int8")                  # DataFrame, columns=cols
+    return out, observed
 
 
 def steel():
@@ -128,14 +160,16 @@ def windscada():
         if m:
             chosen.append(m[0])
     sub = df[["date"] + chosen].copy()
-    # 10-min grid: linear interp <= 12 steps (2 h); the worst audited outage
-    # is 153 steps (25.5 h, audited 2026-07-14) -> hold-last, bound 288 (2 d).
-    sub = _fill_gaps(sub, chosen, "WindSCADA", interp_limit=12,
-                     step_desc="10-min", max_gap_bound=288)
+    # 10-min grid. MASK-FIX (2026-07-15): interp_limit=0 -> all gaps (worst
+    # audited 153 steps = 25.5 h) hold-last (causal); imputed cells masked from
+    # loss/metrics via the companion mask. bound 288 (2 d).
+    sub, obs = _fill_gaps(sub, chosen, "WindSCADA", interp_limit=0,
+                          step_desc="10-min", max_gap_bound=288)
     pcol = [c for c in chosen if c.lower().startswith("power")][0]
-    sub = sub[["date"] + [c for c in chosen if c != pcol] + [pcol]]
+    order = [c for c in chosen if c != pcol] + [pcol]
+    sub = sub[["date"] + order]
     sub.columns = ["date"] + [f"ch{i}" for i in range(len(chosen) - 1)] + ["Power_kW"]
-    _w(sub, "WindSCADA")
+    _w(sub, "WindSCADA", mask=obs[order].values)
 
 
 def pmsm():
@@ -225,9 +259,19 @@ def blastfurnace():
         proc[c] = proc[c].clip(lo, hi)
     si = si.sort_values("dt").reset_index(drop=True)
     merged = pd.merge_asof(proc, si[["dt", "Si"]], on="dt", direction="backward")
+    # MASK-FIX (2026-07-15): rows BEFORE the first cast have no backward Si
+    # match -> bfill borrows the (future) first cast = truly-unobserved +
+    # lookahead. Mask ONLY those leading Si cells. The between-cast forward-
+    # carry is a legitimate step-function target (last known Si, causal) and
+    # the process channels are gapless (winsorize clips OBSERVED values) ->
+    # both left observed.
+    si_observed = merged["Si"].notna().values
     merged["Si"] = merged["Si"].bfill()  # leading hours before the first cast
     merged["date"] = merged["dt"].dt.strftime("%Y-%m-%d %H:%M:%S")
-    _w(merged[["date"] + chans + ["Si"]].copy(), "BlastFurnace")
+    obs = np.ones((len(merged), len(chans) + 1), dtype="int8")  # Si is last col
+    obs[:, -1] = si_observed.astype("int8")
+    _w(merged[["date"] + chans + ["Si"]].copy(), "BlastFurnace",
+       mask=obs if (obs == 0).any() else None)
 
 
 def eweld():
@@ -258,12 +302,15 @@ def eweld():
               or "C25 Manufacture of fabricated metal" in n)],
         key=lambda n: int(n.split("/")[-1].replace("U", "").replace(".csv", "")))
     cols = {}
+    obs = {}                       # MASK-FIX (2026-07-15): observed (pre-fill)
     for n in cand:
         df = pd.read_csv(z.open(n)); df["Time"] = pd.to_datetime(df["Time"])
         if df["Time"].min() <= S and df["Time"].max() >= E:
             s = df.set_index("Time")["Value"].reindex(grid)
             if s.isna().mean() < 0.01:
-                cols[n.split("/")[-1].replace(".csv", "")] = s.ffill().bfill().values
+                key = n.split("/")[-1].replace(".csv", "")
+                cols[key] = s.ffill().bfill().values
+                obs[key] = (~s.isna()).values          # 1=observed, 0=filled
         if len(cols) >= 14:
             break
     # AUDIT-FIX (2026-07-14, P3): a different raw re-download (users added/
@@ -274,7 +321,11 @@ def eweld():
         f"raw EWELD.zip contents changed?")
     out = pd.DataFrame(cols, index=grid).reset_index().rename(columns={"index": "date"})
     out["date"] = out["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
-    _w(out, "EWELD")
+    # MASK-FIX (2026-07-15): mask the residual forward-filled cells (<1%/chan)
+    # so they are scored-out (observed-only) — same convention as the gap-
+    # filled sensor sets. Column order matches `out` (dict insertion order).
+    mask = np.column_stack([obs[k] for k in cols]).astype("int8")
+    _w(out, "EWELD", mask=mask if (mask == 0).any() else None)
 
 
 def n2o():
@@ -310,14 +361,15 @@ def n2o():
     df["time"] = pd.to_datetime(df["time"], utc=True)
     g = (df.set_index("time")[list(ren)].rename(columns=ren)
            .resample("5min").mean())
-    # 5-min grid: linear interp <= 12 steps (1 h). Long SCADA outages exist
-    # (audited 2026-07-14: INLET.Q up to 26,643 steps = 92 d; airflows 66 d)
-    # -> hold-last, NOT the previous unlimited linear bridge (audit P3).
-    g = _fill_gaps(g, list(ren.values()), "N2O",
-                   interp_limit=12, step_desc="5-min", max_gap_bound=30000)
+    # 5-min grid. MASK-FIX (2026-07-15): interp_limit=0 -> all gaps hold-last
+    # (Long SCADA outages exist — audited 2026-07-14: INLET.Q up to 26,643
+    # steps = 92 d; airflows 66 d); imputed cells masked from loss/metrics.
+    g, obs = _fill_gaps(g, list(ren.values()), "N2O",
+                        interp_limit=0, step_desc="5-min", max_gap_bound=30000)
     g = g.reset_index().rename(columns={"time": "date"})
     g["date"] = g["date"].dt.tz_localize(None).dt.strftime("%Y-%m-%d %H:%M:%S")
-    _w(g[["date"] + [c for c in ren.values() if c != "N2O"] + ["N2O"]].copy(), "N2O")
+    order = [c for c in ren.values() if c != "N2O"] + ["N2O"]
+    _w(g[["date"] + order].copy(), "N2O", mask=obs[order].values)
 
 
 def metropt3():
@@ -341,14 +393,17 @@ def metropt3():
                                   "MetroPT3(AirCompressor).csv"))
     df["timestamp"] = pd.to_datetime(df["timestamp"])
     g = df.set_index("timestamp")[analog].resample("1min").mean()
-    # 1-min grid: linear interp <= 60 steps (1 h). Recording gaps up to 48 h
-    # exist (audited 2026-07-14) -> hold-last beyond 1 h (audit P3).
-    g = _fill_gaps(g, analog, "MetroPT3",
-                   interp_limit=60, step_desc="1-min", max_gap_bound=4320)
+    # 1-min grid. MASK-FIX (2026-07-15): interp_limit=0 -> all gaps hold-last
+    # (recording/logger-off gaps up to 48 h — these are unobserved time, not
+    # sensor NaNs; the raw stream is gap-free); imputed cells masked from
+    # loss/metrics via the companion mask (observed-only scoring).
+    g, obs = _fill_gaps(g, analog, "MetroPT3",
+                        interp_limit=0, step_desc="1-min", max_gap_bound=4320)
     g = g.reset_index().rename(columns={"timestamp": "date"})
     g["date"] = g["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
     chans = [c for c in analog if c != "Oil_temperature"]
-    _w(g[["date"] + chans + ["Oil_temperature"]].copy(), "MetroPT3")
+    order = chans + ["Oil_temperature"]
+    _w(g[["date"] + order].copy(), "MetroPT3", mask=obs[order].values)
 
 
 def cmapss():

@@ -30,6 +30,28 @@
 [상시 병행] ⑨ Intro/Related 초안 — 서버와 무관, 지금 제일 병목
 ```
 
+## ⚑ MASK-FIX (2026-07-15) — 결측 = 관측-only 채점 (구현·검증 완료, 로컬)
+
+결측 데이터 처리 정론화. **모든 갭을 hold-last(인과적, 보간 제거)로 채우고,
+companion `mask.csv`로 imputed 셀을 표시 → 로더가 정답(data_y)만 NaN 처리 →
+loss/metric이 관측값만 채점**(traffic/의료/센서 표준). 입력(data_x)은 채운
+값 유지. 12모델 동일 적용이라 비교 공정.
+
+- 코드: `prep_manufacturing.py`(mask.csv 생성+hold-last) · `data_loader.py`
+  (Dataset_Custom가 정답 NaN) · `data_factory.py`(mask 로드) ·
+  `run_forecast.py`(`_masked_loss` 관측-only) · `metrics.py`(MSE/MAE nan-aware).
+  robustness worker는 공유 nan-aware metric 자동 상속(무수정).
+- 검증: 배선 스모크 ALL PASS + 학습 스모크 Steel 0.5648 / MetroPT3(17.7%
+  마스킹) 0.7533 유한. 마스크 없는 데이터셋은 nanmean==mean → 바이트 동일.
+- 실측 결측률/마스크: MetroPT3 17.67% · N2O 5.79% · WindSCADA 1.20% ·
+  **BlastFurnace 1칸**(첫캐스트-이전 Si; winsorize·캐스트간 홀드는 정당→제외)
+  · EWELD 0(진짜 clean) · Steel/LTSF/PdM 0.
+- **재실행 대상 = MetroPT3/N2O/WindSCADA 3개**(data.csv가 interp→hold로
+  바뀜 + 마스킹). EWELD 무변화·BF 1칸(노이즈이하)=재실행 불필요.
+- **서버 전송**: 재생성 data.csv 3개(WindSCADA/N2O/MetroPT3) + mask.csv 4개
+  (+BlastFurnace) → 그다음 그 3개 lr purge+refill (아래 ④a에 반영).
+- 로컬 백업: `data/{MetroPT3,N2O,WindSCADA}/data.csv.premask` (전환 확정까지).
+
 ## 서버 재발사 — ✅ 완료 (2026-07-14e, 터미널 3개)
 
 퍼지(FEATHer fcst/lr 행 + hp_search 통째) 후 3개 동시 발사됨:

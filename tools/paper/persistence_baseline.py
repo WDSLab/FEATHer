@@ -71,13 +71,17 @@ def persistence_metrics(data_name, seq_len, pred_len, batch_size=256):
             true = batch_y[:, :, :n_features][:, -pred_len:]
             pred = batch_x[:, -1:, :n_features].expand(-1, pred_len, -1)
             err = (pred - true).numpy()
-            se_all += float((err ** 2).sum())
-            ae_all += float(np.abs(err).sum())
-            n_all += err.size
+            # MASK-FIX (2026-07-15): observed-only — imputed TARGET cells are
+            # NaN'd by the loader for the gap-filled sensor sets. Sum over the
+            # finite cells and count only those (nansum + finite count). For
+            # unmasked datasets every cell is finite -> identical to before.
+            se_all += float(np.nansum(err ** 2))
+            ae_all += float(np.nansum(np.abs(err)))
+            n_all += int(np.isfinite(err).sum())
             err_t = err[:, :, -1]
-            se_tgt += float((err_t ** 2).sum())
-            ae_tgt += float(np.abs(err_t).sum())
-            n_tgt += err_t.size
+            se_tgt += float(np.nansum(err_t ** 2))
+            ae_tgt += float(np.nansum(np.abs(err_t)))
+            n_tgt += int(np.isfinite(err_t).sum())
             n_windows += err.shape[0]
 
     return dict(

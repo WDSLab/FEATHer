@@ -83,6 +83,24 @@ def checkpoint_path(exp_tag, model_name, data_name, pred_len, seq_len, seed):
 # Per-run training
 # =============================================================================
 
+def _masked_loss(output, target, loss_name):
+    """L1/MSE over OBSERVED target cells only. MASK-FIX (2026-07-15).
+
+    The loader NaN-outs imputed TARGET cells for the gap-filled sensor sets
+    (observed-only scoring). Plain nn.L1Loss/MSELoss returns NaN for any batch
+    that contains a NaN, which the training loop then skips — silently dropping
+    nearly every partially-masked batch. Reduce over the finite cells instead.
+    For datasets with no masked cells the mask is all-True -> identical to the
+    plain mean (byte-identical results). Returns NaN if a batch has zero
+    observed cells (caller skips it, exactly like a diverged batch)."""
+    mask = torch.isfinite(target)
+    err = (output - target).abs() if loss_name == "l1" else (output - target) ** 2
+    err = err[mask]
+    if err.numel() == 0:
+        return torch.tensor(float("nan"), device=output.device)
+    return err.mean()
+
+
 def train_single(args, data_name, pred_len, device, seed):
     """Train one (model, data, pred_len, seed) configuration."""
 
@@ -169,7 +187,8 @@ def train_single(args, data_name, pred_len, device, seed):
             output = output[:, -pred_len:]
             target = batch_y[:, :, :n_features][:, -pred_len:]
 
-            main_loss = criterion(output, target)
+            # MASK-FIX (2026-07-15): observed-only loss (see _masked_loss).
+            main_loss = _masked_loss(output, target, args.loss)
             if use_spec_loss:
                 loss = main_loss + args.lambda_spec * losses.spectral_separation_loss_scales(H)
             else:
@@ -198,8 +217,12 @@ def train_single(args, data_name, pred_len, device, seed):
                 output = model(batch_x[:, :, :n_features])[:, -pred_len:]
                 target = batch_y[:, :, :n_features][:, -pred_len:]
                 bs = batch_x.size(0)
-                val_sum += criterion(output, target).item() * bs
-                val_cnt += bs
+                # MASK-FIX (2026-07-15): observed-only val loss; skip any batch
+                # whose target window is fully imputed (no observed cell).
+                vl = _masked_loss(output, target, args.loss).item()
+                if np.isfinite(vl):
+                    val_sum += vl * bs
+                    val_cnt += bs
         val_loss = val_sum / max(1, val_cnt)
 
         if np.isfinite(val_loss) and val_loss < best_val:

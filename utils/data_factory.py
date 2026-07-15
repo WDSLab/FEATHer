@@ -248,7 +248,18 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         batch_size = batch_size  # bsz for train
         freq = freq
 
-    data_set = Data(
+    # MASK-FIX (2026-07-15): load the companion observed-mask if one exists
+    # (only the gap-filled sensor sets WindSCADA/N2O/MetroPT3 ship a mask.csv)
+    # and forward it to Dataset_Custom, which NaN-outs imputed TARGET cells so
+    # the loss/metrics score observed values only. data.csv is guaranteed
+    # NaN-free (prep asserts), so the df.dropna() above is a no-op and the
+    # mask (same rows) stays positionally aligned.
+    mask_df = None
+    mask_path = os.path.join(root_path, data, "mask.csv")
+    if Data is Dataset_Custom and os.path.exists(mask_path):
+        mask_df = pd.read_csv(mask_path).reset_index(drop=True)
+
+    common_kwargs = dict(
         df=df,
         data_name=data,
         flag=flag,
@@ -257,10 +268,13 @@ def data_provider(root_path, data, features, batch_size, seq_len, label_len, pre
         target=target,
         timeenc=timeenc,
         freq=freq,
-        starting_percent=starting_percent, 
-        percent=percent
+        starting_percent=starting_percent,
+        percent=percent,
     )
-    
+    if mask_df is not None:
+        common_kwargs["mask_df"] = mask_df
+    data_set = Data(**common_kwargs)
+
     print(flag, len(data_set))
     data_loader = DataLoader(
         data_set,

@@ -82,11 +82,14 @@ def r2_mean(pred, true):
     # Others (invalid) remain as NaN -> aggregated with nanmean
     return np.nanmean(r2)
 
+# MASK-FIX (2026-07-15): nan-aware so imputed TARGET cells (NaN'd by the
+# loader for the gap-filled sensor sets) are excluded — observed-only scoring.
+# For datasets with no masked cells, nanmean == mean -> byte-identical results.
 def MAE(pred, true):
-    return np.mean(np.abs(true - pred))
+    return np.nanmean(np.abs(true - pred))
 
 def MSE(pred, true):
-    return np.mean((true - pred) ** 2)
+    return np.nanmean((true - pred) ** 2)
 
 def RMSE(pred, true):
     return np.sqrt(MSE(pred, true))

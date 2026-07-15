@@ -109,6 +109,17 @@ python tools/audit/purge_rows.py --csv results/lr_search.csv --data WindSCADA,Bl
 # then just re-run the same sweep commands — resume fills the gaps.
 # Weather + lambda OFAT slices (hp_search) refill via run_hp_search.py;
 # re-freeze the Weather row in _DATASET_OVERRIDES from --summary afterwards.
+#
+# (MASK-FIX, 2026-07-15) observed-only scoring — transfer + re-refill:
+#   1. transfer the 3 regenerated data.csv (WindSCADA / N2O / MetroPT3 — now
+#      hold-last, no interp) AND the 4 companion mask.csv (WindSCADA / N2O /
+#      MetroPT3 / BlastFurnace) to data/<name>/.  (EWELD unchanged: 0 imputed.)
+#   2. purge + refill lr for the 3 whose data changed (BF's 1-cell mask is
+#      below noise -> its rows stay valid; EWELD unchanged):
+python tools/audit/purge_rows.py --csv results/lr_search.csv --data WindSCADA,N2O,MetroPT3 --apply
+#   (this SUPERSEDES the 07-14d BlastFurnace lr purge line above — BF no longer
+#    needs a refill under MASK-FIX; the other 3 do, for both the P3 regen and
+#    the interp->hold+mask change.)
 ```
 
 **Evidence state (verified from hp_search.csv)**: only **num_bands is
@@ -155,6 +166,15 @@ unless asked.
 
 ### Decision history (compact — full blocks in `manuscript/notes/CLAUDE_STATUS_ARCHIVE_2026-07-14.md`)
 
+- **2026-07-15 (MASK-FIX)**: 결측 처리 정론화 — 모든 갭 **hold-last**(보간
+  제거, 인과적) + companion `mask.csv`로 imputed 셀 표시 → 로더가 정답만
+  NaN → **loss/metric 관측-only 채점**(traffic/의료/센서 표준; 12모델 동일→
+  공정). 코드 5파일(prep/data_loader/data_factory/run_forecast/metrics;
+  robustness는 공유 nan-aware metric 자동 상속). 검증: 배선 스모크 ALL PASS
+  + 학습 Steel 0.5648/MetroPT3(17.7%마스킹) 0.7533. 실측 결측률: MetroPT3
+  17.67%/N2O 5.79%/WindSCADA 1.20%/BlastFurnace 1칸/EWELD 0. **재실행 3개**
+  (MetroPT3/N2O/WindSCADA — data가 interp→hold). BF 1칸·EWELD 0 = 불필요.
+  선형보간 lookahead 공격면 소멸. 세부: ROADMAP.md "MASK-FIX" 블록.
 - **2026-07-14d/e**: 감사 P2-3..8+P3 전부 수정(23-check 검증, `59c85da`) →
   감사 종결; prep 갭 정책으로 데이터 4종 재생성(MetroPT3 16.6% 등) +
   BlastFurnace winsorize train-영역; **07-14e 사용자 결정: λ-슬라이스
