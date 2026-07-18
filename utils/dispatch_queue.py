@@ -54,7 +54,7 @@ def run_on_gpus(jobs, ngpu, base_gpu=0, jobs_per_gpu=1):
     ngpu = max(1, int(ngpu))
     jobs_per_gpu = max(1, int(jobs_per_gpu))
     n_workers = ngpu * jobs_per_gpu
-    omp = max(1, (os.cpu_count() or n_workers) // n_workers)
+    omp = int(os.environ.get("FORCE_OMP", max(1, (os.cpu_count() or n_workers) // n_workers)))
     env = {**os.environ,
            "OMP_NUM_THREADS": str(omp), "MKL_NUM_THREADS": str(omp)}
 
