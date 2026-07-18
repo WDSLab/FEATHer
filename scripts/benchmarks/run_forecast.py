@@ -93,9 +93,18 @@ def _masked_loss(output, target, loss_name):
     For datasets with no masked cells the mask is all-True -> identical to the
     plain mean (byte-identical results). Returns NaN if a batch has zero
     observed cells (caller skips it, exactly like a diverged batch)."""
+    # AUDIT-FIX (2026-07-19, MASK-NAN-GRAD): index the tensors BEFORE the
+    # arithmetic. Computing (output - target) on the FULL tensors first lets
+    # the NaN target cells enter the autograd graph; even though err[mask]
+    # excludes them from the forward value, the backward pass propagates
+    # `0 * NaN = NaN` from those cells into EVERY gradient, so the model
+    # diverges to NaN weights at the first optimizer step. This only fired on
+    # the mask.csv sets (N2O/WindSCADA/MetroPT3), whose targets carry NaN, and
+    # the divergence was then silently reported as a perfect 0.0 (NaN batches
+    # skipped -> sum/max(1,cnt) == 0). Selecting first keeps NaN out of the graph.
     mask = torch.isfinite(target)
-    err = (output - target).abs() if loss_name == "l1" else (output - target) ** 2
-    err = err[mask]
+    diff = output[mask] - target[mask]
+    err = diff.abs() if loss_name == "l1" else diff ** 2
     if err.numel() == 0:
         return torch.tensor(float("nan"), device=output.device)
     return err.mean()
@@ -223,7 +232,13 @@ def train_single(args, data_name, pred_len, device, seed):
                 if np.isfinite(vl):
                     val_sum += vl * bs
                     val_cnt += bs
-        val_loss = val_sum / max(1, val_cnt)
+        # AUDIT-FIX (2026-07-19, MASK-NAN-GRAD): if NOT ONE val batch had a
+        # finite observed loss (fully diverged, or every window fully imputed),
+        # val_cnt == 0 must yield NaN — not 0.0. The old `sum / max(1, cnt)`
+        # returned 0.0, which reads as a perfect score, gets accepted as
+        # best_val, and lets the P2-5 "no finite val_loss" guard pass on a
+        # degenerate (NaN-weight) model. NaN keeps best_state None -> P2-5 fails.
+        val_loss = val_sum / val_cnt if val_cnt > 0 else float("nan")
 
         if np.isfinite(val_loss) and val_loss < best_val:
             best_val = val_loss
