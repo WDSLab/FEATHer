@@ -79,8 +79,13 @@ def load_done_conditions(csv_path, args):
         return set()
     try:
         df = pd.read_csv(csv_path)
-    except Exception:
-        return set()
+    except Exception as e:
+        # AUDIT-FIX (2026-07-19, #9): a CORRUPT (but present) results CSV must
+        # NOT be read as "nothing done" — that silently re-runs every
+        # condition and appends duplicate rows onto the corruption. Fail so a
+        # human repairs the CSV first.
+        raise RuntimeError(
+            f"could not parse existing results CSV {csv_path}: {e}") from e
     if df.empty:
         return set()
     sel = df[
@@ -115,6 +120,15 @@ def evaluate_on_test(model, test_loader, n_features, pred_len, device,
             output = model(x_in)
             y_true = batch_y[:, :, :n_features][:, -pred_len:].cpu().numpy()
             y_pred = output[:, -pred_len:].cpu().numpy()
+            # AUDIT-FIX (2026-07-19, MASK-NAN-GRAD #2): a corruption that
+            # drives the model to non-finite predictions is a REAL failure
+            # of that condition. The nan-aware metric would silently drop
+            # those cells and report a deceptively good score, so mark the
+            # whole condition failed (NaN) — never a partial-score win, and
+            # (with the zero-count guard below) never a fake 0.0 in mCE/AUC.
+            obs = np.isfinite(y_true)
+            if not np.isfinite(y_pred[obs]).all():
+                return np.full(5, np.nan, dtype=np.float64)
             bs = y_true.shape[0]
             m = np.array(metrics.metric(y_pred, y_true), dtype=np.float64)
             # AUDIT-FIX (2026-07-14, cfd90c5, P1-3): NaN-aware accumulation —
@@ -123,10 +137,13 @@ def evaluate_on_test(model, test_loader, n_features, pred_len, device,
             valid = np.isfinite(m)
             sum_vec[valid] += m[valid] * bs
             cnt_vec[valid] += bs
-    out = sum_vec / np.maximum(cnt_vec, 1)
+    # AUDIT-FIX (2026-07-19, MASK-NAN-GRAD #1): zero-count -> NaN, not 0.0.
+    # A condition with no finite batch must record NaN (visibly failed),
+    # never a fake perfect-robustness 0.0 that would win mCE/AUC/Dw.
+    out = np.where(cnt_vec > 0, sum_vec / np.maximum(cnt_vec, 1), np.nan)
     # AUDIT-FIX (P1-3): RMSE = sqrt(global MSE), not the Jensen-biased
     # batch mean-of-sqrt.
-    out[2] = float(np.sqrt(out[0]))
+    out[2] = float(np.sqrt(out[0])) if np.isfinite(out[0]) else float("nan")
     return out
 
 
@@ -183,6 +200,14 @@ def run(args):
                                     args.pred_len, device,
                                     fault_type=None, severity=None)
     mse_clean = float(clean_metric[0])
+    # AUDIT-FIX (2026-07-19, MASK-NAN-GRAD #1): a non-finite clean baseline
+    # means the loaded checkpoint is degenerate — every Dw (= MSE/mse_clean)
+    # would be garbage. Fail loudly (exit non-zero) instead of writing a CSV
+    # full of NaN/inf Dw rows.
+    if not np.isfinite(mse_clean):
+        raise RuntimeError(
+            f"non-finite clean MSE ({mse_clean}) for checkpoint {ckpt} — "
+            f"degenerate model; refusing to run corruption sweep")
     print(f"  clean: MSE={mse_clean:.4f}  MAE={clean_metric[1]:.4f}")
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

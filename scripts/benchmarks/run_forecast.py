@@ -282,6 +282,17 @@ def train_single(args, data_name, pred_len, device, seed):
             output = model(batch_x[:, :, :n_features])
             y_true = batch_y[:, :, :n_features][:, -pred_len:].cpu().numpy()
             y_pred = output[:, -pred_len:].cpu().numpy()
+            # AUDIT-FIX (2026-07-19, MASK-NAN-GRAD #2): the nan-aware metric
+            # (nanmean) drops NaN cells — intended for imputed TARGET cells,
+            # but it would ALSO silently drop a non-finite PREDICTION on an
+            # observed cell, improving the score of a partially-diverged
+            # model. A best-val model must be finite; treat any non-finite
+            # prediction on an observed cell as a degenerate run (P2-5 path).
+            obs = np.isfinite(y_true)
+            if not np.isfinite(y_pred[obs]).all():
+                raise RuntimeError(
+                    "non-finite prediction on observed test cells — "
+                    "degenerate best-val model; refusing to report metrics")
             bs = y_true.shape[0]
             m = np.array(metrics.metric(y_pred, y_true), dtype=np.float64)
             # AUDIT-FIX (2026-07-14, cfd90c5, P1-3) — NaN-aware accumulation:
@@ -290,6 +301,13 @@ def train_single(args, data_name, pred_len, device, seed):
             valid = np.isfinite(m)
             sum_vector[valid] += m[valid] * bs
             cnt_vector[valid] += bs
+    # AUDIT-FIX (2026-07-19, MASK-NAN-GRAD #1): if MSE never accumulated a
+    # finite batch, cnt==0 and `sum / max(1, cnt)` == 0.0 masquerades as a
+    # perfect score and slips past the P2-5 finite-val guard (the val loop
+    # was fixed in d56aa05; this is its test-loop twin).
+    if cnt_vector[0] == 0:
+        raise RuntimeError(
+            "no finite test MSE across all batches — degenerate run")
     test_metric = sum_vector / np.maximum(cnt_vector, 1)
     # AUDIT-FIX (2026-07-14, cfd90c5, P1-3): batch-weighted mean-of-sqrt
     # understates RMSE (Jensen) and breaks the RMSE == sqrt(MSE) identity
@@ -448,12 +466,22 @@ def _apply_overrides(args):
     """
     if not args.model_overrides:
         return
+    # AUDIT-FIX (2026-07-19, #10): overrides carry per-(model,dataset) ARCH
+    # hyperparameters only. The unified-protocol axes must never be set this
+    # way — a stray key in _DATASET_OVERRIDES would silently break cross-model
+    # fairness (different batch/epochs/seq_len). Refuse loudly instead.
+    PROTOCOL_AXES = {"batch_size", "num_epochs", "patience", "seq_len",
+                     "label_len"}
     for kv in args.model_overrides.split(";"):
         kv = kv.strip()
         if not kv or "=" not in kv:
             continue
         k, v = kv.split("=", 1)
         k, v = k.strip(), v.strip()
+        if k in PROTOCOL_AXES:
+            raise ValueError(
+                f"--model_overrides may not set protocol axis '{k}' "
+                f"(unified across all models); got '{kv}'")
         # Type coercion
         parsed = v
         if v.lower() in ("true", "false"):
