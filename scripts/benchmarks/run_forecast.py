@@ -116,7 +116,6 @@ def train_single(args, data_name, pred_len, device, seed):
     set_seed(seed, deterministic=args.deterministic)
 
     now = datetime.now()
-    num_metrics = 5  # MSE, MAE, RMSE, CORR, R2
 
     print(f"\n{'-'*60}")
     print(f"Model: {args.model} | Data: {data_name} | Pred_len: {pred_len} "
@@ -273,8 +272,19 @@ def train_single(args, data_name, pred_len, device, seed):
             f"run (diverged/NaN); refusing to report last-epoch metrics")
     model.load_state_dict(best_state)
     model.eval()
-    sum_vector = np.zeros(num_metrics, dtype=np.float64)
-    cnt_vector = np.zeros(num_metrics, dtype=np.float64)
+    # AUDIT-FIX (2026-07-19, #3): MSE/MAE are a GLOBAL observed-cell mean
+    # (nansum of squared/abs error over finite cells / finite-cell count),
+    # NOT a batch-size-weighted mean of per-batch nanmeans. On unmasked data
+    # the two are algebraically identical (every cell observed); on the
+    # mask.csv sets they diverge — up to ~13% on MetroPT3 — because batch-size
+    # weighting ignores that batches carry different observed-cell counts.
+    # This matches the persistence/classical baselines' estimator so the main
+    # table compares like with like. CORR/R2 stay batch-weighted (they are
+    # per-(B,F) pair averages with no simple global closed form).
+    se_sum = ae_sum = 0.0
+    n_obs = 0
+    cr_sum = np.zeros(2, dtype=np.float64)   # [CORR, R2]
+    cr_cnt = np.zeros(2, dtype=np.float64)
     with torch.no_grad():
         for batch_x, batch_y, _, _ in test_loader:
             batch_x = batch_x.float().to(device)
@@ -283,37 +293,42 @@ def train_single(args, data_name, pred_len, device, seed):
             y_true = batch_y[:, :, :n_features][:, -pred_len:].cpu().numpy()
             y_pred = output[:, -pred_len:].cpu().numpy()
             # AUDIT-FIX (2026-07-19, MASK-NAN-GRAD #2): the nan-aware metric
-            # (nanmean) drops NaN cells — intended for imputed TARGET cells,
-            # but it would ALSO silently drop a non-finite PREDICTION on an
-            # observed cell, improving the score of a partially-diverged
-            # model. A best-val model must be finite; treat any non-finite
-            # prediction on an observed cell as a degenerate run (P2-5 path).
+            # drops NaN cells — intended for imputed TARGET cells, but it would
+            # ALSO silently drop a non-finite PREDICTION on an observed cell,
+            # improving a partially-diverged model's score. A best-val model
+            # must be finite; treat any non-finite pred on an observed cell as
+            # a degenerate run (P2-5 path).
             obs = np.isfinite(y_true)
             if not np.isfinite(y_pred[obs]).all():
                 raise RuntimeError(
                     "non-finite prediction on observed test cells — "
                     "degenerate best-val model; refusing to report metrics")
+            diff = y_pred - y_true               # NaN where target imputed
+            fin = np.isfinite(diff)
+            se_sum += float(np.sum(diff[fin] ** 2))
+            ae_sum += float(np.sum(np.abs(diff[fin])))
+            n_obs += int(fin.sum())
             bs = y_true.shape[0]
-            m = np.array(metrics.metric(y_pred, y_true), dtype=np.float64)
-            # AUDIT-FIX (2026-07-14, cfd90c5, P1-3) — NaN-aware accumulation:
-            # a single all-NaN batch (near-constant channels -> undefined
-            # CORR/R2) must not poison the aggregate.
-            valid = np.isfinite(m)
-            sum_vector[valid] += m[valid] * bs
-            cnt_vector[valid] += bs
-    # AUDIT-FIX (2026-07-19, MASK-NAN-GRAD #1): if MSE never accumulated a
-    # finite batch, cnt==0 and `sum / max(1, cnt)` == 0.0 masquerades as a
-    # perfect score and slips past the P2-5 finite-val guard (the val loop
-    # was fixed in d56aa05; this is its test-loop twin).
-    if cnt_vector[0] == 0:
+            corr, r2 = metrics.corr_mean(y_pred, y_true), metrics.r2_mean(y_pred, y_true)
+            for i, val in enumerate((corr, r2)):
+                if np.isfinite(val):
+                    cr_sum[i] += val * bs
+                    cr_cnt[i] += bs
+    # AUDIT-FIX (2026-07-19, MASK-NAN-GRAD #1): no observed cell across all
+    # batches (fully diverged / fully masked) must NOT become `0/max(1,0)==0`
+    # — a fake perfect score that slips past the P2-5 guard (the val loop was
+    # fixed in d56aa05; this is its test-loop twin).
+    if n_obs == 0:
         raise RuntimeError(
-            "no finite test MSE across all batches — degenerate run")
-    test_metric = sum_vector / np.maximum(cnt_vector, 1)
-    # AUDIT-FIX (2026-07-14, cfd90c5, P1-3): batch-weighted mean-of-sqrt
-    # understates RMSE (Jensen) and breaks the RMSE == sqrt(MSE) identity
-    # within a row; derive it from the global MSE. Rows written BEFORE this
-    # fix carry the biased RMSE — derive sqrt(MSE) at table time for those.
-    test_metric[2] = float(np.sqrt(test_metric[0]))
+            "no observed test cells across all batches — degenerate run")
+    mse = se_sum / n_obs
+    mae = ae_sum / n_obs
+    # RMSE = sqrt(global MSE) (P1-3): identity holds by construction now.
+    test_metric = np.array([
+        mse, mae, float(np.sqrt(mse)),
+        cr_sum[0] / max(cr_cnt[0], 1.0),
+        cr_sum[1] / max(cr_cnt[1], 1.0),
+    ], dtype=np.float64)
 
     # ---------- Persist ----------
     timestamp = now.strftime("%Y%m%d_%H%M%S")

@@ -105,11 +105,17 @@ def evaluate_on_test(model, test_loader, n_features, pred_len, device,
     """Run inference on the test loader, optionally corrupting each batch.
 
     Returns:
-        np.array of [MSE, MAE, RMSE, CORR, R2] (sample-count-weighted mean).
+        np.array of [MSE, MAE, RMSE, CORR, R2]. MSE/MAE are global
+        observed-cell means; CORR/R2 are batch-weighted pair averages.
     """
     model.eval()
-    sum_vec = np.zeros(5, dtype=np.float64)
-    cnt_vec = np.zeros(5, dtype=np.float64)
+    # AUDIT-FIX (2026-07-19, #3): global observed-cell MSE/MAE (matches the
+    # run_forecast test loop and the persistence/classical estimator; byte-
+    # identical on unmasked data, correct on the mask.csv sets incl. WindSCADA).
+    se_sum = ae_sum = 0.0
+    n_obs = 0
+    cr_sum = np.zeros(2, dtype=np.float64)   # [CORR, R2]
+    cr_cnt = np.zeros(2, dtype=np.float64)
     with torch.no_grad():
         for batch_x, batch_y, _, _ in test_loader:
             batch_x = batch_x.float().to(device)
@@ -129,21 +135,28 @@ def evaluate_on_test(model, test_loader, n_features, pred_len, device,
             obs = np.isfinite(y_true)
             if not np.isfinite(y_pred[obs]).all():
                 return np.full(5, np.nan, dtype=np.float64)
+            diff = y_pred - y_true
+            fin = np.isfinite(diff)
+            se_sum += float(np.sum(diff[fin] ** 2))
+            ae_sum += float(np.sum(np.abs(diff[fin])))
+            n_obs += int(fin.sum())
             bs = y_true.shape[0]
-            m = np.array(metrics.metric(y_pred, y_true), dtype=np.float64)
-            # AUDIT-FIX (2026-07-14, cfd90c5, P1-3): NaN-aware accumulation —
-            # an all-NaN CORR/R2 batch must not poison the aggregate
-            # (mirrors run_forecast.py's test loop).
-            valid = np.isfinite(m)
-            sum_vec[valid] += m[valid] * bs
-            cnt_vec[valid] += bs
-    # AUDIT-FIX (2026-07-19, MASK-NAN-GRAD #1): zero-count -> NaN, not 0.0.
-    # A condition with no finite batch must record NaN (visibly failed),
+            corr, r2 = metrics.corr_mean(y_pred, y_true), metrics.r2_mean(y_pred, y_true)
+            for i, val in enumerate((corr, r2)):
+                if np.isfinite(val):
+                    cr_sum[i] += val * bs
+                    cr_cnt[i] += bs
+    # AUDIT-FIX (2026-07-19, MASK-NAN-GRAD #1): no observed cell -> NaN, not
+    # 0.0. A condition with no finite cell must record NaN (visibly failed),
     # never a fake perfect-robustness 0.0 that would win mCE/AUC/Dw.
-    out = np.where(cnt_vec > 0, sum_vec / np.maximum(cnt_vec, 1), np.nan)
-    # AUDIT-FIX (P1-3): RMSE = sqrt(global MSE), not the Jensen-biased
-    # batch mean-of-sqrt.
-    out[2] = float(np.sqrt(out[0])) if np.isfinite(out[0]) else float("nan")
+    if n_obs == 0:
+        return np.full(5, np.nan, dtype=np.float64)
+    mse = se_sum / n_obs
+    out = np.array([
+        mse, ae_sum / n_obs, float(np.sqrt(mse)),
+        cr_sum[0] / max(cr_cnt[0], 1.0),
+        cr_sum[1] / max(cr_cnt[1], 1.0),
+    ], dtype=np.float64)
     return out
 
 
