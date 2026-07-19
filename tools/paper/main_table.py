@@ -88,6 +88,13 @@ def load_persistence_rows(path, metric):
 
 def aggregate(df, metric):
     """(data, pred_len, model) -> (mean, std, n_seeds)."""
+    # AUDIT-FIX (2026-07-19, #4): derive RMSE as sqrt(MSE) PER ROW, not by
+    # averaging the stored RMSE column. Rows written before P1-3 (2026-07-14)
+    # carry a batch-weighted mean-of-sqrt (Jensen-biased) RMSE; sqrt(MSE) is
+    # exact and matches the worker's post-fix output (identity by construction).
+    if metric == "RMSE":
+        df = df.copy()
+        df["RMSE"] = df["MSE"] ** 0.5
     g = df.groupby(["data", "pred_len", "model"])[metric]
     out = g.agg(["mean", "std", "count"]).reset_index()
     out.columns = ["data", "pred_len", "model", "mean", "std", "n"]
@@ -195,6 +202,11 @@ def main():
                    help="Skip the Persistence reference column even if "
                         f"{PERSISTENCE_CSV} exists.")
     p.add_argument("--persistence_csv", default=PERSISTENCE_CSV)
+    p.add_argument("--seeds", default=None,
+                   help="Comma-separated seeds to include (e.g. "
+                        "2025,2026,2027). Default: all present. Pin this to the "
+                        "3-seed submission set when 5-seed rows are also banked "
+                        "so every cell is averaged over the SAME seeds.")
     args = p.parse_args()
 
     if not os.path.exists(args.csv):
@@ -210,6 +222,21 @@ def main():
     if df.empty:
         print(f"No rows for exp_tag={args.exp_tag}", file=sys.stderr)
         sys.exit(1)
+
+    # AUDIT-FIX (2026-07-19, #5): pin the seed set so every cell averages over
+    # the SAME seeds. Without this, a 5-seed-banked LTSF cell and a 3-seed
+    # mfg cell would be compared as unequal-n means with no warning.
+    if args.seeds:
+        want = {int(s) for s in args.seeds.split(",")}
+        df = df[df["seed"].isin(want)]
+        if df.empty:
+            print(f"No rows for seeds={sorted(want)}", file=sys.stderr)
+            sys.exit(1)
+    seed_counts = df.groupby(["data", "pred_len", "model"])["seed"].nunique()
+    if seed_counts.nunique() > 1:
+        print(f"[warn] cells span differing seed counts "
+              f"{sorted(seed_counts.unique())} — means use unequal n; "
+              f"pin with --seeds for a consistent table", file=sys.stderr)
 
     agg = aggregate(df, args.metric)
     agg = pick_winners(agg, args.metric)   # bold = best LEARNED model

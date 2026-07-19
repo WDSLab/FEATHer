@@ -87,6 +87,28 @@ def normalized_severity(fault_type, severity):
 # ---------------------------------------------------------------------------
 # (2) D_w retention-ratio table
 # ---------------------------------------------------------------------------
+def _common_cells(df, cell_cols=("data", "pred_len", "seed")):
+    """AUDIT-FIX (2026-07-19, #6): restrict to the (data, pred_len, seed)
+    cells present for EVERY model, so Dw / mu_rel / AUC all pool over the
+    same denominator (mCE already does this). Without it, a model whose
+    sweep is only partially done gets its degradation averaged over a
+    DIFFERENT, easier/harder cell set and its rank is silently distorted.
+    A no-op once the sweep is 100% complete; warns on any drop."""
+    models = df["model"].unique()
+    if len(models) <= 1:
+        return df
+    cols = list(cell_cols)
+    per_cell = df.groupby(cols)["model"].nunique()
+    common = per_cell[per_cell == len(models)].reset_index()[cols]
+    if len(common) < len(per_cell):
+        print(f"[warn] robust_summary: {len(per_cell) - len(common)} of "
+              f"{len(per_cell)} ({', '.join(cols)}) cells are not covered by "
+              f"all {len(models)} models — pooling over the {len(common)} "
+              f"common cells only (pass a completed sweep to avoid this).",
+              file=sys.stderr)
+    return df.merge(common, on=cols, how="inner")
+
+
 def dw_table(df, metric):
     """For each (model, fault_type), aggregate the retention RATIO
     metric_corrupt / metric_clean across all (data, pred_len, seed) cells
@@ -95,6 +117,7 @@ def dw_table(df, metric):
     For MSE we reuse the worker-written `Dw` column (already a ratio); for
     other metrics we recompute the SAME ratio form so units never mix.
     """
+    df = _common_cells(df)
     work = df[df["fault_type"] != "clean"].copy()
     if metric == "MSE" and "Dw" in work.columns:
         work["dw_row"] = work["Dw"]
@@ -147,6 +170,7 @@ def mu_rel_table(df, metric="MSE"):
     """Relative retention mu_rel = metric_clean / metric_corrupt in (0, 1].
     1.0 = perfectly retained accuracy under corruption. This is the
     reciprocal of D_w and is the form cited in the evidence note."""
+    df = _common_cells(df)   # AUDIT-FIX (#6): shared denominator across models
     corrupt = df[df["fault_type"] != "clean"].copy()
     clean = (df[df["fault_type"] == "clean"]
              .groupby(["model", "data", "pred_len", "seed"])[metric]
@@ -192,6 +216,7 @@ def auc_table(df, metric="MSE"):
 def _per_severity_dw(df, metric="MSE"):
     """Mean D_w (metric_corrupt / metric_clean) per (model, fault_type,
     severity) with a normalized severity column attached."""
+    df = _common_cells(df)   # AUDIT-FIX (#6): shared denominator (feeds AUC)
     corrupt = df[df["fault_type"] != "clean"].copy()
     if metric == "MSE" and "Dw" in corrupt.columns:
         corrupt["dw_row"] = corrupt["Dw"]
