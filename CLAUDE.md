@@ -12,14 +12,56 @@ forecasting head.
 
 ## Current status (2026-07-14e)
 
-**⚡ 지금 서버 상태 (07-14e, 터미널 3개 발사됨 — 체인의 단일 소스는
-`ROADMAP.md`):** ① LTSF 베이스라인(`--exclude FEATHer`, Weather 재충전 +
-ETTh1/Weather ckpt) ∥ ② **FEATHer OFAT 512 전면 재실행**(교정 loss + 표준
-Weather split — 07-06 동결분 전부 대체 예정) ∥ ④a 제조 lr(`--exclude
-FEATHer`, 재생성 4데이터셋 재충전). **다음 사람 루프**: ② 완료 →
-`--validate`(32) → `PYTHONUTF8=1 --summary` 출력 전달받아 8행 재동결 +
-07-06 diff 기록 + canonical mfg 아키텍처 재확인 + λ 최종 판정 → 커밋 →
-pull → ③ FEATHer LTSF 160 + ④b FEATHer lr 발사.
+**△ 2026-07-16 업데이트 (요약 — 상세는 아래 블록/Decision history):**
+- **베이스라인 5→3 시드 (교수 결정)**: `--exclude FEATHer` 스윕을 `--num_seeds 3`
+  으로 낮춰 제출 우선, **리비전에서 `--num_seeds 5`로 보강**(3시드=[2025,2026,
+  2027]⊂5시드라 resume이 남은 2개만 채움; base_seed/exp_tag 불변 필수). **① LTSF는
+  3시드로 재발사됨.** ⑤ 제조 본 스윕은 FEATHer 포함 통째로 `--num_seeds 3`(메인
+  테이블 12모델 시드 일관성). ④a lr은 원래 2시드 고정이라 무관. **코드 수정
+  없음**(CLI 플래그; 다운스트림 도구 전부 `nunique` 동적 집계, wilcoxon은 셀 넘어
+  풀링이라 3시드도 유의성 충분). ② OFAT 선택은 3시드로 하지 말 것(안정성).
+- **원고 텍스트 파트 재작성 (서버 무관)**: `manuscript/drafts/*_jms.md` 5개
+  (abstract/intro/related/datasets/methodology+theory)를 mfg-6 + A+C 고속-"다리"
+  프레이밍(동기만; 우리는 slow-process 평가) + **robustness 보수 서술** + SWIFT
+  차별화 + half-RevIN + 이론 트림(R8 placeholder Theorem 3/4/5 제거)으로 갱신.
+  옛 `0X_*_draft.md`는 IoT-J 아카이브. 상세: `memory/project_manuscript_jms_drafts.md`.
+  남은 텍스트: Conclusion 리프레임 + Appendix 증명 2개 + Algorithm 1 검토.
+- **고속 프레이밍 판정**: HR-SHM(고속 센싱→다스텝 예측, decimation이 이벤트를
+  aliasing) = 실재 문헌이나 우리 데이터는 slow-process → **동기 인용만**, 우리
+  평가 regime이라 주장 금지("horizon=step count" 다리로 봉합). EWELD = 금속산업
+  전력**부하**(≠"극한기상 부하") + 극한기상 이벤트 창.
+
+**⚡ 지금 서버 상태 (07-18b 2-서버 스윕-분할 — 체인의 단일 소스는 `ROADMAP.md`):**
+**전용 GPU 1개짜리 신 서버 확보 → 스윕별 CSV 분리 이용해 병렬 분배**(사용자
+결정). ①②④a는 CSV가 달라(`fcst_results`/`hp_search`/`lr_search`) 동시 안전.
+- **구 서버 (Linux, 공유 128GB, GPU1)** = **① LTSF** (`FORCE_OMP=5
+  CUDA_VISIBLE_DEVICES=1 python run_forecast.py --group ltsf … --ngpu 1
+  --jobs_per_gpu 2 --exclude FEATHer --num_seeds 3`). `fcst_results.csv`.
+- **신 서버 (Windows, 전용 32GB, GPU 1개, env `lee`, `C:\Users\user\Desktop\
+  FEATHer`)** = **② FEATHer OFAT + ④a 제조 lr 둘 다** (CSV 다름 → 동시 안전).
+  구 서버서 멈춰있던 hp를 `results/hp_search.csv` 복사해 이사(resume). 단일 GPU
+  라 큐 옵션 최소: **② OFAT = `python run_hp_search.py`(jobs 1 유지 — elec/traffic
+  워커가 RAM 무거움)**, **④a lr = `python run_lr_search.py --exclude FEATHer
+  --jobs_per_gpu 3`(mfg는 RAM 가벼워 병렬 3배; GPU 10%·RAM ~8GB 여유라 이게 속도
+  레버)**. RAM은 ② OFAT가 Traffic(862ch) 잡을 때만 조심(`free`). ④a엔 mfg
+  data/ + `lr_search.csv` 전송 필요(뱅크 Steel/EWELD/BF resume).
+- **⚠ 신 서버 `bash`는 bash 4+ 아님** — `setup_baselines.sh`의 `declare -A`가
+  조용히 실패("division by 0" → clone 0개인데 "All present" 가짜 성공). **11개
+  upstream repo는 cmd에서 수동 `git clone --depth 1 <url> baselines/<N>/<N>-main`**
+  (URL = `setup_baselines.sh`의 REPOS). reformer_pytorch는 이미 설치됨. 안 하면
+  베이스라인이 upstream import에서 죽음(예: DiPE_Linear `No module 'timeprophet'`).
+- **⚠ 규칙: 같은 CSV는 한 박스에서만.** `lr_search.csv`=신 서버만(구 서버 lr 금지),
+  `hp_search.csv`=신 서버만, `fcst_results.csv`=구 서버만. 최종엔 각 CSV를 한
+  results/로 모으고 `check_duplicates.py` 검증. `FORCE_OMP` env = 커밋 `880c83e`
+  (worker당 OMP/MKL 스레드 고정 → 박스 공유 시만 필요).
+- **⚠ 07-19 `d56aa05`(MASK-NAN-GRAD) 푸시됨 → 양 서버 pull 필수, 특히 신
+  서버는 pull 전 ④a 실행 금지**(마스크 3종이 가짜 0.0으로 또 기록됨).
+  pull 후 클린 lr_search.csv(844행) 배치 → `run_lr_search.py --exclude FEATHer`
+  재발사 → resume이 마스크 3종+미착수 모델 재충전.
+**다음 사람 루프(루프 1)**: ②·④a 완료 → `--validate`(32) → `PYTHONUTF8=1
+--summary` 출력 전달받아 LTSF 8행 재동결 + 07-06 diff 기록 + canonical mfg
+아키텍처(d8/k7/p12/B3) 재확인 + λ 최종 판정 → 커밋 → pull → ③ FEATHer LTSF
+160 + ④b FEATHer lr 발사.
 
 **Positioning (settled):** Fresh **JMS** submission (TPAMI reject → IoT-J →
 JMS manufacturing pivot). Main table = **6 manufacturing datasets** (Steel ·
@@ -136,9 +178,11 @@ canonical mfg 아키텍처(d8/k7/p12/B3)도 재집계로 재확인 (sub-1K 제�
 All audit-fix sites are tagged in-code — `grep -rn "AUDIT-FIX"` lists every
 fixed location with its finding ID.
 
-**Server state**: 07-14e 3-터미널 발사 (위 ⚡ 블록 + ROADMAP.md 보드).
-사용자가 purge + 4개 data.csv 전송 + 재발사까지 직접 완료. GPU box =
-2×94.5GB, shared with CF-JEPA.
+**Server state**: 07-18 **순차 단일-GPU 실행 모드**(GPU 1, `CUDA_VISIBLE_DEVICES=1
+--ngpu 1 --jobs_per_gpu 2 FORCE_OMP=5`; 위 ⚡ 블록 + ROADMAP.md 보드). 07-14e에
+purge + 4개 data.csv 전송 + 3-동시 재발사까지 했으나 느려서 **하나씩 순차**로
+전환 — 지금 ① LTSF 실행 중, 끝나면 ② → ④a. GPU box = 2×94.5GB, shared with
+CF-JEPA. 07-18 pull: `880c83e`(FORCE_OMP) 반영됨.
 
 **Local git**: main fully PUSHED to personal/ijaehun through 30f037d
 (ROADMAP 07-14e). Push policy: **ijaehun (personal) ONLY**, not WDSLab,
@@ -148,24 +192,61 @@ unless asked.
 1. ✅ ~~Apply audit fixes~~ — ENTIRE audit closed 2026-07-14d (P0/P1 in
    cfd90c5, P2-3..8+P3 in the close-out commit). Nothing left in the audit
    doc.
-2. **Server (07-14e 체인 — ROADMAP.md가 단일 소스)**: ✅ purge + 4개
-   data.csv 전송 + 3개 동시 재발사까지 완료(사용자, 터미널 3개). 남은
-   체인: **② OFAT 완료 대기** → `--validate` → `--summary` 전달 → (Claude)
-   8행 재동결 + 07-06 diff + canonical 재확인 + λ 판정 → 커밋 → pull →
-   ③ FEATHer LTSF 160 + ④b FEATHer lr → lr `--summary` MERGE → mfg 본 스윕
-   1,440 (`--save_model`) → robustness → `robust_summary.py` +
+2. **Server (07-18 순차 단일-GPU 모드 — ROADMAP.md가 단일 소스)**: 3-동시
+   → GPU 1 순차로 전환. 지금 **① LTSF 실행 중** → 끝나면 **② OFAT → ④a lr**
+   하나씩. 남은 체인: **②·④a 완료** → `--validate` → `--summary` 전달 →
+   (Claude) 8행 재동결 + 07-06 diff + canonical 재확인 + λ 판정 → 커밋 →
+   pull → ③ FEATHer LTSF 160 + ④b FEATHer lr → lr `--summary` MERGE → mfg
+   본 스윕 1,440 (`--save_model`) → robustness → `robust_summary.py` +
    `gate_logging.py`.
 3. **A+C Intro/Motivation draft** (`manuscript/drafts/`) — needs air-gap /
    OT-isolation citations; scope to genuinely-local settings.
 4. **Still-missing analysis code**: component ablation UNDER corruption
    (gate-off/band-off variants through the robustness sweep) + Pareto plot
    generator (MSE-vs-params frontier).
+4b. **JMS 클래식 베이스라인 (구현됨, 미커밋/미활성화)**: LSTM/GRU/TCN
+   (`baselines/`, list_models 15) + XGBoost (`run_classical.py`). 커밋 후
+   **현 체인 끝난 뒤** 서버 활성화(15모델 스윕 + `run_classical.py --group
+   mfg`). ARIMA/LightGBM·배포실측(#1구멍)·SWIFT문단은 후속. 상세 =
+   ROADMAP.md "JMS 재포지셔닝" + `memory/project_jms_baseline_repositioning.md`.
 5. ✅ ~~Push to ijaehun~~ — done 2026-07-14d (through 59c85da).
 6. Raw-data cleanup under `data/`: DECIDED skip (raw = regen safety net; drop
    PMSM raw first if disk pressure).
 
 ### Decision history (compact — full blocks in `manuscript/notes/CLAUDE_STATUS_ARCHIVE_2026-07-14.md`)
 
+- **2026-07-20 (코드/프로토콜 검토 수정 A~E 완료)**: 서브에이전트 검토 A/B
+  (`manuscript/notes/review_findings_2026-07-19.md`) 발견 10건 전부 수정 —
+  **A `1e078d7`**(#1 test/robustness 제로카운트→실패·#2 pred-NaN 가드·#9
+  robustness resume 파손가드·#10 override 프로토콜축 블록리스트) + **B
+  `c9ddd94`**(#3 전역 관측-셀 MSE/MAE 추정량 통일: 배치-bs가중→nansum/finite-
+  count, persistence·classical과 일치, 무마스크 byte-identical) + **C·D
+  `bbe6067`**(#4 main_table RMSE=√MSE 행별 유도·#5 `--seeds` 필터+시드수 불일치
+  경고·#6 robust_summary dw/μ_rel/AUC 공통-셀 가드) 서버 푸시. **E는 로컬
+  미커밋**(#7 run_classical 실패시 exit1·#8 XGBoost early-stop을 진짜 val
+  split으로 — 클래식 묶음과 함께 대기). 검증: Steel 0.4884/N2O 0.7333
+  byte-identical → **기존 행 재실행 불필요, ①·② 무영향**. 남은 것=논문 서술
+  봉합 3건(lr-config 명시/FFT-period 스크립트/wilcoxon 상대화).
+- **2026-07-19 (MASK-NAN-GRAD, `d56aa05` 푸시됨)**: MASK-FIX 후속 치명 버그
+  발견·수정 — `_masked_loss`가 full-tensor로 `(output-target)` 먼저 계산 →
+  NaN 타깃 셀이 autograd 그래프 진입 → backward `0*NaN=NaN` gradient →
+  **마스크 3종(N2O/WindSCADA/MetroPT3)에서 첫 스텝 가중치 전체 NaN 발산** →
+  train/val/test 집계 `sum/max(1,cnt)=0`이 **가짜 0.0 기록**(P2-5 가드도
+  0.0=유한이라 통과). 수정 (1) 인덱싱 선행 `output[mask]-target[mask]`,
+  (2) val_cnt==0→NaN(P2-5가 시끄럽게 실패). 3중 스모크 검증(N2O 0.0→0.7333 /
+  MetroPT3 0.6914 / Steel 0.4884 무회귀). **양 서버 pull 후 ④a 재개 필수**.
+  전송용 lr_search.csv는 마스크3종+GasTurbine 286행 purge 완료(1130→844).
+  같은 날: ① 중간점검(886행 클린, 값 문헌범위, DLinear/ETTh2 시드불안정=특성)
+  + 옛 TPAMI FEATHer 수치 vs 새 베이스라인 비교(ETT 1위권 유지, DiPE 우세,
+  Electricity만 약점) → `manuscript/notes/ltsf_midsweep_check_2026-07-19.md`.
+- **2026-07-16**: (1) **베이스라인 5→3 시드**(교수 결정: 제출 우선 + 리비전
+  보강) — `--num_seeds 3`, 코드 수정 없음, ① LTSF 3시드 재발사, ⑤는 통째로 3시드,
+  lr은 2시드 유지; 리비전 top-up = `--num_seeds 5`(resume이 2028/2029만 채움).
+  (2) **원고 텍스트 재작성** — `*_jms.md` 5개(abstract/intro/related/datasets/
+  methodology) mfg-6 + A+C 고속-다리(동기만) + robustness 보수 + SWIFT + half-RevIN
+  + 이론 트림. (3) **고속 프레이밍**: HR-SHM은 실재 문헌이나 우리 데이터=slow-
+  process → 동기 인용만. EWELD=금속산업 전력부하(+극한기상 창). Memory:
+  project_manuscript_jms_drafts.md.
 - **2026-07-15 (MASK-FIX)**: 결측 처리 정론화 — 모든 갭 **hold-last**(보간
   제거, 인과적) + companion `mask.csv`로 imputed 셀 표시 → 로더가 정답만
   NaN → **loss/metric 관측-only 채점**(traffic/의료/센서 표준; 12모델 동일→
@@ -175,6 +256,17 @@ unless asked.
   17.67%/N2O 5.79%/WindSCADA 1.20%/BlastFurnace 1칸/EWELD 0. **재실행 3개**
   (MetroPT3/N2O/WindSCADA — data가 interp→hold). BF 1칸·EWELD 0 = 불필요.
   선형보간 lookahead 공격면 소멸. 세부: ROADMAP.md "MASK-FIX" 블록.
+- **2026-07-15 (JMS 재포지셔닝 + 클래식 베이스라인 구현)**: JMS 리뷰어=제조
+  연구자 → 실무 신뢰 앵커로 **클래식 베이스라인** 추가 + **"실무층(정확·비배포)
+  vs 엣지층(sub-1K·배포)" 2층 프레이밍** + **배포 실험=#1 구멍**(QEMU Layer-2
+  skeleton → 실측) + ETT/Weather 강등(이미 결정). **SWIFT(2501.16178)=인용만**
+  (18.1k=sub-1K 아님·FITS 타이·robustness 0·ICLR2025 withdrawn). **구현 완료
+  (미커밋/로컬)**: LSTM/GRU/TCN(nn.Module, `baselines/{LSTM,GRU,TCN}/`,
+  list_models 15, 기존 worker로 학습, arch 고정+lr서치) + XGBoost(별도
+  `run_classical.py`, 채널독립 horizon-feature 직접다스텝, 마스킹-aware,
+  GPU, 고정config+early-stop, lr탐색X). 스모크 전부 유한. **⚠ 서버 활성화
+  보류**(push하면 스윕 3모델↑; 현 체인 끝난 뒤 의도적으로). ARIMA/LightGBM
+  미결. Memory: project_jms_baseline_repositioning.md.
 - **2026-07-14d/e**: 감사 P2-3..8+P3 전부 수정(23-check 검증, `59c85da`) →
   감사 종결; prep 갭 정책으로 데이터 4종 재생성(MetroPT3 16.6% 등) +
   BlastFurnace winsorize train-영역; **07-14e 사용자 결정: λ-슬라이스
@@ -407,7 +499,7 @@ Resolved 2026-06-02 via TFB-style per-(method, dataset) overrides. See
 | Optimizer | Adam | Standard |
 | Scheduler | CosineAnnealingLR | Standard |
 | AMP | **OFF** | Fairness + FITS complex grads + TimesNet cuFFT half-precision |
-| Seeds | 2025–2029 (5 seeds) | TFB / CF-JEPA convention |
+| Seeds | 2025–2027 (3 seeds; ⤴5 in revision) | 07-16 triage: `--num_seeds 3` submit-first, top-up to 5 (`--num_seeds 5`) in revision — 3⊂5, resume fills the 2; base_seed/exp_tag fixed. lr search stays `LR_SEEDS=[2025,2026]`. |
 | `deterministic` | `cudnn.deterministic=True` | Reproducibility |
 | Data split | identical | All baselines see the same train/val/test |
 

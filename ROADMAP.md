@@ -52,15 +52,60 @@ loss/metric이 관측값만 채점**(traffic/의료/센서 표준). 입력(data_
   (+BlastFurnace) → 그다음 그 3개 lr purge+refill (아래 ④a에 반영).
 - 로컬 백업: `data/{MetroPT3,N2O,WindSCADA}/data.csv.premask` (전환 확정까지).
 
-## 서버 재발사 — ✅ 완료 (2026-07-14e, 터미널 3개)
+## ⚑ JMS 재포지셔닝 — 클래식 베이스라인 & 배포 (2026-07-15)
 
-퍼지(FEATHer fcst/lr 행 + hp_search 통째) 후 3개 동시 발사됨:
+제조 리뷰어 신뢰 앵커. 세부: `memory/project_jms_baseline_repositioning.md`.
 
+**✅ 구현 완료 (미커밋/로컬, 서버 미활성화):**
+- **LSTM / GRU / TCN** — `baselines/{LSTM,GRU,TCN}/` nn.Module, `list_models()`
+  15개. 기존 worker로 학습(lr/main/robustness 자동). arch 고정 + lr 서치.
+- **XGBoost** — 별도 `run_classical.py` (채널독립 horizon-feature 직접다스텝,
+  마스킹-aware, GPU, 고정config+early-stop). `fcst_results.csv`에 model="XGBoost".
+- 스모크 전부 유한 (Steel·MetroPT3 마스킹 포함). 파라미터 76k~290k노드=실무층.
+
+**⏳ 해야할 것 (서버·원고):**
+- [ ] **커밋 + push** (다음 커밋에 MASK-FIX 5파일 + 클래식 베이스라인 묶음).
+- [ ] **서버 활성화 (현 체인 ①②④ 정리된 뒤 의도적으로)**: push 후
+      `list_models()`=15라 lr/main/robustness가 3모델↑ (resume이 채움) +
+      XGBoost는 `python run_classical.py --group mfg --exp_tag main`(GPU,
+      120셀). ⚠ 지금 켜면 현 스윕과 겹치니 **② OFAT / ④ lr 끝난 뒤**.
+- [ ] **lr 서치에 LSTM/GRU/TCN 포함** → `--summary`로 mfg lr 머지(기존 절차).
+- [ ] **ARIMA / LightGBM** (별도 확장): ARIMA=느림·long-H 약함→mfg 짧은 H만
+      고려; LightGBM=pip 설치 필요(xgboost가 트리계열 이미 커버) → 후순위.
+- [ ] **배포 실험 = JMS #1 구멍**: `deployment/cortex_m3/` Layer-2 QEMU
+      skeleton → 실측(FLOPs/메모리/레이턴시/사이클). 별도 세션.
+- [ ] **SWIFT related-work 문단** (원고 시): 고정 웨이블릿+공유linear vs 우리
+      적응형 다중대역+FFT게이트+주기헤드; robustness/제조/실배포 부재. 인용만.
+- [ ] **2층 프레이밍 표**: 실무층(LSTM/GRU/TCN/XGBoost, 정확·비배포) vs
+      엣지층(FEATHer/SparseTSF/FITS, sub-1K·배포). main_table 배치.
+
+## 서버 실행 — 🔁 07-18b 2-서버 스윕-분할
+
+07-14e 3-동시(`--ngpu 2`) → 07-18 순차 단일-GPU(느려서) → **07-18b 전용 GPU
+1개짜리 신 서버 확보 → 스윕별 CSV 분리를 이용해 두 박스에 병렬 분배**(사용자
+결정). ①②④a는 쓰는 CSV가 달라(`fcst_results`/`hp_search`/`lr_search`) 동시 안전.
+
+**신 서버 (전용, GPU 1개, 일반 모드) ← ② FEATHer OFAT 이사:**
+구 서버에서 ②는 **멈춰있었음** → `results/hp_search.csv`를 신 서버 `results/`로
+복사하면 resume이 남은 것만 채움. 단독 GPU라 **큐/스레드 옵션 전부 제거**:
 ```bash
-python run_forecast.py --group ltsf --exp_tag main --save_model --exclude FEATHer --ngpu 2
-python run_hp_search.py --ngpu 2
-python run_lr_search.py --exclude FEATHer --ngpu 2
+# (구 서버) hp_search.csv 신 서버로 복사 — 멈춰있으니 정지 불필요
+scp results/hp_search.csv <신서버user>@<신서버host>:<repo>/results/hp_search.csv
+# (신 서버) fresh clone이면: git clone + pull(880c83e까지) + conda activate feather
+python run_hp_search.py --check     # Missing<512 = 이사 성공(진행분 인식)
+python run_hp_search.py             # 일반 모드 — --ngpu/--jobs_per_gpu/FORCE_OMP/CUDA_VISIBLE_DEVICES 다 뺌
 ```
+
+**구 서버 (공유, GPU 1) = ① LTSF 계속:**
+```bash
+FORCE_OMP=5 CUDA_VISIBLE_DEVICES=1 python run_forecast.py --group ltsf --exp_tag main --save_model --exclude FEATHer --ngpu 1 --num_seeds 3 --jobs_per_gpu 2
+# ①/② 중 먼저 끝난 쪽에 ④a (lr_search.csv — hp와 안 겹침):
+FORCE_OMP=5 CUDA_VISIBLE_DEVICES=1 python run_lr_search.py --exclude FEATHer --ngpu 1 --jobs_per_gpu 2
+```
+
+**⚠ `hp_search.csv`는 한 번에 한 박스에서만**(단일 CSV → 두 박스 동시 = 남은 행
+중복 + 병합 충돌). 최종엔 각 CSV를 한 results/로 모으고 `check_duplicates.py` 검증.
+(옛 3-동시 `--ngpu 2` / 07-18 순차 단일 커맨드는 히스토리; 위가 현재.)
 
 발사 직후 사니티 체크 (숫자 이상하면 퍼지가 안 먹은 것):
 
@@ -74,9 +119,9 @@ python run_lr_search.py --check                              # 4개 재생성 �
 
 | # | 실험 | 커맨드 | 규모 | 상태 |
 |---|---|---|---|---|
-| ① | LTSF 베이스라인 (FEATHer 제외) | `run_forecast.py --group ltsf --exp_tag main --save_model --exclude FEATHer --ngpu 2` | 11모델 잔여 + Weather 재충전 | 🔄 진행 중 (07-14e 발사, 터미널 1) |
-| ② | FEATHer OFAT 전면 재실행 | `run_hp_search.py --ngpu 2` → `--validate` | 512 + 32 | 🔄 진행 중 (07-14e 발사, 터미널 2) |
-| ④a | 제조 lr (FEATHer 제외) | `run_lr_search.py --exclude FEATHer --ngpu 2` | 11모델 몫 (재생성 4데이터셋 재충전 포함) | 🔄 진행 중 (07-14e 발사, 터미널 3) |
+| ① | LTSF 베이스라인 (FEATHer 제외) | `run_forecast.py --group ltsf … --ngpu 1 --jobs_per_gpu 2` (구 서버) | 11모델 잔여 + Weather 재충전 | 🔄 ~절반 (4모델 완주, 5 미착수; 07-19 중간점검 `manuscript/notes/ltsf_midsweep_check_2026-07-19.md` — 값 문헌범위 OK, DLinear/ETTh2 시드불안정=특성) |
+| ② | FEATHer OFAT 전면 재실행 | `run_hp_search.py` (신 서버, 일반 모드) → `--validate` | 512 + 32 | 🔄 신 서버로 이사 중 (hp_search.csv 복사 → resume) |
+| ④a | 제조 lr (FEATHer 제외) | `run_lr_search.py --exclude FEATHer …` | 11모델 몫 (재생성 4데이터셋 재충전 포함) | ⏳ ①/② 중 먼저 비는 박스에 |
 | ③ | FEATHer LTSF 본실험 | `run_forecast.py --model FEATHer --group ltsf --exp_tag main --save_model --ngpu 2` | 160 | ⏳ 사람 루프 1 후 |
 | ④b | FEATHer 제조 lr | `run_lr_search.py --model FEATHer --ngpu 2` | 5lr×9데이터셋×2H×2시드=180 | ⏳ 사람 루프 1 후 (canonical 아키텍처 재확인 뒤) |
 | ⑤ | 제조 본 스윕 | `run_forecast.py --group mfg --exp_tag main --save_model --ngpu 2` | 1,440 | ⏳ 사람 루프 2 후 |
@@ -154,6 +199,18 @@ seasonal-naive ~0.55 병기) → `wilcoxon.py --reference FEATHer` →
 - [ ] 갭-필 정책 서술: "≤1h 선형보간, 그 이상 hold-last(미래 미참조)" +
       BlastFurnace winsorize train-영역 (prep_manufacturing.py 주석 참고)
 - 제출 포맷: Word (Elsevier YPYW)
+
+## ⚑ 07-19 검토 발견 — ✅ 07-20 전부 수정 완료
+
+서브에이전트 검토 A/B 결과 = `manuscript/notes/review_findings_2026-07-19.md`.
+활성 오염은 없었고, 타이밍 딸린 보류 수정 10건을 07-20에 전부 적용:
+- **A `1e078d7`**(#1 제로카운트·#2 pred-NaN 가드·#9 resume 파손가드·#10 override
+  블록리스트) → 서버
+- **B `c9ddd94`**(#3 전역 관측-셀 MSE/MAE 추정량 통일) → 서버
+- **C·D `bbe6067`**(#4 RMSE=sqrt(MSE)·#5 `--seeds` 필터·#6 robust 공통-셀) → 로컬 도구
+- **E 로컬 미커밋**(#7 exit1·#8 XGBoost 진짜 val split) → 클래식 묶음과 함께 대기
+검증: Steel 0.4884 / N2O 0.7333 byte-identical → **기존 행 재실행 불필요**,
+현재 돌던 ①·② 무영향. 서버는 다음 pull에 반영. 남은 것은 논문 서술 봉합뿐.
 
 ## 리스크 메모
 
