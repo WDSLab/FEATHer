@@ -51,6 +51,22 @@ def run_on_gpus(jobs, ngpu, base_gpu=0, jobs_per_gpu=1):
     failed = []
     print_lock = threading.Lock()
 
+    # Single-Ctrl+C shutdown: `stop` tells worker threads to stop grabbing
+    # new jobs; `live_procs` tracks in-flight child processes so the main
+    # thread can terminate them on interrupt. Without this, a Ctrl+C that
+    # kills a child (Windows delivers it to the whole console group) just
+    # looks like a "failed" job to the worker loop, which then launches the
+    # NEXT job — so the user has to Ctrl+C every run. Now one Ctrl+C ends it.
+    stop = threading.Event()
+    live_procs = set()
+    proc_lock = threading.Lock()
+
+    def _terminate(p):
+        try:
+            p.terminate()
+        except Exception:
+            pass
+
     ngpu = max(1, int(ngpu))
     jobs_per_gpu = max(1, int(jobs_per_gpu))
     n_workers = ngpu * jobs_per_gpu
@@ -59,20 +75,36 @@ def run_on_gpus(jobs, ngpu, base_gpu=0, jobs_per_gpu=1):
            "OMP_NUM_THREADS": str(omp), "MKL_NUM_THREADS": str(omp)}
 
     def gpu_worker(gpu_id):
-        while True:
+        while not stop.is_set():
             try:
                 label, cmd = q.get_nowait()
             except queue.Empty:
+                return
+            if stop.is_set():
+                q.task_done()
                 return
             full_cmd = list(cmd) + ["--gpu", str(gpu_id)]
             with print_lock:
                 print(f"\n>>> [gpu{gpu_id}] {label}", flush=True)
                 print("  CMD:", " ".join(full_cmd), flush=True)
-            ret = subprocess.run(full_cmd, env=env)
-            if ret.returncode != 0:
+            p = subprocess.Popen(full_cmd, env=env)
+            with proc_lock:
+                live_procs.add(p)
+            # If Ctrl+C landed in the tiny window while we were launching,
+            # kill this child immediately (main thread may have already
+            # snapshotted live_procs before we added ours).
+            if stop.is_set():
+                _terminate(p)
+            ret = p.wait()
+            with proc_lock:
+                live_procs.discard(p)
+            if stop.is_set():
+                q.task_done()
+                return
+            if ret != 0:
                 with print_lock:
                     print(f"  [WARN] [gpu{gpu_id}] worker returned "
-                          f"{ret.returncode} for: {label}; continuing",
+                          f"{ret} for: {label}; continuing",
                           flush=True)
                     failed.append(label)
             q.task_done()
@@ -85,12 +117,21 @@ def run_on_gpus(jobs, ngpu, base_gpu=0, jobs_per_gpu=1):
     for t in threads:
         t.start()
     try:
-        for t in threads:
-            t.join()
+        # Interruptible join: a bare t.join() on the main thread can swallow
+        # the interrupt window; poll with a short timeout so Ctrl+C is caught
+        # promptly.
+        while any(t.is_alive() for t in threads):
+            for t in threads:
+                t.join(timeout=0.2)
     except KeyboardInterrupt:
-        # Ctrl+C: the workers are child processes and receive the signal
-        # too; just surface the interruption to the caller.
-        print("\n[interrupted] in-flight runs are lost; finished runs are "
+        # One Ctrl+C: stop the queue and hard-stop every in-flight child so
+        # nothing new launches and no worker is orphaned.
+        stop.set()
+        with proc_lock:
+            procs = list(live_procs)
+        for p in procs:
+            _terminate(p)
+        print("\n[interrupted] in-flight runs killed; finished runs are "
               "already in the CSV — re-run to resume.", file=sys.stderr)
         raise
     return failed
