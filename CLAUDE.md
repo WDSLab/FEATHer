@@ -178,15 +178,28 @@ canonical mfg 아키텍처(d8/k7/p12/B3)도 재집계로 재확인 (sub-1K 제�
 All audit-fix sites are tagged in-code — `grep -rn "AUDIT-FIX"` lists every
 fixed location with its finding ID.
 
-**Server state**: 07-18 **순차 단일-GPU 실행 모드**(GPU 1, `CUDA_VISIBLE_DEVICES=1
---ngpu 1 --jobs_per_gpu 2 FORCE_OMP=5`; 위 ⚡ 블록 + ROADMAP.md 보드). 07-14e에
-purge + 4개 data.csv 전송 + 3-동시 재발사까지 했으나 느려서 **하나씩 순차**로
-전환 — 지금 ① LTSF 실행 중, 끝나면 ② → ④a. GPU box = 2×94.5GB, shared with
-CF-JEPA. 07-18 pull: `880c83e`(FORCE_OMP) 반영됨.
+**Server state**: 07-18b **2-서버 스윕-분할** — 구 서버(Linux, 공유, GPU1)=
+**① LTSF**(`fcst_results.csv`), 신 서버(Windows, 전용 GPU1, env `lee`)=
+**② FEATHer OFAT**(`hp_search.csv`) + **④a 제조 lr**(`lr_search.csv`) 둘 다
+(CSV 달라 동시 안전; 위 ⚡ 블록 + ROADMAP.md 보드).
+**⚠ 07-20 신 서버 GPU 사고+수리**: env `lee`에 torch가 `2.8.0+cpu`(CPU 전용
+빌드)로 깔려 있어 `cuda.is_available()=False` → ②·④a가 **전부 CPU로** 돌아
+GPU 0%. `pip install torch==2.5.1 --index-url .../cu121`로 교체(`2.5.1+cu121
+True 1` 확인). 로컬 `feather`와 동일 버전(병합 정합성). CPU로 돈 OFAT/lr 행은
+**선택용 스윕이라 폐기 불요**(최종 숫자는 ③/⑤ GPU 재실행). 발사 확인 = 워커
+`Using device: cuda:0` + `nvidia-smi`에 python 프로세스(util 낮은 건 초소형
+모델이라 정상). 세부 = `memory/reference_new_server_env_lee.md`.
+**07-20 Ctrl+C 패치 `37e4758`**(personal push): `utils/dispatch_queue.py` —
+단일 Ctrl+C가 스윕 트리 전체 종료(stop 이벤트 + in-flight 자식 핸들 추적 →
+`subprocess.run`→`Popen`, 워커가 새 잡 안 집고 돌던 자식 terminate, 고아 방지).
+**양 서버 pull 필요.** (기존엔 Ctrl+C가 죽인 자식을 "실패 잡"으로 보고 다음 잡을
+띄워 매 런마다 Ctrl+C 해야 했음.)
 
-**Local git**: main fully PUSHED to personal/ijaehun through 30f037d
-(ROADMAP 07-14e). Push policy: **ijaehun (personal) ONLY**, not WDSLab,
-unless asked.
+**Local git**: main fully PUSHED to personal/ijaehun through 37e4758
+(07-20 Ctrl+C 패치). Push policy: **ijaehun (personal) ONLY**, not WDSLab,
+unless asked. 미커밋 로컬 = 클래식 베이스라인(LSTM/GRU/TCN + run_classical.py +
+`baselines/__init__.py` M) + 검토수정 E — 현 체인(①②④) 끝난 뒤 별도 커밋(섞으면
+list_models=15로 스윕 자동 확장).
 
 **▶ NEXT**
 1. ✅ ~~Apply audit fixes~~ — ENTIRE audit closed 2026-07-14d (P0/P1 in
@@ -215,6 +228,48 @@ unless asked.
 
 ### Decision history (compact — full blocks in `manuscript/notes/CLAUDE_STATUS_ARCHIVE_2026-07-14.md`)
 
+- **2026-07-21 (데이터셋 6종 재확인 + 베이스라인 제외사유 통일 + CycleNet 판정
+  — 전부 텍스트/결정, 코드·데이터·서버 변경 0)**: (1) **mfg-6 유지, MetroPT3
+  KEEP** — 드롭 후보로 4턴 숙고했으나 대체 후보 전부 패(PMSM=2Hz persistence-
+  trivial / TEP=시뮬 / flotation=공정중복·이미 07-06 패스 / ETT=generalization+
+  robustness 삼중사용 / Korean10=감사리스크+전력클러스터중복). MetroPT3=코드
+  no-op(드롭된 적 없음)+회전기계 자산클래스가 채우는 축. **선정기준 프레이밍=
+  "비트리비얼(persistence-감사)+다양성+실측, 결측=프로토콜-handled"**(⚠ 무결성
+  threshold·도메인순도 금지 — MetroPT3/WindSCADA가 아웃라이어라 자기모순).
+  [[project-mfg6-metropt3-decision-0721]] + 데이터셋 **기각 로그**
+  [[reference-dataset-reject-log]](데이터셋 논의 재개 시 먼저 던질 것). (2)
+  **베이스라인 제외사유 self-consistency 픽스**(CLAUDE.md "Excluded from
+  benchmark" 반영): S-Mamba "no MCU port"→**CUDA커널 재현불가**, TimeCMA
+  "5 orders"→**사전학습=다른 자원클래스**, SWIFT "18k"→**official code 미성숙+
+  FITS tie**(DLinear 18k가 표에 있어 sub-1K 논리 즉사), 방어문단 재작성, seq_len=
+  96 "LTSF convention"→**배포프로토콜+MCU 입력버퍼 바이트예산**(lookback만 통일
+  명시). **size는 절대 제외기준 아님 — 41p–1.6M 스팬이 목적**. (3) **CycleNet/
+  RLinear=cite-not-baseline**(중간-tier·미요청·게이팅; "period 모델이라"는 폐기
+  — SparseTSF도 period; 원칙상 포함가능이라 요구/1차스윕강하면 즉시 escalation).
+  (4) **robustness 방어실험 재설계**: ablation-under-corruption=**1차 등-용량
+  confound-closer**(gate/band-off ≈453p) / 2×2 용량스왑=보강(SparseTSF period-
+  노브↑·FEATHer num_bands↓, clean정확도 유지 보고로 detune반론 봉합) / 이중프로토콜
+  (메인 96 + 부록 literature lookback, **SparseTSF@720 필수**) / int8=limitations
+  한 문장(리비전) / **전부 1차 스윕 효과확인에 게이팅**. [[project-baseline-lineup]]
+  [[project-robustness-justification]] 07-21 블록. **라인업 12·①②④ 스윕 무영향**;
+  체인 후 클래식 4종(LSTM/GRU/TCN+XGBoost)만 실제 추가. CLAUDE.md 텍스트분 미커밋
+  (다음 원고/문서 커밋에 동봉).
+- **2026-07-20c (① LTSF 스윕 sanity-audit — 전부 clean)**: 돌던 LTSF CSV 훑음.
+  TPAMI Table 3(ETTh1/ETTh2) 재현 MSE·MAE 대부분 ±0.01(FITS/TQNet 동일값,
+  PatchTST 현재가 더 좋음=개선, DLinear/ETTh2=시드불안정 특성), Weather 유효
+  (07-14+ 재실행), RMSE 07-15+만 정상(옛 행 sqrt(MSE) 유도), HP소싱 표준
+  (7 per-dataset 공식 / 4 단일 default = 어쩔 수 없고 정답), split 표준
+  (ETT 12/4/4, 나머지 0.7/0.1/0.2), 공정성 OK. **실험 설계 문제없음, 남은 건
+  덜 돈 것뿐.** 세부 = `memory/project_ltsf_baseline_verification_0720.md`.
+  **decimation-vs-native 실험 = 안 함**(하중주장 아님+slow-process라 역풍
+  리스크 → 리비전 카드; 인트로 anti-decimation은 인용+톤다운으로 봉합).
+- **2026-07-20b (신 서버 GPU 수리 + Ctrl+C 패치)**: 신 서버 env `lee` torch가
+  `2.8.0+cpu`라 ②·④a가 CPU로만 돌던 것 발견 → `torch==2.5.1+cu121` 재설치로
+  수리(`2.5.1+cu121 True 1`). CPU 행은 선택용이라 유지. `dispatch_queue.py`
+  단일-Ctrl+C 종료 패치(`37e4758`, personal push, 양 서버 pull). 신 서버 재실행
+  = 터미널A `run_hp_search.py --jobs_per_gpu 3` / 터미널B `run_lr_search.py
+  --exclude FEATHer --jobs_per_gpu 4`(RAM 여유로 3/4 워커; ② Traffic 겹칠 때
+  RAM 주시). 세부 = `memory/reference_new_server_env_lee.md`.
 - **2026-07-20 (코드/프로토콜 검토 수정 A~E 완료)**: 서브에이전트 검토 A/B
   (`manuscript/notes/review_findings_2026-07-19.md`) 발견 10건 전부 수정 —
   **A `1e078d7`**(#1 test/robustness 제로카운트→실패·#2 pred-NaN 가드·#9
@@ -472,16 +527,30 @@ Each baseline lives at `baselines/<Name>/`. `wrapper.py` exposes
 
 ### Excluded from benchmark (cite in Related Work only)
 
-- **S-Mamba** — selective-scan CUDA kernels have no Cortex-M port.
-- **TimeCMA** (AAAI 2025) — frozen GPT-2 features, 5 orders of magnitude above budget.
+- **S-Mamba** — selective-scan **custom CUDA kernels** → not fairly
+  reproducible under our unified from-scratch protocol (AMP off, identical
+  training loop); `mamba-ssm` intentionally not installed. *(NOT "no MCU
+  port" — the ceiling models, e.g. iTransformer 841k / MDMLP 1.6M, don't fit
+  an MCU either; MCU-portability can't be the exclusion criterion.)*
+- **TimeCMA** (AAAI 2025) — frozen **pretrained GPT-2 features = a different
+  resource class** (not trainable from scratch). *(NOT a size cutoff — we KEEP
+  MDMLP 1.6M as a ceiling; size is never the exclusion criterion, the 41p–1.6M
+  span IS the point.)*
+- **SWIFT** (arXiv 2501.16178) — **no mature official code** → not fairly
+  reproducible under our protocol; performance **ties FITS** (already in the
+  table → FITS represents that point). ICLR2025-withdrawn = secondary note
+  only. *(NOT "18k not sub-1K" — DLinear 18,624p is a benchmarked baseline.)*
 
 Reviewer-defense paragraph (paper draft):
-> "We deliberately exclude architectures incompatible with our deployment
-> scope: Mamba-family models require custom CUDA kernels with no MCU port;
-> LLM-augmented forecasters (e.g., TimeCMA) depend on frozen language
-> model features that exceed our 1K-parameter budget by 5 orders of
-> magnitude. These methods are cited in Related Work but lie outside our
-> deployment-constrained benchmark."
+> "Model size is not our exclusion criterion — our benchmark deliberately
+> spans 41 to 1.6M parameters to map the capacity–accuracy frontier. We
+> exclude only architectures we cannot fairly reproduce under a unified
+> from-scratch protocol — Mamba-family models (S-Mamba) requiring custom
+> CUDA kernels, and methods without mature official code (SWIFT) — or that
+> belong to a different resource class, namely LLM-augmented / pretrained
+> forecasters (e.g., TimeCMA) depending on frozen external features rather
+> than being trained from scratch. These are cited in Related Work but lie
+> outside our reproducibility-controlled benchmark."
 
 ## Training protocol — TFB-style per-(method, dataset) paper HP
 
@@ -492,7 +561,7 @@ Resolved 2026-06-02 via TFB-style per-(method, dataset) overrides. See
 
 | Axis | Value | Reason |
 |---|---|---|
-| `seq_len` | 96 | LTSF benchmark convention |
+| `seq_len` | 96 | Deployment protocol: unified across all models; justified by MCU input-buffer byte budget (720×D×4B vs 96×D×4B). Other HP from each paper's recipe — lookback is the one deliberate override (state this to avoid the "published recipe vs 96 override" self-contradiction; SparseTSF@720 goes in an appendix rank-stability check). |
 | `batch_size` | 32 | Memory protocol axis |
 | `num_epochs` | 50 | Epoch-budget protocol axis |
 | `patience` | 10 | Early stop on val loss; selection = best-val epoch, test evaluated once on that model |

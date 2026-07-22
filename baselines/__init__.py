@@ -402,21 +402,26 @@ _DATASET_OVERRIDES: Dict = {
     # _METHOD_DEFAULTS).
 
     # ---- FEATHer (this work) — per-dataset val winners from
-    # run_hp_search.py --summary (OFAT + --validate combo verdict, 512+32
-    # runs). Best-ranked among {base, single-axis variants, combo} per
-    # dataset; safe to freeze. Note: d_state=16 keeps D<=14 sets sub-1K at
-    # H=96 (ETT 643-803, Exchange 690); the H=720 overflow is the pre-existing
-    # SPK pred_len scaling (affects base too) — sub-1K claim stays H=96-scoped.
-    # These feed the LTSF *generalization* section; the MFG main-table
-    # canonical arch stays frozen at base (d8/k7/p12/B3).
-    ("FEATHer", "ETTh1"):       {"d_state": 16, "kernel_size": 3, "period": 8,  "num_bands": 4, "lambda_spec": 0.001, "lr": 0.005},
-    ("FEATHer", "ETTh2"):       {"d_state": 16, "kernel_size": 5, "period": 6,  "num_bands": 2, "lambda_spec": 0.0,   "lr": 0.005},
+    # run_hp_search.py --summary (OFAT 512 + --validate combo verdict 32,
+    # 2026-07-22 RE-FREEZE under corrected spectral loss + standard Weather
+    # split; supersedes the 2026-07-06 freeze). Each row = best-ranked among
+    # {base, single-axis variants, validated combo}. The --validate step
+    # REJECTED the raw OFAT stack for 4/8 sets (ETTh1/ETTh2/Exchange/Traffic
+    # fell back to base + one axis), confirming the flat axes (kernel/λ, and
+    # num_bands off-Traffic) are noise — stacking them lost to base.
+    # d_state=16 now only on ETTm1 (D=7, sub-1K OK) and Electricity (already a
+    # D²-stress set, 115K). H=720 SPK overflow is pre-existing (affects base
+    # too) — sub-1K claim stays H=96-scoped. These feed the LTSF
+    # *generalization* section; the MFG main-table canonical arch stays frozen
+    # at base (d8/k7/p12/B3) — nothing in this LTSF OFAT contradicts it.
+    ("FEATHer", "ETTh1"):       {"d_state": 8,  "kernel_size": 7, "period": 6,  "num_bands": 3, "lambda_spec": 0.01,  "lr": 0.001},
+    ("FEATHer", "ETTh2"):       {"d_state": 8,  "kernel_size": 7, "period": 12, "num_bands": 4, "lambda_spec": 0.01,  "lr": 0.001},
     ("FEATHer", "ETTm1"):       {"d_state": 16, "kernel_size": 9, "period": 6,  "num_bands": 2, "lambda_spec": 0.0,   "lr": 0.005},
-    ("FEATHer", "ETTm2"):       {"d_state": 16, "kernel_size": 9, "period": 6,  "num_bands": 3, "lambda_spec": 0.0,   "lr": 0.005},
-    ("FEATHer", "Weather"):     {"d_state": 16, "kernel_size": 9, "period": 6,  "num_bands": 4, "lambda_spec": 0.0,   "lr": 0.005},
-    ("FEATHer", "Exchange"):    {"d_state": 16, "kernel_size": 7, "period": 12, "num_bands": 3, "lambda_spec": 0.01,  "lr": 0.001},
-    ("FEATHer", "Electricity"): {"d_state": 16, "kernel_size": 7, "period": 6,  "num_bands": 3, "lambda_spec": 0.01,  "lr": 0.005},
-    ("FEATHer", "Traffic"):     {"d_state": 8,  "kernel_size": 3, "period": 12, "num_bands": 3, "lambda_spec": 0.001, "lr": 0.005},
+    ("FEATHer", "ETTm2"):       {"d_state": 8,  "kernel_size": 7, "period": 6,  "num_bands": 2, "lambda_spec": 0.01,  "lr": 0.005},
+    ("FEATHer", "Weather"):     {"d_state": 8,  "kernel_size": 9, "period": 6,  "num_bands": 2, "lambda_spec": 0.1,   "lr": 0.005},
+    ("FEATHer", "Exchange"):    {"d_state": 8,  "kernel_size": 7, "period": 8,  "num_bands": 3, "lambda_spec": 0.01,  "lr": 0.001},
+    ("FEATHer", "Electricity"): {"d_state": 16, "kernel_size": 9, "period": 24, "num_bands": 4, "lambda_spec": 0.0,   "lr": 0.005},
+    ("FEATHer", "Traffic"):     {"d_state": 8,  "kernel_size": 7, "period": 12, "num_bands": 3, "lambda_spec": 0.01,  "lr": 0.005},
 
     # ---- Manufacturing freq-tied period/cycle (data-driven, 2026-07-13) ------
     # FFT-detected dominant period on each train split (detrended). Applied by
