@@ -69,7 +69,7 @@ def enumerate_runs(args):
                 # SPK constraint: period must divide both lengths.
                 if args.seq_len % cfg["period"] or h % cfg["period"]:
                     continue
-                for s in GRID_SEEDS:
+                for s in args.seed_list:
                     runs.append((exp_tag, cfg, d, h, args.seq_len, s))
     return runs
 
@@ -142,7 +142,7 @@ def summarize(args):
         g = sub.groupby("exp_tag").agg(
             val=("val_loss", "mean"), mse=("MSE", "mean"),
             n=("seed", "count")).reset_index()
-        full = len(args.preds) * len(GRID_SEEDS)
+        full = len(args.preds) * len(args.seed_list)
         g["complete"] = g["n"] >= full
         g = g.sort_values("val")
         print(f"\n--- {d} ---  (best-val ranking; test MSE reference only)")
@@ -166,6 +166,9 @@ def main():
                    help="comma-list to scope datasets (default: all 8 LTSF)")
     p.add_argument("--pred_len", type=str, default="",
                    help="comma-list to scope horizons (default: 96,720)")
+    p.add_argument("--seeds", type=str, default=",".join(str(s) for s in GRID_SEEDS),
+                   help="comma-list of seeds (default 3; use e.g. --seeds 2025 "
+                        "for a fast 1-seed selection grid)")
     p.add_argument("--seq_len", type=int, default=96)
     p.add_argument("--num_epochs", type=int, default=50)
     p.add_argument("--patience", type=int, default=10)
@@ -181,6 +184,7 @@ def main():
     args.datasets = (args.data.split(",") if args.data else GRID_DATASETS)
     args.preds = ([int(x) for x in args.pred_len.split(",")]
                   if args.pred_len else GRID_PREDS)
+    args.seed_list = [int(x) for x in args.seeds.split(",")]
 
     if args.summary:
         summarize(args)
@@ -192,7 +196,7 @@ def main():
     missing = [r for r in runs
                if (r[0], r[2], r[3], r[4], r[5]) not in done]
     print(f"Grid: {n_cfg} configs x {len(args.datasets)} datasets x "
-          f"{len(args.preds)} horizons x {len(GRID_SEEDS)} seeds")
+          f"{len(args.preds)} horizons x {len(args.seed_list)} seeds")
     print(f"Total runs: {len(runs)} | Done: {len(runs) - len(missing)} "
           f"| Missing: {len(missing)}")
     if args.check:
