@@ -35,9 +35,9 @@ WORKER = os.path.join("scripts", "benchmarks", "run_forecast.py")
 # to widen the search (grid size = product of all list lengths).
 # -----------------------------------------------------------------------------
 GRID = {
-    "d_state":     [4, 8, 16],
-    "kernel_size": [3, 5, 7, 9],
-    "period":      [6, 8, 12, 24],   # must divide seq_len AND pred_len
+    "d_state":     [2, 4, 8, 16],       # 2 = extreme-tiny DTK latent
+    "kernel_size": [1, 3, 5, 7, 9],     # 1 = pointwise (no temporal context in DTK)
+    "period":      [2, 4, 6, 8, 12, 24],  # must divide seq_len AND every pred_len
     "num_bands":   [2, 3, 4],
 }
 FIXED = {"lambda_spec": 0.01, "lr": 1e-3, "loss": "l1"}
@@ -46,7 +46,9 @@ BASE_CONFIG = {"d_state": 8, "kernel_size": 7, "period": 12, "num_bands": 3}
 
 GRID_DATASETS = ["ETTh1", "ETTh2", "ETTm1", "ETTm2",
                  "Weather", "Exchange", "Electricity", "Traffic"]
-GRID_PREDS = [96, 720]
+# All four horizons by default. period must divide gcd(96,192,336,720)=48, and
+# every value in GRID["period"] does, so no config is silently skipped.
+GRID_PREDS = [96, 192, 336, 720]
 GRID_SEEDS = [2025, 2026, 2027]
 
 
