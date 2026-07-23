@@ -292,7 +292,21 @@ def mce_table(df, reference="SparseTSF", metric="MSE"):
                        .mean().reset_index())
     per_fault_wide = per_fault.pivot(index="model", columns="fault_type",
                                      values="CE")
-    per_fault_wide["mCE"] = per_fault_wide.mean(axis=1)
+    # AUDIT-FIX (2026-07-23): mCE must average a FIXED corruption set. A plain
+    # mean(axis=1) uses pandas' default skipna=True, so a model missing an
+    # ENTIRE fault axis (its sweep for that fault never ran, or all its cells
+    # got dropped for lacking a reference) would be averaged over fewer faults
+    # and could jump up the robustness ranking (sort_values("mCE")) silently —
+    # the headline robustness result. Average with skipna=False so an absent
+    # fault axis yields NaN mCE (sorts last, excluded from the ranking) + warn.
+    fault_cols = list(per_fault_wide.columns)
+    incomplete = per_fault_wide.index[
+        per_fault_wide[fault_cols].isna().any(axis=1)].tolist()
+    if incomplete:
+        print(f"[mCE] WARNING: {len(incomplete)} model(s) lack a full fault axis "
+              f"({','.join(map(str, fault_cols))}) — mCE set NaN (excluded from "
+              f"ranking): {incomplete}", file=sys.stderr)
+    per_fault_wide["mCE"] = per_fault_wide[fault_cols].mean(axis=1, skipna=False)
     per_fault_wide["n_cells"] = merged.groupby("model").size()
     return per_fault_wide.sort_values("mCE").reset_index()
 
