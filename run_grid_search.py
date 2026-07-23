@@ -126,6 +126,48 @@ def dispatch(missing, args):
               "stay missing — re-run to retry.")
 
 
+def _print_ranking(df, d, preds, seed_list, sort_by, label, base_tag):
+    """One ranking block over the given horizon scope (`preds`).
+
+    Rank COMPLETE configs only. A config partway through its horizons has a mean
+    over an EASIER subset (H96 alone << the H720-inclusive mean), so mixing
+    incomplete rows into the ranking floats them spuriously to the top mid-run.
+    Report the in-progress count separately instead. Verdict is ALWAYS on val
+    (the selection metric), regardless of the display sort.
+    """
+    sub = df[(df.data == d) & (df.pred_len.isin(preds))]
+    if sub.empty:
+        return
+    g = sub.groupby("exp_tag").agg(
+        val=("val_loss", "mean"), mse=("MSE", "mean"),
+        n=("seed", "count")).reset_index()
+    full = len(preds) * len(seed_list)
+    g["complete"] = g["n"] >= full
+    gc = g[g["complete"]]
+    n_prog = int((~g["complete"]).sum())
+    sort_col = "mse" if sort_by == "MSE" else "val"
+    if sort_by == "MSE":
+        print(f"\n--- {label} ---  [!] sorted by TEST MSE = ORACLE / test-peek — "
+              f"VIEW ONLY, never select on this.  ({n_prog} config(s) in progress)")
+    else:
+        print(f"\n--- {label} ---  (best-VAL ranking, complete configs only; "
+              f"test MSE reference; {n_prog} config(s) in progress)")
+    if gc.empty:
+        print(f"  (no config has all {full} run(s) yet — still early)")
+        return
+    for _, r in gc.sort_values(sort_col).head(8).iterrows():
+        star = "  <== base" if r.exp_tag == base_tag else ""
+        print(f"  {r.exp_tag:<26} val={r.val:.4f}  testMSE={r.mse:.4f}{star}")
+    best = gc.sort_values("val").head(1)
+    base = gc[gc.exp_tag == base_tag]
+    if not best.empty and not base.empty:
+        b, bs = best.iloc[0], base.iloc[0]
+        delta = bs["val"] - b["val"]
+        verdict = ("grid BEATS base" if delta > 0 else "base ties/wins")
+        print(f"  => best={b.exp_tag} val={b['val']:.4f} vs "
+              f"base val={bs['val']:.4f}  (Δval={delta:+.4f}, {verdict})")
+
+
 def summarize(args):
     if not os.path.exists(args.results_csv):
         print(f"No results yet in {args.results_csv}.")
@@ -137,50 +179,15 @@ def summarize(args):
         return
     base_tag = _tag(BASE_CONFIG)
     for d in args.datasets:
-        # Scope to the requested horizon(s): pass a single --pred_len to rank
-        # per-horizon, or the full list (default) to rank on the horizon-mean
-        # val used for per-dataset selection. (Before this, --pred_len only
-        # affected the completeness count, so scoping it silently did nothing
-        # and every horizon printed the same horizon-averaged ranking.)
-        sub = df[(df.data == d) & (df.pred_len.isin(args.preds))]
-        if sub.empty:
-            continue
-        # Per-config mean over horizons+seeds, plus completeness.
-        g = sub.groupby("exp_tag").agg(
-            val=("val_loss", "mean"), mse=("MSE", "mean"),
-            n=("seed", "count")).reset_index()
-        full = len(args.preds) * len(args.seed_list)
-        g["complete"] = g["n"] >= full
-        # Rank COMPLETE configs only. A config partway through its horizons has
-        # a mean over an EASIER subset (H96 alone << the H720-inclusive mean),
-        # so mixing incomplete rows into the ranking floats them spuriously to
-        # the top mid-run. Report the in-progress count separately instead.
-        gc = g[g["complete"]]
-        n_prog = int((~g["complete"]).sum())
-        sort_col = "mse" if args.sort_by == "MSE" else "val"
-        if args.sort_by == "MSE":
-            print(f"\n--- {d} ---  [!] sorted by TEST MSE = ORACLE / test-peek — "
-                  f"VIEW ONLY, never select on this.  "
-                  f"({n_prog} config(s) still in progress)")
+        if args.per_horizon:
+            # One ranking block per horizon, all in a single command.
+            for h in args.preds:
+                _print_ranking(df, d, [h], args.seed_list, args.sort_by,
+                               f"{d} H={h}", base_tag)
         else:
-            print(f"\n--- {d} ---  (best-VAL ranking, complete configs only; "
-                  f"test MSE reference; {n_prog} config(s) still in progress)")
-        if gc.empty:
-            print(f"  (no config has all {full} run(s) yet — still early; "
-                  f"use a single --pred_len for a per-horizon view)")
-            continue
-        for _, r in gc.sort_values(sort_col).head(8).iterrows():
-            star = "  <== base" if r.exp_tag == base_tag else ""
-            print(f"  {r.exp_tag:<26} val={r.val:.4f}  testMSE={r.mse:.4f}{star}")
-        # Verdict is ALWAYS on val (selection metric), regardless of display sort.
-        best = gc.sort_values("val").head(1)
-        base = gc[gc.exp_tag == base_tag]
-        if not best.empty and not base.empty:
-            b, bs = best.iloc[0], base.iloc[0]
-            delta = bs["val"] - b["val"]
-            verdict = ("grid BEATS base" if delta > 0 else "base ties/wins")
-            print(f"  => best={b.exp_tag} val={b['val']:.4f} vs "
-                  f"base val={bs['val']:.4f}  (Δval={delta:+.4f}, {verdict})")
+            # Single block on the horizon-mean (per-dataset selection view).
+            _print_ranking(df, d, args.preds, args.seed_list, args.sort_by,
+                           d, base_tag)
 
 
 def main():
@@ -205,6 +212,10 @@ def main():
     p.add_argument("--sort_by", choices=["val", "MSE"], default="val",
                    help="--summary display sort: val (selection metric, default) "
                         "or MSE (TEST/oracle — view only, never select on it)")
+    p.add_argument("--per_horizon", action="store_true",
+                   help="--summary: print a separate ranking per horizon "
+                        "(96/192/336/720) in one command, instead of the "
+                        "horizon-mean block")
     args = p.parse_args()
 
     args.datasets = (args.data.split(",") if args.data else GRID_DATASETS)
