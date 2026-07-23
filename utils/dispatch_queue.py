@@ -87,15 +87,34 @@ def run_on_gpus(jobs, ngpu, base_gpu=0, jobs_per_gpu=1):
             with print_lock:
                 print(f"\n>>> [gpu{gpu_id}] {label}", flush=True)
                 print("  CMD:", " ".join(full_cmd), flush=True)
-            p = subprocess.Popen(full_cmd, env=env)
-            with proc_lock:
-                live_procs.add(p)
-            # If Ctrl+C landed in the tiny window while we were launching,
-            # kill this child immediately (main thread may have already
-            # snapshotted live_procs before we added ours).
-            if stop.is_set():
-                _terminate(p)
-            ret = p.wait()
+            # Guard the launch+wait: if Popen itself raises (fd exhaustion,
+            # ENOMEM, exec failure under high jobs_per_gpu) the worker thread
+            # would otherwise die and its already-dequeued job would vanish —
+            # not in `failed`, not re-queued — so the orchestrator would report
+            # success while a run silently went missing. Record it as failed
+            # and keep pulling jobs instead.
+            p = None
+            try:
+                p = subprocess.Popen(full_cmd, env=env)
+                with proc_lock:
+                    live_procs.add(p)
+                # If Ctrl+C landed in the tiny window while we were launching,
+                # kill this child immediately (main thread may have already
+                # snapshotted live_procs before we added ours).
+                if stop.is_set():
+                    _terminate(p)
+                ret = p.wait()
+            except Exception as e:
+                with print_lock:
+                    print(f"  [WARN] [gpu{gpu_id}] launch failed for {label}: "
+                          f"{e!r}; marking failed, continuing", flush=True)
+                    failed.append(label)
+                if p is not None:
+                    _terminate(p)
+                    with proc_lock:
+                        live_procs.discard(p)
+                q.task_done()
+                continue
             with proc_lock:
                 live_procs.discard(p)
             if stop.is_set():
