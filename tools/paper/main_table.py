@@ -88,13 +88,21 @@ def load_persistence_rows(path, metric):
 
 def aggregate(df, metric):
     """(data, pred_len, model) -> (mean, std, n_seeds)."""
-    # AUDIT-FIX (2026-07-19, #4): derive RMSE as sqrt(MSE) PER ROW, not by
-    # averaging the stored RMSE column. Rows written before P1-3 (2026-07-14)
-    # carry a batch-weighted mean-of-sqrt (Jensen-biased) RMSE; sqrt(MSE) is
-    # exact and matches the worker's post-fix output (identity by construction).
+    # AUDIT-FIX (2026-07-23, supersedes 2026-07-19 #4): report RMSE as
+    # sqrt(the seed-AGGREGATED MSE), NOT the mean of per-seed sqrt(MSE). Each
+    # run's RMSE is already sqrt(global observed-cell MSE) = TSLib's per-run
+    # RMSE; averaging per-seed RMSE across seeds gives mean_s sqrt(MSE_s) <=
+    # sqrt(mean_s MSE_s) (Jensen, sqrt concave), so it silently under-reports.
+    # Deriving from the reported mean MSE keeps "RMSE = sqrt(reported MSE)"
+    # consistent at both the per-run and cross-seed level. It's a single derived
+    # point, so RMSE carries no per-seed std — uncertainty stays on MSE/MAE.
     if metric == "RMSE":
-        df = df.copy()
-        df["RMSE"] = df["MSE"] ** 0.5
+        g = df.groupby(["data", "pred_len", "model"])["MSE"]
+        out = g.agg(["mean", "count"]).reset_index()
+        out.columns = ["data", "pred_len", "model", "mean", "n"]
+        out["mean"] = out["mean"] ** 0.5
+        out["std"] = float("nan")
+        return out[["data", "pred_len", "model", "mean", "std", "n"]]
     g = df.groupby(["data", "pred_len", "model"])[metric]
     out = g.agg(["mean", "std", "count"]).reset_index()
     out.columns = ["data", "pred_len", "model", "mean", "std", "n"]
