@@ -151,14 +151,30 @@ def summarize(args):
             n=("seed", "count")).reset_index()
         full = len(args.preds) * len(args.seed_list)
         g["complete"] = g["n"] >= full
-        g = g.sort_values("val")
-        print(f"\n--- {d} ---  (best-val ranking; test MSE reference only)")
-        for _, r in g.head(8).iterrows():
-            flag = "" if r.complete else f"  (incomplete {int(r.n)}/{full})"
+        # Rank COMPLETE configs only. A config partway through its horizons has
+        # a mean over an EASIER subset (H96 alone << the H720-inclusive mean),
+        # so mixing incomplete rows into the ranking floats them spuriously to
+        # the top mid-run. Report the in-progress count separately instead.
+        gc = g[g["complete"]]
+        n_prog = int((~g["complete"]).sum())
+        sort_col = "mse" if args.sort_by == "MSE" else "val"
+        if args.sort_by == "MSE":
+            print(f"\n--- {d} ---  [!] sorted by TEST MSE = ORACLE / test-peek — "
+                  f"VIEW ONLY, never select on this.  "
+                  f"({n_prog} config(s) still in progress)")
+        else:
+            print(f"\n--- {d} ---  (best-VAL ranking, complete configs only; "
+                  f"test MSE reference; {n_prog} config(s) still in progress)")
+        if gc.empty:
+            print(f"  (no config has all {full} run(s) yet — still early; "
+                  f"use a single --pred_len for a per-horizon view)")
+            continue
+        for _, r in gc.sort_values(sort_col).head(8).iterrows():
             star = "  <== base" if r.exp_tag == base_tag else ""
-            print(f"  {r.exp_tag:<26} val={r.val:.4f}  testMSE={r.mse:.4f}{flag}{star}")
-        best = g[g.complete].head(1)
-        base = g[g.exp_tag == base_tag]
+            print(f"  {r.exp_tag:<26} val={r.val:.4f}  testMSE={r.mse:.4f}{star}")
+        # Verdict is ALWAYS on val (selection metric), regardless of display sort.
+        best = gc.sort_values("val").head(1)
+        base = gc[gc.exp_tag == base_tag]
         if not best.empty and not base.empty:
             b, bs = best.iloc[0], base.iloc[0]
             delta = bs["val"] - b["val"]
@@ -186,6 +202,9 @@ def main():
     p.add_argument("--gpu", type=int, default=0)
     p.add_argument("--check", action="store_true")
     p.add_argument("--summary", action="store_true")
+    p.add_argument("--sort_by", choices=["val", "MSE"], default="val",
+                   help="--summary display sort: val (selection metric, default) "
+                        "or MSE (TEST/oracle — view only, never select on it)")
     args = p.parse_args()
 
     args.datasets = (args.data.split(",") if args.data else GRID_DATASETS)
