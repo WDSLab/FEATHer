@@ -137,7 +137,12 @@ def summarize(args):
         return
     base_tag = _tag(BASE_CONFIG)
     for d in args.datasets:
-        sub = df[df.data == d]
+        # Scope to the requested horizon(s): pass a single --pred_len to rank
+        # per-horizon, or the full list (default) to rank on the horizon-mean
+        # val used for per-dataset selection. (Before this, --pred_len only
+        # affected the completeness count, so scoping it silently did nothing
+        # and every horizon printed the same horizon-averaged ranking.)
+        sub = df[(df.data == d) & (df.pred_len.isin(args.preds))]
         if sub.empty:
             continue
         # Per-config mean over horizons+seeds, plus completeness.
