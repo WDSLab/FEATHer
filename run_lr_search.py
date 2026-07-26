@@ -70,7 +70,7 @@ LR_DATASETS = ["Steel", "WindSCADA", "BlastFurnace", "MetroPT3", "N2O", "EWELD",
 LR_PREDS = [96, 720]                                     # representative short/long
 LR_PREDS_SHORT = [24, 96]                                # short-horizon PdM group
 SHORT_DATASETS = ("CMAPSS", "CMAPSS3", "PMSM")
-LR_SEEDS = [2025, 2026]
+LR_SEEDS = [2025]  # TEMP 1-seed for heavy-model lr speed — revert to [2025, 2026] AFTER lr search is done
 
 
 def _lr_preds(dataset):
