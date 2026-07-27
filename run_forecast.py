@@ -80,15 +80,30 @@ DEFAULT_MODELS = list_models()  # all registered
 MFG_DATASETS = ["Steel", "WindSCADA", "BlastFurnace", "MetroPT3", "N2O", "EWELD"]
 MFG_PREDS = [96, 192, 336, 720]
 
-# 2026-07-27: dispatch-order priority so the big-row datasets run LAST — the
-# fast datasets finish first and the slow tail doesn't block partial results.
-# N2O (210k rows) / MetroPT3 (306k rows) dominate wall-clock; the rest are
-# small. Lower value = runs earlier. mfg only; any dataset not listed (all
-# LTSF/CMAPSS) falls through to the default tier (5) and keeps its prior
-# (model, name) ordering.
+# 2026-07-27: UNIFIED dispatch-order priority across mfg AND LTSF — cheap
+# datasets run first, expensive ones last, so the fast datasets finish first
+# and the slow tail doesn't block partial results. Same rule for every group
+# (mfg / ltsf / all) so the two sweeps behave identically. Tier ~ dispatch
+# cost ≈ rows × channels (a rough wall-clock proxy). Lower = runs earlier.
+# CMAPSS shelf datasets aren't listed → default tier (5); they only run in the
+# isolated `--group cmapss`, where they simply tie and keep (model, name) order.
 _DATA_DISPATCH_ORDER = {
-    "BlastFurnace": 0, "Steel": 1, "WindSCADA": 2, "EWELD": 3,   # fast
-    "N2O": 8, "MetroPT3": 9,                                      # slow (big row count)
+    # ---- cheap (small rows × few channels) ----
+    "Exchange":     0,   # 7.6k × 8
+    "ETTh1":        1,   # 17k  × 7
+    "ETTh2":        1,   # 17k  × 7
+    "Steel":        2,   # 35k  × 7
+    "ETTm1":        3,   # 70k  × 7
+    "ETTm2":        3,   # 70k  × 7
+    "WindSCADA":    4,   # 52k  × 15
+    "BlastFurnace": 4,   # 30k  × 29
+    "Weather":      5,   # 53k  × 21
+    "EWELD":        6,   # 105k × 15
+    # ---- expensive (big rows, or huge channel counts) ----
+    "MetroPT3":     7,   # 306k × 8
+    "N2O":          7,   # 210k × 15
+    "Electricity":  8,   # 26k  × 321  (channel-heavy)
+    "Traffic":      9,   # 17k  × 862  (channel-heaviest)
 }
 
 # ARCHIVED 2026-07-13 — short-horizon PdM section DROPPED from the paper.
