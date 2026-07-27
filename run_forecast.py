@@ -80,6 +80,17 @@ DEFAULT_MODELS = list_models()  # all registered
 MFG_DATASETS = ["Steel", "WindSCADA", "BlastFurnace", "MetroPT3", "N2O", "EWELD"]
 MFG_PREDS = [96, 192, 336, 720]
 
+# 2026-07-27: dispatch-order priority so the big-row datasets run LAST — the
+# fast datasets finish first and the slow tail doesn't block partial results.
+# N2O (210k rows) / MetroPT3 (306k rows) dominate wall-clock; the rest are
+# small. Lower value = runs earlier. mfg only; any dataset not listed (all
+# LTSF/CMAPSS) falls through to the default tier (5) and keeps its prior
+# (model, name) ordering.
+_DATA_DISPATCH_ORDER = {
+    "BlastFurnace": 0, "Steel": 1, "WindSCADA": 2, "EWELD": 3,   # fast
+    "N2O": 8, "MetroPT3": 9,                                      # slow (big row count)
+}
+
 # ARCHIVED 2026-07-13 — short-horizon PdM section DROPPED from the paper.
 # Rationale: it was the one experiment block that attached to neither the
 # long-term "frequency forecaster" identity (it is short-horizon, where the
@@ -224,8 +235,12 @@ def print_status(missing, total, csv_path=RESULTS_CSV):
 def dispatch(missing, args):
     groups = group_missing(missing)
     method_order = {m: i for i, m in enumerate(DEFAULT_MODELS)}
+    # slow datasets (N2O/MetroPT3) sort LAST via _DATA_DISPATCH_ORDER; within a
+    # speed tier keep the old (model, dataset-name, pred_len) order. LTSF/CMAPSS
+    # datasets all share the default tier so their ordering is unchanged.
     keys_sorted = sorted(groups.keys(),
-                         key=lambda k: (method_order.get(k[1], 999), k[2], k[3]))
+                         key=lambda k: (_DATA_DISPATCH_ORDER.get(k[2], 5),
+                                        method_order.get(k[1], 999), k[2], k[3]))
 
     jobs = []
     for (exp_tag, m, d, h, sl) in keys_sorted:
