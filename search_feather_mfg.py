@@ -211,7 +211,10 @@ def main():
 
     runs = enumerate_runs(args)
     done = load_done_set(args.results_csv)
-    missing = [r for r in runs if (r[0], r[3], r[5], r[6]) not in done]
+    # resume key must match load_done_set's 5-tuple (exp_tag, data, pred_len,
+    # seq_len, seed) — r[2] is data; omitting it made every run look "missing"
+    # (4-tuple never matches the 5-tuple set), so --check always showed 0 done.
+    missing = [r for r in runs if (r[0], r[2], r[3], r[5], r[6]) not in done]
     n_cfg = sum(1 for _ in enumerate_configs())
     print("=" * 66)
     print(f"  FEATHer mfg arch search  ({n_cfg} configs, k=1 excluded)")
