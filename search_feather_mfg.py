@@ -35,7 +35,7 @@ GRID = {
     "kernel_size": [3, 5, 7],      # k=1 excluded (arch-degenerate)
     "num_bands":   [2, 3, 4],
 }
-FIXED = {"lambda_spec": 0.01, "lr": 1e-3, "loss": "l1"}
+FIXED = {"lambda_spec": 0.01, "lr": 1e-3}            # loss now via --loss (l1 vs mse study)
 BASE_CONFIG = {"d_state": 8, "kernel_size": 7, "num_bands": 3}
 
 SEARCH_DATASETS = ["Steel", "WindSCADA", "EWELD"]   # fast + robustness-relevant
@@ -43,8 +43,12 @@ SEARCH_PREDS = [96, 192, 336, 720]
 SEARCH_SEEDS = [2025]                                # 1 seed (selection tool)
 
 
-def _tag(cfg):
-    return "search_ds{d_state}_k{kernel_size}_B{num_bands}".format(**cfg)
+def _tag(cfg, loss="l1"):
+    # l1 keeps the legacy 'search_ds..' tag (backward-compat with the running
+    # L1 CSV); non-l1 gets a loss prefix so the two studies can never collide
+    # on the resume key even if pointed at the same CSV.
+    prefix = "search_" if loss == "l1" else f"search_{loss}_"
+    return (prefix + "ds{d_state}_k{kernel_size}_B{num_bands}").format(**cfg)
 
 
 def _period(dataset):
@@ -52,16 +56,16 @@ def _period(dataset):
     return int(get_dataset_overrides("FEATHer", dataset).get("period", 12))
 
 
-def enumerate_configs():
+def enumerate_configs(loss="l1"):
     keys = list(GRID)
     for values in product(*(GRID[k] for k in keys)):
         cfg = dict(zip(keys, values))
-        yield _tag(cfg), cfg
+        yield _tag(cfg, loss), cfg
 
 
 def enumerate_runs(args):
     runs = []
-    for exp_tag, cfg in enumerate_configs():
+    for exp_tag, cfg in enumerate_configs(args.loss):
         for d in args.datasets:
             p = _period(d)
             for h in args.preds:
@@ -106,7 +110,7 @@ def dispatch(missing, args):
             "--num_epochs", str(args.num_epochs),
             "--patience", str(args.patience),
             "--batch_size", str(args.batch_size),
-            "--loss", FIXED["loss"],
+            "--loss", args.loss,
             "--lr", str(FIXED["lr"]),
             "--d_state", str(cfg["d_state"]),
             "--kernel_size", str(cfg["kernel_size"]),
@@ -127,11 +131,13 @@ def summarize(args):
         print(f"No results yet in {args.results_csv}.")
         return
     df = pd.read_csv(args.results_csv)
-    df = df[df.exp_tag.str.startswith("search_")]
+    # loss-specific prefix so an l1+mse mixed CSV never pools the two studies
+    prefix = ("search_" if args.loss == "l1" else f"search_{args.loss}_") + "ds"
+    df = df[df.exp_tag.str.startswith(prefix)]
     if df.empty:
-        print("No search_* rows yet.")
+        print(f"No {prefix}* rows yet.")
         return
-    base_tag = _tag(BASE_CONFIG)
+    base_tag = _tag(BASE_CONFIG, args.loss)
     full = len(args.preds) * len(args.seed_list)
 
     # ---- per-dataset ranking (diagnostic view) ----
@@ -192,7 +198,10 @@ def main():
     p.add_argument("--num_epochs", type=int, default=50)
     p.add_argument("--patience", type=int, default=10)
     p.add_argument("--batch_size", type=int, default=32)
-    p.add_argument("--results_csv", type=str, default="results/feather_mfg_search.csv")
+    p.add_argument("--loss", type=str, default="l1", choices=["l1", "mse"],
+                   help="training loss (l1=running study; mse=fair vs MSE-trained baselines)")
+    p.add_argument("--results_csv", type=str, default="",
+                   help="default: feather_mfg_search.csv (l1) / feather_mfg_search_<loss>.csv")
     p.add_argument("--ngpu", type=int, default=1)
     p.add_argument("--jobs_per_gpu", type=int, default=4)
     p.add_argument("--gpu", type=int, default=0)
@@ -204,6 +213,9 @@ def main():
     args.preds = ([int(x) for x in args.pred_len.split(",")]
                   if args.pred_len else SEARCH_PREDS)
     args.seed_list = [int(x) for x in args.seeds.split(",")]
+    if not args.results_csv:
+        args.results_csv = ("results/feather_mfg_search.csv" if args.loss == "l1"
+                            else f"results/feather_mfg_search_{args.loss}.csv")
 
     if args.summary:
         summarize(args)
@@ -215,9 +227,9 @@ def main():
     # seq_len, seed) — r[2] is data; omitting it made every run look "missing"
     # (4-tuple never matches the 5-tuple set), so --check always showed 0 done.
     missing = [r for r in runs if (r[0], r[2], r[3], r[5], r[6]) not in done]
-    n_cfg = sum(1 for _ in enumerate_configs())
+    n_cfg = sum(1 for _ in enumerate_configs(args.loss))
     print("=" * 66)
-    print(f"  FEATHer mfg arch search  ({n_cfg} configs, k=1 excluded)")
+    print(f"  FEATHer mfg arch search  ({n_cfg} configs, k=1 excluded, loss={args.loss})")
     print(f"  datasets: {args.datasets}  |  H: {args.preds}  |  seeds: {args.seed_list}")
     print(f"  periods (FFT): " + ", ".join(f"{d}={_period(d)}" for d in args.datasets))
     print(f"  CSV: {args.results_csv}")
