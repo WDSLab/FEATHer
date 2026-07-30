@@ -312,6 +312,51 @@ def mce_table(df, reference="SparseTSF", metric="MSE"):
 
 
 # ---------------------------------------------------------------------------
+# (0) Session-21 headline: clean | relative Dw | absolute fault error | mCE
+# ---------------------------------------------------------------------------
+def headline_table(df, reference="SparseTSF", metric="MSE",
+                   faults=("gauss", "miss", "impulse")):
+    """The paper's single robustness headline, per model, side by side:
+
+        clean  |  Dw_<fault>...  Dw_mean  |  fault_abs  |  mCE
+
+    Three views on purpose (SensorFault-Bench / Taori style):
+      * clean       — clean accuracy (absolute baseline)
+      * Dw_*        — RELATIVE degradation MSE_fault/MSE_clean (headline)
+      * fault_abs   — ABSOLUTE mean error under corruption
+      * mCE         — degradation normalized to `reference` (SparseTSF)
+
+    Showing clean NEXT TO Dw is the anti-'flat-but-bad' guard: a model with a
+    low Dw only because its clean is already terrible (e.g. SparseTSF) is
+    exposed the moment its clean column is the worst. quant is expected to be
+    pre-dropped by the caller (RevIN absorbs it -> Dw~=1 for all, uninformative).
+    """
+    dfc = _common_cells(df)
+    present = set(dfc["fault_type"].unique())
+    faults = [f for f in faults if f in present]
+    sel = dfc[dfc["fault_type"].isin(list(faults) + ["clean"])]
+
+    clean = (sel[sel["fault_type"] == "clean"]
+             .groupby("model")[metric].mean().rename("clean"))
+    fault_abs = (sel[sel["fault_type"].isin(faults)]
+                 .groupby("model")[metric].mean().rename("fault_abs"))
+
+    dw = dw_table(sel, metric)
+    dw_wide = dw.pivot(index="model", columns="fault_type", values="Dw_mean")
+    dw_wide.columns = [f"Dw_{c}" for c in dw_wide.columns]
+    dw_wide["Dw_mean"] = dw_wide.mean(axis=1)
+
+    out = pd.concat([clean, dw_wide, fault_abs], axis=1)
+    if reference in df["model"].unique():
+        mce = (mce_table(sel, reference=reference, metric=metric)
+               .set_index("model")["mCE"])
+        out = out.join(mce)
+    # headline sort = relative Dw (robustness), but clean sits alongside so the
+    # 'low Dw / bad clean' fake-robustness case is never hidden.
+    return out.sort_values("Dw_mean").reset_index()
+
+
+# ---------------------------------------------------------------------------
 # (6) FEATHer-vs-reference degradation curve + slope + top-severity Wilcoxon
 # ---------------------------------------------------------------------------
 def degradation_curve(df, focus="FEATHer", reference="SparseTSF", metric="MSE"):
@@ -440,6 +485,11 @@ def main():
                         "41-param linear rival FEATHer must out-degrade).")
     p.add_argument("--focus", default="FEATHer",
                    help="Model whose robustness we are arguing for.")
+    p.add_argument("--drop_faults", default="quant",
+                   help="Comma list of fault axes to DROP from reporting "
+                        "(raw CSV untouched). Default 'quant': RevIN absorbs "
+                        "quantization so Dw~=1 for every model = uninformative. "
+                        "Pass '' to keep all axes.")
     p.add_argument("--no_heatmap", action="store_true",
                    help="Skip PNG heatmap generation.")
     p.add_argument("--no_curve", action="store_true",
@@ -458,9 +508,24 @@ def main():
         print(f"No rows for exp_tag={args.exp_tag}", file=sys.stderr)
         sys.exit(1)
 
+    # Session-21: drop uninformative fault axes from ALL reporting (raw CSV
+    # is untouched — this only affects the summary tables below).
+    drop = {s.strip() for s in args.drop_faults.split(",") if s.strip()}
+    dropped = drop & set(df["fault_type"].unique())
+    if dropped:
+        df = df[~df["fault_type"].isin(dropped)]
+        print(f"[report] dropping fault axes {sorted(dropped)} from summary "
+              f"(RevIN-absorbed / uninformative; raw CSV kept intact).")
+
     models = sorted(df["model"].unique())
     have_ref = args.reference in models
     have_focus = args.focus in models
+
+    print(f"\n=== (0) HEADLINE: clean | relative Dw | absolute fault {args.metric} "
+          f"| mCE(vs {args.reference})  [sorted by Dw_mean; clean shown to expose "
+          f"flat-but-bad] ===")
+    print(headline_table(df, reference=args.reference, metric=args.metric)
+          .round(4).to_string(index=False))
 
     print(f"\n=== (2) D_w retention ratio per (model, fault_type), metric={args.metric} ===")
     dw = dw_table(df, args.metric)
