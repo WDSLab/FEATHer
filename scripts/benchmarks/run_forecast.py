@@ -72,10 +72,15 @@ def checkpoint_path(exp_tag, model_name, data_name, pred_len, seq_len, seed):
 
     Designed so the robustness worker can locate any (exp_tag, model, data,
     pred_len, seq_len, seed) checkpoint without consulting the CSV.
+
+    Layout (2026-07-31): per-model subfolder under the exp_tag, so a sweep's
+    ~1000 checkpoints are grouped by model instead of one flat directory:
+        results/checkpoints/<exp_tag>/<model>/<data>_H<h>_L<L>_s<seed>.pth
+    (os.makedirs on dirname at save time creates the model subfolder.)
     """
     return os.path.join(
-        "results", "checkpoints", exp_tag,
-        f"{model_name}_{data_name}_H{pred_len}_L{seq_len}_s{seed}.pth",
+        "results", "checkpoints", exp_tag, model_name,
+        f"{data_name}_H{pred_len}_L{seq_len}_s{seed}.pth",
     )
 
 
@@ -156,7 +161,10 @@ def train_single(args, data_name, pred_len, device, seed):
     else:
         raise ValueError(f"Unknown loss: {args.loss}")
 
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    if args.optimizer == "adamw":
+        optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    else:
+        optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.num_epochs)
     # AMP is disabled across the board for cross-model fairness: some
     # baselines (FITS) carry complex parameters that AMP cannot unscale,
@@ -441,6 +449,11 @@ def parse_args():
                    help="Early-stopping patience on val loss (epochs).")
     p.add_argument("--loss",        type=str,   default="l1", choices=["l1", "mse"])
     p.add_argument("--lambda_spec", type=float, default=0.01)
+    # Probe flags (2026-07-22, backward-compatible: defaults reproduce the
+    # legacy Adam/no-wd behavior byte-identically). Added to test the TPAMI
+    # optimizer recipe (AdamW + weight_decay 1e-4 + lr 1e-2).
+    p.add_argument("--optimizer",    type=str,   default="adam", choices=["adam", "adamw"])
+    p.add_argument("--weight_decay", type=float, default=0.0)
 
     # Seed control
     p.add_argument("--seeds",         type=str, default="")
