@@ -106,6 +106,17 @@ _DATA_DISPATCH_ORDER = {
     "Traffic":      9,   # 17k  × 862  (channel-heaviest)
 }
 
+# 2026-07-31: MODEL dispatch priority — the lightweight edge-tier (sub-1K to
+# ~18K, our main comparison table) runs BEFORE the heavier ceiling models, so
+# the main table fills first and the slow ceiling (Pareto reference) doesn't
+# block partial results. Ordered by param count (H=96, D=7). Lower = earlier.
+_MODEL_DISPATCH_ORDER = {name: i for i, name in enumerate([
+    # edge tier (main table) — lightest first
+    "SparseTSF", "MixLinear", "DiPE_Linear", "FEATHer", "FITS", "CycleNet", "DLinear",
+    # ceiling tier (Pareto reference) — heaviest last
+    "PatchTST", "TimeMixer", "TQNet", "LMS_AutoTSF", "TimesNet", "iTransformer", "MDMLP_EIA",
+])}
+
 # ARCHIVED 2026-07-13 — short-horizon PdM section DROPPED from the paper.
 # Rationale: it was the one experiment block that attached to neither the
 # long-term "frequency forecaster" identity (it is short-horizon, where the
@@ -249,13 +260,13 @@ def print_status(missing, total, csv_path=RESULTS_CSV):
 
 def dispatch(missing, args):
     groups = group_missing(missing)
-    method_order = {m: i for i, m in enumerate(DEFAULT_MODELS)}
-    # slow datasets (N2O/MetroPT3) sort LAST via _DATA_DISPATCH_ORDER; within a
-    # speed tier keep the old (model, dataset-name, pred_len) order. LTSF/CMAPSS
-    # datasets all share the default tier so their ordering is unchanged.
+    # Sort order: small datasets first (_DATA_DISPATCH_ORDER), then within a
+    # data tier the lightweight edge models before the heavy ceiling models
+    # (_MODEL_DISPATCH_ORDER) so the main table fills first and the slow
+    # ceiling×big-data jobs land last without blocking partial results.
     keys_sorted = sorted(groups.keys(),
                          key=lambda k: (_DATA_DISPATCH_ORDER.get(k[2], 5),
-                                        method_order.get(k[1], 999), k[2], k[3]))
+                                        _MODEL_DISPATCH_ORDER.get(k[1], 999), k[2], k[3]))
 
     jobs = []
     for (exp_tag, m, d, h, sl) in keys_sorted:
