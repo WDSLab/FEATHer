@@ -36,16 +36,16 @@ from scripts.benchmarks.run_forecast import checkpoint_path
 # Defaults — mirror run_forecast.py
 DEFAULT_MODELS = list_models()
 
-# JMS robustness = the paper's core sensor-fault story, scoped (2026-07-31) to
-# the 3 manufacturing datasets only (Steel energy / WindSCADA wind / EWELD
-# factory-load). The LTSF anchors (ETTh1/Weather) were dropped — the paper is
-# manufacturing-focused and LTSF predictions are not used. EWELD earns its slot:
-# its 5,741 labeled extreme-weather event windows are a REAL distribution shift,
-# the only non-synthetic robustness test (backing the four synthetic fault axes).
-# (BlastFurnace/N2O/MetroPT3 could extend mfg coverage, but the big-row
-# N2O/MetroPT3 make the sweep heavier — these 3 are the representative set.)
+# JMS robustness = the paper's core sensor-fault story, on ALL 6 manufacturing
+# datasets (2026-07-31) — matches the main accuracy table's coverage, so there
+# is no "why robustness on a subset?" gap. LTSF anchors (ETTh1/Weather) dropped:
+# the paper is manufacturing-focused and LTSF predictions are not used. EWELD's
+# 5,741 labeled extreme-weather event windows are a REAL distribution shift, the
+# only non-synthetic robustness test (backing the four synthetic fault axes).
+# (N2O/MetroPT3 are big-row so their inference sweep is heavier, but robustness
+# is inference-only on edge-tier models -> affordable.)
 # Pair with edge-tier models only via `--exclude <ceiling models>`.
-ROBUSTNESS_DATASETS = ["Steel", "WindSCADA", "EWELD"]
+ROBUSTNESS_DATASETS = ["Steel", "WindSCADA", "BlastFurnace", "N2O", "MetroPT3", "EWELD"]
 LTSF_PREDS = [96, 192, 336, 720]
 
 DEFAULT_BASE_SEED = 2025
