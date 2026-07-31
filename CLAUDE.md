@@ -12,6 +12,288 @@ forecasting head.
 
 ## Current status (2026-07-14e)
 
+**⚡⚡⚡⚡ 2026-07-31b (정확도 착지 + MLP 실험 + RevIN robustness 진단; 상세 =
+`memory/project_mlp_revin_diagnosis_0731.md`):**
+- **① 정확도 착지 (엣지-7, mfg 완주 4 = Steel/WindSCADA/BlastFurnace/EWELD, 3seed×4H,
+  전부 mse학습·mse채점):** FEATHer = **sub-1K 정확도 리더.** MSE 평균 **3위/7** (DLinear
+  0.645[18.6K]·CycleNet 0.708[9.5K]만 앞, FEATHer 0.7095[453]) — **진짜 sub-1K(MixLinear
+  49·SparseTSF 41·DiPE 267·FITS 1.2K) 전부 이김, MixLinear는 16셀 전부 승.** MAE 4위
+  (MixLinear/SparseTSF는 이김). **07-30 L1/MSE confound 해소 확정** (val_loss 스케일로도
+  mse 학습 검증). ⚠ MetroPT3/N2O 꼬리(FEATHer/MixLinear/CycleNet) 미완. DLinear 갭=**전부
+  BlastFurnace(D=28)+WindSCADA(D=15) 고채널** — Steel/EWELD는 FEATHer 2위.
+- **② 잔차 MLP 실험 (신규, `--use_residual_mlp/--mlp_rank` 기본 OFF, canonical
+  byte-identical):** 게이트 표현 h에 **채널축 저랭크 비선형 잔차** `h+=W_up(GELU(W_down(h)))`
+  (D→rank→D, +2·D·r; Steel 453→640@r16, **sub-1K 유지**). **clean MSE: Steel −7%·
+  WindSCADA −8% (3seed), BlastFurnace ~0**(고채널은 채널혼합이 이질채널 섞어 무익). 추정
+  FEATHer+MLP ~0.68 → **CycleNet 제치고 #2**. **robustness 중립**(Dw 본전, 절대오차는 개선).
+- **③ ★ RevIN robustness 진단 (결정적, Steel 3-arm, 다 MLP-on):** canonical FEATHer가
+  엣지 중 **robustness 최악**(Steel Dw~1.24 vs 라이벌 1.03~1.06; 최저 severity서 즉시 계단,
+  impulse@0.05 Dw 2.17). **범인 확정 = RevIN, FFT 게이트 아님.** gate-off(uniform) Dw
+  1.202→1.200(무변화) / **no_revin Dw 1.202→1.076(라이벌 급락)**. **게다가 no_revin이 clean
+  MSE도 최고(Steel 0.477, −13%) = robustness+clean 이중 이득.** 메커니즘=손상 윈도우로
+  mean/std 계산→impulse 스파이크가 통계 오염→정규화·역정규화 증폭. (사용자 RevIN 가설 적중,
+  Claude 게이트 가설 오답.) **FFT 게이트는 clean/robust 기여 ~0 = 값어치 미검증**(gate ablation
+  사상 최초로 돎).
+- **전략 전환**: (a) **accuracy-first** 프레이밍(robustness-not-accuracy는 데이터로 역전됐으나
+  RevIN-fix로 정당 부활 가능). (b) **노벨티 척추 = "센서고장 하 instance-norm(RevIN) 취약성
+  진단 + robust-RevIN(median/MAD) fix"** — JMS(제조저널, ML노벨티 바 낮음)에 딱, 제조 문제와
+  일치. (c) **DLinear 추월은 BlastFurnace 고채널 하나에 달림** — 근데 mfg는 **per-dataset
+  튜닝 금지(전 모델 default config 대칭)** → 단일 canonical 아키텍처 변경으로 고채널 살리되
+  저채널 안 망쳐야(어려움). **표준부품(FFN)으로 DLinear 쫓기=노벨티 0, 지양.** (d) FITS가
+  robust한 이유=FFT를 **필터(low-pass cut_freq=seq_len//4)로 씀**(반응 아님)→고주파 손상 폐기.
+- **▶ 다음 (RevIN이 핵심)**: WindSCADA/EWELD로 no_revin 재확인(Steel은 정상성 커서 제거 이득일
+  수 있음, 비정상성 데이터선 clean 해칠 수도→**robust-RevIN이 일반해**) → **robust-RevIN(median/
+  MAD) 변종 구현=논문 기여 핵심.** + MLP A/B EWELD/BlastFurnace 완주 + 정확도 MetroPT3/N2O 꼬리.
+- **▶ 코드 (personal push): `ffbffde` MLP flag** + robustness MLP 배선 + **NaN-tolerant
+  resume**(동시 append torn-row 픽스) + **`--no_revin`/`--gate_uniform` 진단 토글**(기본 OFF).
+  격리 CSV: `feather_mlp_ab.csv`(정확도)·`robust_mlp_ab.csv`(robustness). robustness는
+  **jobs_per_gpu 2 권장**(torn-row). robustness arm은 학습과 **flag 동일**해야(forward 일치).
+  [[project-mlp-revin-diagnosis-0731]]
+
+**⚡⚡⚡ 2026-07-31 대개편 (엣지-tier 재구조화; 상세 =
+`memory/project_edge_tier_restructure_0731.md`):**
+- **프레이밍**: JMS 유지(IoT-J 이동 X) + **IIoT 프레이밍만**(데이터 교체 X, "제조"→
+  "산업 IoT 엣지" 서술만). **메인 비교 = 엣지-tier만, 천장(대형)=Pareto plot 점으로만**
+  (삭제 X, 비교표 X → "왜 SOTA 없냐" 방어 + accuracy-per-param 유지). 엣지 정의 =
+  "published default에서 자연히 작은" 모델(억지 축소=strawman 금지).
+- **라인업 14**: 엣지-7 (SparseTSF 41·**MixLinear 49**·DiPE 267·**FEATHer 453**·FITS
+  1.2K·CycleNet-linear 9.5K·DLinear 18.6K) + 천장-7 (PatchTST~MDMLP 35K~1.6M, **기존
+  데이터 재사용·재실행 X**). **클래식(LSTM/GRU/TCN/XGBoost)=`_archive/` 아카이브**(리비전).
+- **⚠ MixLinear(ICLR'26, 49p) = FEATHer 최대 위협** — dual time+freq, sub-1K SOTA 주장,
+  FEATHer niche 직접 경쟁자. 정확도로 이기면 sub-1K 정확도 리더 주장 접고 robustness/배포로.
+  **벤치마크 급함 = Exp1 첫 관문.** MixLinear/CycleNet 배선(주기=per-dataset FFT 미러
+  SparseTSF/TQNet, lr=논문 스크립트 default 0.03/0.005; wrapper=debug print 억제+lpf clamp).
+- **FEATHer = canonical(d8/k7/B3+FFT period) + loss l1→mse** (07-30 confound: mse학습이
+  MSE표 이김). **전 14모델 train=mse/eval=mse = 공정.** arch/lr 서치(grid/OFAT/mfg-search/
+  lr-search) 전부 `_archive/`. **공정성 감사 완료**(전 모델 논문 default).
+- **robustness = 엣지-7 × mfg-6** (LTSF 앵커 ETTh1/Weather 드롭 — 정확도표 커버리지 일치),
+  4 fault축(report서 quant 드롭). **체크포인트 = 모델별 폴더**(`checkpoints/<tag>/<model>/`,
+  `migrate_checkpoints.py`로 2151개 이동 완료). **dispatch = 경량 먼저**(`_MODEL_DISPATCH_ORDER`).
+- **최종 실험 9**: 메인(1 정확도L96·2 robustness·3 lookback 엣지7×mfg6×L{48,192,336}·
+  4 ablation-clean 5축) / 가치(5 데이터효율cold-start·6 ablation-under-corruption·
+  7 에너지envelope 계산) / 끝(8 Pareto·9 표). **FFT 게이트 해석성=버림.**
+- **▶ 서버 상태**: **Exp1(mfg 정확도, 양GPU ngpu2)** + **Robustness(엣지7×mfg6, GPU0,
+  FORCE_OMP=4)** 병행 RUNNING. Exp1 경량먼저라 MixLinear→FEATHer→CycleNet 순 체크포인트
+  생성. robustness=체크포인트 있는 것만(멱등, 재실행으로 채움). ⚠ **박스 공유 시 FORCE_OMP
+  필수**(각 orchestrator 자기워커수로 자동핀→동시=oversubscription→CPU스레싱→GPU 80%→40%).
+- **실험 코드 = 전부 준비 완료** (board 포팅만 남음): `--train_frac`(데이터효율 `ff139fd`)
+  + `pareto_plot.py`(`19c83d4`) + `energy_envelope.py`(`93f0009`) + `run_robustness
+  --ablation_axis`(ablation-under-corruption `9df1b40`). lookback=`--seq_len` 반복,
+  ablation-clean=기존 인프라. ⚠ **에너지 발견**: "연산=대기 1.5%=공짜"는 NUCLEO sleep
+  (비대표) 기준; production STOP선 연산 90% 지배 → **진짜 논거="FEATHer 짧은 latency→
+  배터리 오래감(latency≠params)"**. **남은 코드 = board C 포팅**(MixLinear 우선, config
+  확정 후 WSL/보드 배치; 로컬 gcc 없음). **병행 to-do = 원고 리프레임**(*_jms.md 옛
+  프레이밍→IIoT/엣지tier/14모델/MixLinear/mse). push `e22236f`~`9df1b40`(personal).
+  체크 명령: `results_table.py --data Steel,WindSCADA,EWELD` / `robust_summary.py --csv
+  results/robust_results.csv`. [[project-edge-tier-restructure-0731]]
+
+**⚡⚡ 2026-07-30 발견 (L1/MSE 손실 confound — 상세 =
+`memory/project_l1_mse_loss_confound_0730.md`):** mfg 서치 중간점검 중 사용자가
+"FEATHer가 clean 정확도로 압도적으로 나쁘다" → 원인 진단 결과 **손실/지표 불일치**.
+- **FEATHer만 `loss=l1`, 베이스라인 11개는 전부 `loss=mse`**(코드 `get_method_defaults`
+  확인)인데 클린 정확도 표는 **MSE로 채점**. L1은 이상치에 robust → 큰 잔차를 방치 →
+  스파이크 많은 공정신호(Steel 등)에서 그 오차가 **MSE에서 제곱돼 폭발**.
+- **증거(완주분 Steel/WindSCADA/EWELD, 같은 예측·지표만 교체)**: FEATHer\*(셀별
+  min-config 오라클) **MSE 채점 10.3/12(최하위)** ↔ **MAE 채점 4.3/12(sub-1K 1위** —
+  FITS·DiPE·SparseTSF·DLinear·PatchTST·TQNet·MDMLP 전부 이김). 큰 모델(TimesNet/LMS)은
+  어느 지표든 여전히 위. → "sub-1K가 500K-param을 클린으로 못 이긴다"는 유효, 바뀔 수
+  있는 건 "**sub-1K tier 안에서 FEATHer 최강**"이라는 더 강한 정확도 주장.
+- **파급**: ETTh1 그리드 "clean 8/9위" 결론도 MSE 기준이라 **같은 confound** → 07-28
+  "FEATHer clean 못 이김" 재검토 대상(MSE 지표 착시 성분).
+- **사용자 결정 = L1·MSE 둘 다 재학습 비교.** `search_feather_mfg.py`에 **`--loss
+  {l1,mse}` 추가**(커밋 `eb91d39`, personal push): `mse`→`results/feather_mfg_search_mse.csv`
+  자동 라우팅 + exp_tag `search_mse_*` 접두어 → 돌던 L1 서치(`feather_mfg_search.csv`,
+  `search_ds*`)와 **CSV·resume키 완전 격리, 동시 실행 안전**(l1 경로/태그 무변경).
+- **▶ 07-30 발사**: 구 서버 GPU0 `FORCE_OMP=5 CUDA_VISIBLE_DEVICES=0 python
+  search_feather_mfg.py --loss mse --ngpu 1 --jobs_per_gpu 2`(324런). 판정 =
+  `--loss mse --summary`. 두 서치 다 MSE·MAE 기록 → **4분면(L1학습/MSE학습 ×
+  MSE표/MAE표)**으로 헤드라인 지표·손실 최종 결정, canonical은 3seed 최종화.
+  ⚠ **MSE-학습 서치 결과 아직 없음**(방금 발사) — 위 10→4 역전은 L1-학습분 MAE
+  재채점으로만 확인. [[project-l1-mse-loss-confound-0730]]
+- **▶ 서버 상태 (07-30):** 구 서버 GPU1 = mfg 베이스라인 스윕 RUNNING(505/792 ≈64%;
+  Steel/BF/WindSCADA 완주, EWELD 진행 중=heavy 3모델 꼬리[iTransformer 0·TimesNet 4·
+  TimeMixer 9], N2O/MetroPT3 미착수). 구 서버 GPU0 = FEATHer mfg 서치 L1(135/324) +
+  **MSE 서치 신규(0/324)**. LTSF `fcst_results.csv` 거의 완주(시드 혼재). 값 건강
+  (NaN·zero·dup 0).
+
+**⚡ 2026-07-28 결정 (제조-가치 실험 스코프 확정; 상세 =
+`memory/project_mfg_value_experiments_0728.md`):** ETTh1 그리드 완주(360/360) →
+오라클 표 확인 → **FEATHer clean 정확도로 못 이김 재확정**(test-peek 오라클 줘도
+ETTh1 16칸 중 1칸만 1등; 공정 val-선택 9/13위). 셀링 = robustness + 배포. 그
+배포 기둥을 "3D"로(돈다→오래 돈다→재튜닝 없이 돈다) 강화하려 ②③ 검토 → 결론:
+- **③ one-config-fits-all-sensors = 폐기.** 제조는 `_DATASET_OVERRIDES`상 **전원
+  논문 default config + period 모델만 FFT 자동주기** = 모두 "한 config" → FEATHer만
+  강점 아님, 비교 우위 없음. (③-full=canonical vs per-dataset-최적 FEATHer 갭은
+  제조 그리드 8.6k런이라 리뷰어 요구 시에만; 지금은 문장 하나로 강등.)
+- **② 에너지/배터리 envelope = 채택** (제조-가치 1번). 실측(35mJ/추론·latency·
+  활성전류 30mA) 계산만, **새 학습/보드 실험 불요.** ⚠ NUCLEO sleep 재측정 금지
+  (11.4mA=ST-LINK 지배 비대표) → production bare-MCU **데이터시트 STOP(~14-24µA)**
+  기준. 논문엔 **전자(배터리 수명 projection "코인셀 N년", sleep=데이터시트,
+  projection 명시) + 후자(순수 실측 "35mJ/추론, duty서 연산 1.5%") 둘 다.** 핵심=
+  latency≠param순→FEATHer가 FITS/DiPE보다 배터리 오래감→에너지×robustness Pareto.
+- **① PdM 조기경보 리드타임 = NO-GO.** 구조적 anomaly detection(residual→경보)이라
+  forecasting 정체성 흐리고 AD-baseline flank 열림 + small N(MetroPT 고장 3~4건) +
+  라벨 파이프라인에 없음(원 논문에만). **동기/future-work 한 문장으로만.** 제조-가치=
+  ② 에너지 + 기존 정확도/robustness/배포로 충분.
+- **부수 확인**: seq_len=96·H={96,192,336,720}; 제조 대칭 프로토콜(전원 default+FFT
+  period) 공정성 이슈 없음 = settled. **Results 흐름 확정**: §6.1 정확도(mfg+Pareto)
+  →§6.2 robustness→§6.3 배포→§6.4 에너지(②)→§6.5 LTSF(강등)→§6.6 ablation.
+- **산출물**: `ltsf_baseline_results.xlsx` FEATHer* grid-ceiling 행을 완주 ETTh1(360)
+  +prelim h2/m1/m2 오라클로 갱신(min-MSE config MSE/MAE/CORR, 하이라이트 재계산).
+- **▶ 서버 상태 (07-28, 3 스윕 동시):** **구 서버 GPU1 = mfg 베이스라인 스윕
+  RUNNING** (792 / **245 done** ≈31%, FEATHer 제외 11모델; Steel 먼저·N2O/MetroPT3
+  꼬리; Dropbox 0행은 싱크지연, LTSF ① 32/32 완주). **구 서버 GPU0 = FEATHer mfg
+  arch 서치 RUNNING** (`FORCE_OMP=5 CUDA_VISIBLE_DEVICES=0 python
+  search_feather_mfg.py --ngpu 1 --jobs_per_gpu 2`, 324런=27config×3ds×4H×1seed,
+  격리 CSV `feather_mfg_search.csv`). **신 서버 = FEATHer LTSF 그리드 RUNNING** on
+  ETTh1/h2/m1/m2+Exch/Weather. **CSV 3개 달라 동시 안전.**
+- **▶ FEATHer mfg HP = per-dataset 튜닝 금지(대칭)·서치→단일 canonical 선택.** 서치
+  1회로 (a) per-dataset best[진단+one-config-gap 부록] + (b) mean-rank canonical vs
+  base d8/k7/B3 두 뷰. arch 27개(d_state{4,8,16}×kernel{3,5,7}×num_bands{2,3,4},
+  k=1 제외), period=FFT·lr/λ 고정. 도구 `search_feather_mfg.py`(personal `b9c9ed7`).
+  끝나면 `--summary`로 판정→확실히 나으면 canonical 교체, 아니면 유지. robustness
+  Plan B/sub-1K tier표는 데이터 나온 뒤. [[project-mfg-value-experiments-0728]]
+
+**⚡⚡ 2026-07-27b 결정 (mfg lr 서치 폐기 → default lr; 상세 =
+`memory/project_mfg_lr_default_decision.md`):**
+- **제조 lr 서치(④a baseline + ④b FEATHer)를 전면 폐기하고 각 모델의
+  `_METHOD_DEFAULTS` lr을 씀.** 결정적 증거 = `lr_search.csv` 44개 mfg 셀에서
+  default lr vs 5-lr 서치 best-lr의 val_loss 개선이 **중앙값 0.1%**(평균 0.4%,
+  최대 6.4%=MDMLP·Steel 하나; >3% 1/44·>10% 0/44). best-lr이 default와 10배
+  달라도 val_loss는 0.5%만 움직임 → mfg는 **loss 표면이 lr에 대해 평평**, 서치
+  best는 노이즈.
+- **⚠ BASELINE에만 적용, FEATHer는 제외.** 베이스라인 default는 각 논문 저자
+  공표값이라 정당하지만, FEATHer는 우리 모델이라 **공표 default 없음**(1e-3은 우리가
+  임의로 찍은 값) → "default 스킵" 논리 성립 안 함. FEATHer는 진행 중인 **그리드서치
+  (ETTh1/h2/m1/m2+확장) 결과로 config 확정 후 사용자와 함께 보고 별도 발사**(arch=
+  canonical mean-rank, period=FFT, lr=그리드기반). FEATHer는 sub-1K라 병목 아님.
+- **효과: 베이스라인 mfg 본 스윕(11모델, `--exclude FEATHer`) 즉시 발사 가능.**
+  `--num_seeds 3`(제출용; 나중에 `--num_seeds 5` resume=총 5시드 논문값, LTSF와 동일
+  정책) + `--save_model`. 베이스라인 mfg lr은 `_DATASET_OVERRIDES`에 lr 없음→default
+  폴백(period_len/cycle만 override), **코드 수정 불요**. heavy(iTransformer 0행·OOM
+  딸꾹질) lr 대기 소멸.
+- **LTSF는 무영향** — baseline은 각 논문 per-dataset 공표 lr 유지, FEATHer LTSF
+  동결 OFAT 행 유지. 이 결정은 **mfg 축에만** 적용, [[project-open-lr-policy]]를
+  mfg에서 대체.
+- `lr_search.csv`는 폐기 아니라 **이 결정의 증거물**로 보존(사용자 결정: 삭제 X).
+  LR_SEEDS 2→1 TEMP 핵(`5398d89`)은 이제 무의미(mfg lr 안 돎; correctness 무해,
+  청소 시 [2025,2026] 원복). ⚠ SparseTSF default(0.02)는 서치 격자 밖이나 공표값이라 유지.
+- **▶ 서버 상태 (07-27b 발사 — 양 서버 가동):**
+  - **구 서버 = mfg 베이스라인 스윕 RUNNING** — `--exp_tag main --save_model
+    --exclude FEATHer --num_seeds 3 --ngpu 1 --jobs_per_gpu 3` (11모델×6mfg×4H×3seed
+    =792런 → `fcst_results.csv` mfg 행). seed 3=제출용, 나중 `--num_seeds 5` resume=
+    총 5시드. `--save_model`=robustness 체크포인트.
+  - **신 서버 = 그리드서치 RUNNING** — ETT(ETTh1 ~완주/h2·m1·m2 진행) + **Exchange→
+    Weather 확장(병렬, ETT와 byte-identical 360격자; Electricity/Traffic은 느림+
+    non-sub-1K라 스킵)**. **lr 서치 중지**(mfg lr 폐기로 무의미).
+  - **산출물**: `results/ltsf_baseline_results.xlsx` 갱신 = 11 베이스라인(현 시드혼재
+    seed평균) + **FEATHer\* grid-ceiling 행**(sub-1K 칸별 min-MSE=test-peek, ETTh1만
+    신뢰/h2m1m2 preliminary/비-ETT 공백; 1등초록·2등노랑, FEATHer는 ETTh1@336만 1등
+    =clean 절대정확도 승부 아님 재확인). ① LTSF 베이스라인 11모델 32/32 완주(시드혼재:
+    4모델 5시드·2모델 24×5+8×3·5모델 3시드).
+  - **다음 게이트**: mfg 792런 완주→robustness 스윕 / 그리드 완주→FEATHer config 판정
+    (kernel=1 arch-degenerate 지배라 canonical 교체 X 예상)→FEATHer mfg+LTSF 발사.
+- **▶ dispatch 순서 통일 (커밋 `67d69ea`→`3c4d27f`, personal push):** `run_forecast.py`
+  `_DATA_DISPATCH_ORDER` — mfg+ltsf **통일**, 작은 데이터셋 먼저 큰 것 나중(tier≈행×채널)
+  → 빠른 결과 먼저·느린 꼬리가 안 막음. mfg: Steel→BlastFurnace→WindSCADA→EWELD→
+  **MetroPT3→N2O**(N2O 210k·MetroPT3 306k행이 최장); ltsf: Exchange→ETTh1/h2/m1/m2→
+  Weather→**Electricity→Traffic**(채널 321·862가 최장). 이제 **dataset-major**(한 데이터셋
+  11모델 다 돌고 다음). **구 서버 적용=돌던 mfg Ctrl+C(`37e4758`)→`git pull`→같은 명령
+  재실행(resume+새 순서)**. `run_forecast.py`만 push(클래식 절대 제외).
+
+**⚡ 2026-07-27 업데이트 (MCU 배포 실측 완료 — 트랙 단일 소스 =
+`deployment/EDGE_EXPERIMENT.md`, 절차서 = `deployment/board/BOARD_RUNBOOK.md`):**
+- **보드(NUCLEO-F103RB) 도착 → 5모델 실보드 실측 전부 완료** (기여 4번 "Cortex-M3
+  배포 증거"가 추정→실측). CubeIDE 프로젝트 = `C:\Users\lee\STM32Cube_projects\
+  blink_test`(repo 밖). golden 5모델 **bit-exact PASS**. **FEATHer @F103RB
+  (p12/453, -O2 soft-float): 349ms / 총 flash 17.6KB(learnable 1,812B+twiddle
+  768B=§8 실증) / ~35mJ/추론 / 활성 30mA·대기 11.4mA**. 레이턴시: pers 0.08 /
+  STSF 47 / FEATHer 349 / FITS 796 / DiPE 1312 ms (**파라미터순≠레이턴시순**=논거;
+  활성전류는 5모델 전수 29-31mA=모델무관 실증). ⚠ 배포 상세는 **CLAUDE.md에
+  안 씀**(규칙) — 전부 `EDGE_EXPERIMENT.md` 07-27 로그. **남음 = FEATHer p24(489p)
+  골든 재생성 후 재측정(서버 config 확정 시) + 논문 §7/§8 표·문단.**
+  [[project-deployment-layer3-plan]]
+
+**⚡ 2026-07-26/27 업데이트 (중간점검 + lr 속도핵; 상세 = `memory/project_grid_search_pivot_0722.md`):**
+- **서버 상태(현재)**: 구 서버 = ① LTSF(`fcst_results.csv`) 계속. 신 서버 =
+  ETTh1 그리드(`grid_search.csv`) + ④a 제조 lr(`lr_search.csv`) 동시. CSV는
+  `Dropbox\WDSLab\05. 실험\FEATHer\results\`로 싱크돼 로컬서 열람 가능.
+- **① LTSF 커버리지**: 11모델 거의 완주(iTransformer만 Traffic/Weather 미완,
+  TimesNet 2셀). ⚠ 시드 혼재 — 6모델 5시드(옛)·5모델 3시드(07-16 이후). 최종표
+  전 시드 정책 확정 필요.
+- **그리드 커버리지**: **ETTh1 95.1%(1,370/1,440)**, 남은 70 = `grid_ds8_k9_*`
+  꼬리(정렬상 마지막이라 정상). ETTh2/m1/m2 = 방금 시작(~33 config). 사용자
+  **순차 재실행**(ETTh1→h2→m1→m2, `foreach($d){run_grid_search.py --data $d …}`).
+- **ETTh1 부분판정(95%·1시드)**: 형식상 "grid BEATS base(val)"지만 **승자가
+  arch-degenerate** — base d8/k7/p12/B3 = sub-1K 272중 val **160위(중위)**, best
+  sub-1K `grid_ds16_k1_p4_B3`(981p) Δval+0.0165·MSE−3.6%, **top8이 kernel=1
+  지배**(DTK=temporal kernel 죽임). clean정확도는 시그니처 arch 뭉갤 때만↑ →
+  **robustness-not-accuracy 증거지 canonical 교체 근거 아님, 재동결 금지**. 공정
+  표(val선택) FEATHer = ETTh1 **9/13위**·ETTh2 **10/12위**(≈SparseTSF), 오라클
+  (test-peek)=ETTh1 1위지만 반칙. 셀링 = accuracy-per-param + robustness.
+- **④a 제조 lr = 72%(237/330 mfg셀)**: 가벼운 7모델 완료, **무거운 4개
+  (iTransformer 0·TimeMixer/TimesNet Steel만·TQNet 부분)** 남음(=OOM 딸꾹질
+  모델들). 느림원인 = heavy × big-ROW(N2O 210k·MetroPT3 306k 행; 채널은 작음
+  6–28) × 50ep × 5lr × 2seed.
+- **⚡ lr 속도핵 (커밋 `5398d89`, personal push)**: `LR_SEEDS 2→1` (**TEMP —
+  lr 끝나면 `[2025, 2026]` 원복 필수**) + `run_lr_search.py --model
+  iTransformer,TimeMixer,TimesNet,TQNet --num_epochs 20 --jobs_per_gpu 1` =
+  **4~6배**. **안전근거 = lr은 선택도구**(출력=best-lr만→`_DATASET_OVERRIDES`,
+  최종숫자는 ⑤서 50ep/3seed 재산출 → ep/seed 컷이 보고값 무영향, per-cell
+  독립이라 불공정 X). 1seed는 pull로 받게 커밋 필요(미커밋은 pull 안 됨).
+  **⚠ lr `--summary` 후 LR_SEEDS 원복 + heavy best-lr이 격자끝(0.0001/0.01)
+  아닌지 확인.** ⚠ 미커밋 로컬 여전 = 클래식 베이스라인 + 워커 프로브 플래그.
+
+**⚡⚡ 2026-07-22 업데이트 (이번 세션 — HP 방향전환; 상세 = `memory/project_grid_search_pivot_0722.md`):**
+- **사람 루프 1 실행됨**: ② OFAT `--validate`→`--summary` → **LTSF 8행 재동결**
+  (커밋 `0768e9b` + push ijaehun; validate가 raw combo 4/8 기각 → base+1축 폴백).
+  **λ flat 재확인 → confound CLOSED**; **canonical mfg d8/k7/p12/B3 유지**.
+  (CLAUDE.md 07-21 텍스트도 이 커밋에 동봉됨.)
+- **TPAMI 갭 발견 (정직)**: 재동결 FEATHer가 ETTh1/h2 **clean 8/9위**
+  (SparseTSF 69p·DiPE 511p한테 짐), 옛 TPAMI FEATHer보다 **~5-7% 나쁨**,
+  **SPK@720 장기예측 주장 재현 안 됨**(같은 L=96). thesis(robustness-not-
+  accuracy)와 모순은 아니나 "ETT clean 승리/​@720 강세" 주장은 **은퇴**.
+- **프로브로 원인 규명 (로컬 ETTh1, 3시드)**: lr(0.01 불안정)·loss(MSE가 L1보다
+  나쁨)·**AdamW+wd+lr0.01(TPAMI 정확재현)=0.410 더 나쁨** → **어떤 training
+  recipe도 TPAMI 0.373 회복 못 함** → 옛 TPAMI ETT = **legacy 아티팩트**(현
+  동결이 이 축들엔 near-best). 워커에 `--optimizer/--weight_decay` 프로브
+  플래그 추가(backward-compat, **로컬 미커밋**).
+- **결정: OFAT → 조인트 그리드서치** (유일 남은 레버 = arch 상호작용).
+  **grid > Optuna**(작은 이산공간+초소형 모델+방어성+병렬). **불가침 = val 선택**
+  (test-peek 금지). **공정성 = 모든 모델 per-dataset 튜닝이라 대칭**(OFAT는 안
+  버림 — 리뷰어 R2#23 민감도분석 + num_bands/λ flat 증거로 여전히 쓰임).
+  **2층**: LTSF=per-dataset 그리드 / MFG=**mean-rank canonical 1개**(엣지
+  "one sub-1K config가 모든 센서에" 스토리 강화; period=per-dataset FFT, lr=lr서치).
+- **`run_grid_search.py` 제작·push** (`0f6dd63`+`0c2576a`): arch 4축 전수,
+  λ/lr/loss 고정, `--seeds`(1시드 선택), resumable/`--check`/`--summary`.
+  `results/grid_search.csv`. **0722b 그리드 확장(`fbe077d`, personal)**: 극단-소형
+  코너로 넓힘 — d_state{**2**,4,8,16}·kernel{**1**,3,5,7,9}·period{**2,4**,6,8,12,24}
+  ·num_bands{2,3,4}=**360조합**, GRID_PREDS=**[96,192,336,720]**(period 전부
+  gcd=48 나눠 드롭 0). 극단코너(d_state2/k1/p2/H720) 스모크 유한(kernel=1은 DTK만,
+  FFT게이트 kernel=5 하드코딩; period=1은 SPK degenerate라 제외). 커밋=
+  run_grid_search.py **단독**(클래식/프로브 미커밋 유지).
+- **RUNNING = go/no-go (신 서버 ETTh1 그리드)**: **③ FEATHer 중지됨** → ETTh1
+  그리드가 **④a 베이스라인 mfg lr(`lr_search.csv`)과 동시** 실행 중 (CSV 달라 안전,
+  단일 GPU라 느림·RAM 주시). **0722b로 파일럿=1,440런**(360×4H×1시드). ③의 ETTh1/h2
+  행은 `fcst_feather_ltsf.csv`에 **현동결 레퍼런스로 보존**(비교용, 삭제 금지).
+  구 서버 = ① LTSF(`fcst_results.csv`) 계속. 로컬 = 우리 실험 없음. **서버 재발사**=
+  옛 그리드 Ctrl+C→`git pull personal main`→`run_grid_search.py --data ETTh1
+  --pred_len 96,192,336,720 --seeds 2025 --jobs_per_gpu 1`; **resume가 옛 H96 144행
+  유지**(옛144⊂새360)·나머지만 채움(purge 불요). `--summary`도 같은 `--pred_len/
+  --seeds`+`PYTHONUTF8=1`. **판정**: **grid≫base(val)** → LTSF-8+mfg-6 확장·재동결·
+  ③⑤ 재실행(loop-1 재오픈). **base ties/wins** → OFAT 충분, 현 동결 유지·robustness.
+- ⚠ **신 서버 ④a lr 딸꾹질(사용자 보류)**: MDMLP_EIA/MetroPT3/H96가 CUDA
+  `illegal memory access`로 죽음(async라 `.item()`/`empty_cache`에 뜬 것뿐; 그
+  프로세스 컨텍스트만 오염, 그리드는 별 프로세스라 무관). 유력=단일32GB GPU를
+  그리드+④a 최중량(MDMLP 1.6M)이 나눠 써서 메모리 압박. 가짜행 없음(exit1+
+  MASK-NAN-GRAD 가드→missing 유지, resume 재시도). **나중에 그 셀만 격리+
+  `CUDA_LAUNCH_BLOCKING=1`로 재현**(단독통과=메모리→④a jobs 줄이기 / 단독실패=
+  모델·데이터 버그).
+- ⚠ **미커밋 로컬**: 클래식 베이스라인(list_models 15) + 워커 프로브 플래그
+  (--optimizer/--weight_decay). 클래식은 여전히 push 금지(스윕 자동확장 트리거).
+  (07-23: throwaway `results/probe_*.csv` + repro표 CSV 삭제, LTSF 재현결과는
+  `results/ltsf_baseline_results.xlsx`로 정리 — MSE/MAE/COR 시점별 + Coverage 시트.)
+
 **△ 2026-07-16 업데이트 (요약 — 상세는 아래 블록/Decision history):**
 - **베이스라인 5→3 시드 (교수 결정)**: `--exclude FEATHer` 스윕을 `--num_seeds 3`
   으로 낮춰 제출 우선, **리비전에서 `--num_seeds 5`로 보강**(3시드=[2025,2026,
@@ -195,10 +477,14 @@ True 1` 확인). 로컬 `feather`와 동일 버전(병합 정합성). CPU로 돈
 **양 서버 pull 필요.** (기존엔 Ctrl+C가 죽인 자식을 "실패 잡"으로 보고 다음 잡을
 띄워 매 런마다 Ctrl+C 해야 했음.)
 
-**Local git**: main fully PUSHED to personal/ijaehun through 37e4758
-(07-20 Ctrl+C 패치). Push policy: **ijaehun (personal) ONLY**, not WDSLab,
-unless asked. 미커밋 로컬 = 클래식 베이스라인(LSTM/GRU/TCN + run_classical.py +
-`baselines/__init__.py` M) + 검토수정 E — 현 체인(①②④) 끝난 뒤 별도 커밋(섞으면
+**Local git**: main fully PUSHED to personal/ijaehun **through `f906d1a`**
+(07-23). 07-20 이후 푸시분: 그리드 도구(`fbe077d` 그리드확장·`f569e04` summary
+pred_len 필터·`ed4549e` 완성-only+`--sort_by`·`e7924ee` `--per_horizon`) + **numeric
+버그 3픽스**(`fb09aeb` dispatch Popen가드·`15eba56` mCE skipna·`f906d1a` RMSE=√집계MSE).
+**양 서버 pull 필요**(도는 스윕 무영향, 다음 발사/표생성부터). Push policy:
+**ijaehun (personal) ONLY**, not WDSLab, unless asked. 미커밋 로컬 = 클래식
+베이스라인(LSTM/GRU/TCN + run_classical.py + `baselines/__init__.py` M) + 워커 프로브
+플래그(--optimizer/--weight_decay) + 검토수정 E — 현 체인 끝난 뒤 별도 커밋(섞으면
 list_models=15로 스윕 자동 확장).
 
 **▶ NEXT**
@@ -228,6 +514,34 @@ list_models=15로 스윕 자동 확장).
 
 ### Decision history (compact — full blocks in `manuscript/notes/CLAUDE_STATUS_ARCHIVE_2026-07-14.md`)
 
+- **2026-07-23 (TSLib 정밀 대조 — 파이프라인 clean + LMS EAAI 발견 + xlsx 정리)**:
+  (1) **TSLib(thuml/Time-Series-Library) shallow clone로 eval/train/metric/data
+  4축 정밀 대조**(서브에이전트) → **버그 0, 정확성 핵심 전부 일치**. 특히 **metric
+  scale = 정규화 공간(둘 다 --inverse 기본 off) → 우리 숫자 문헌비교 가능 확정**;
+  best-val 선택·split(ETT 12/4/4·Custom .7/.1/.2)·train-only Scaler·공유5모델 HP 일치.
+  저위험 이탈 3개(val-loss 샘플가중평균/FEATHer val=L1/train drop_last=True=옛TSLib)
+  전부 의도적·방어가능·조치불요. DLinear/PatchTST 원본 생성자만 로컬 미확인이나
+  **서버 실행성공+문헌범위 숫자로 경험적 확인**. clone=`C:/Users/lee/tslib_ref`(repo밖 5.4M).
+  (2) **LMS-AutoTSF = EAAI(Elsevier Q1) 2026 게재 확인**("…confidence-aware…",
+  arXiv 2412.06866은 프리프린트) → R4 방어 peer-reviewed 3편. **재현=공식 기본 base
+  `LMSAutoTSF`(V2 confidence-aware는 어떤 forecasting 스크립트도 미배선) → 정당, 재실행
+  불요**. 레지스트리 venue 갱신. [[project-baseline-lineup]]. (3) LTSF 재현결과를
+  **`results/ltsf_baseline_results.xlsx`**(병합헤더+best강조+Coverage 2시트)로 정리,
+  throwaway probe CSV 삭제(→`_reference/`에 TSLib clone 보관). (4) **학습워커+데이터
+  로딩+utils 전 파일 버그헌트(서브에이전트 2회)**: 숫자 조용히 망칠 버그 **0**
+  (마스킹·metric누적·windowing·scaling·CMAPSS·seed·losses밴드순서·noise손상수학·
+  severity시드 다 clean). **실버그 1개 수정·푸시 `fb09aeb`**: `dispatch_queue.gpu_worker`가
+  `Popen` 예외 시 job을 조용히 드롭(failed 미기록)→launch+wait try/except 가드로
+  failed 기록+계속. 양 서버 pull 권장(도는 스윕 무영향, 다음 발사부터). 잔여=사람확인용
+  minor(CORR/R2 마스킹 배치가중·Scaler가 outage hold-last에 물듦·Electricity timeF 계산낭비).
+  **(추가 라운드)** config/모델 클러스터(`baselines/__init__.py` override라우팅 82키·6
+  wrapper·FEATHer SPK/DTK/denorm)=**clean 버그0**; 다운스트림서 **2개 더 수정**:
+  `15eba56` robust_summary **mCE skipna 버그**(fault축 통째 누락 모델이 3축평균으로 랭킹
+  조작→skipna=False+경고, robustness 헤드라인표) + `f906d1a` main_table **RMSE=√(집계MSE)**
+  (mean√MSE→√meanMSE, Jensen 과소보고 해소·TSLib per-run 일치·RMSE std는 point이라 생략,
+  MSE/MAE에만 ±std). **이번 검증서 numeric 버그 3개 잡음(dispatch·mCE·RMSE), robustness
+  스윕 아직이라 실험 무영향, paper 표 뽑기 전 선제 수정.** lr-search가 period-tied 모델을
+  default period로 돎=문서화된 caveat(원고 한 문장).
 - **2026-07-21 (데이터셋 6종 재확인 + 베이스라인 제외사유 통일 + CycleNet 판정
   — 전부 텍스트/결정, 코드·데이터·서버 변경 0)**: (1) **mfg-6 유지, MetroPT3
   KEEP** — 드롭 후보로 4턴 숙고했으나 대체 후보 전부 패(PMSM=2Hz persistence-
@@ -508,15 +822,17 @@ print(list_models())
 | PatchTST | ICLR | 2023 | 35,171 |
 | TimeMixer | ICLR | 2024 | 75,497 |
 | TQNet | ICML | 2025 | 86,192 |
-| LMS_AutoTSF | arXiv | 2024 | 181,318 |
+| LMS_AutoTSF | EAAI (Elsevier) | 2026 | 181,318 |
 | TimesNet | ICLR | 2023 | 605,479 |
 | iTransformer | ICLR | 2024 | 841,568 |
 | MDMLP_EIA | AAAI | 2026 | 1,632,832 |
 
 (SCINet was briefly added 2026-07-13 then REMOVED — reviewer only named it as
 prior multi-scale work, not a baseline request; Related-Work differentiation
-instead.) → 5 orders of magnitude (267 → 1.6M). Two 2026 SOTA papers
-(DiPE-Linear, MDMLP-EIA) address R4's "outdated baselines" critique.
+instead.) → 5 orders of magnitude (267 → 1.6M). Three recent peer-reviewed
+SOTA (DiPE-Linear DASFAA'26, MDMLP-EIA AAAI'26, LMS-AutoTSF EAAI'26 — the
+last confirmed 2026-07-23 as journal-published, not arXiv-only) address R4's
+"outdated baselines" critique.
 
 Each baseline lives at `baselines/<Name>/`. `wrapper.py` exposes
 `build(args, n_features, seq_len, pred_len)` that:
