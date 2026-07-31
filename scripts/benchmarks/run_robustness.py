@@ -297,6 +297,10 @@ def parse_args():
     p.add_argument("--num_bands",   type=int, default=3)
     p.add_argument("--use_topk_gate", action="store_true")
     p.add_argument("--topk",        type=int, default=2)
+    # Capacity A/B (2026-07-31): must match the trained checkpoint's arch so
+    # load_state_dict finds nl_down/nl_up. OFF by default (canonical unchanged).
+    p.add_argument("--use_residual_mlp", action="store_true")
+    p.add_argument("--mlp_rank",    type=int, default=16)
 
     # Per-(model, dataset) HP injection — MUST mirror the training-time merge
     # or per-dataset architectures (FEATHer period/d_state, sparsetsf_period_len,

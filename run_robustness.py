@@ -229,6 +229,8 @@ def dispatch(combos, done, args, fault_types):
             "--period", str(args.period),
             "--num_bands", str(args.num_bands),
         ]
+        if args.use_residual_mlp:
+            cmd += ["--use_residual_mlp", "--mlp_rank", str(args.mlp_rank)]
         if overrides_str:
             cmd += ["--model_overrides", overrides_str]
         if args.fault_types:
@@ -280,6 +282,10 @@ def main():
     p.add_argument("--kernel_size", type=int, default=7)
     p.add_argument("--period",      type=int, default=12)
     p.add_argument("--num_bands",   type=int, default=3)
+    # Capacity A/B (2026-07-31): forward to worker so the model built to load a
+    # feather_mlp16 checkpoint includes nl_down/nl_up. OFF by default.
+    p.add_argument("--use_residual_mlp", action="store_true")
+    p.add_argument("--mlp_rank",    type=int, default=16)
 
     p.add_argument("--check", action="store_true",
                    help="Print status without dispatching")
