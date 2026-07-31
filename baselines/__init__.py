@@ -213,7 +213,10 @@ del _axis, _module, _klass, _kwarg, _variants, _v, _name
 #
 # Override at the CLI with `--lr`/`--loss` for ablations.
 _METHOD_DEFAULTS: Dict[str, Dict] = {
-    "FEATHer":      {"lr": 1e-3, "loss": "l1"},
+    # loss=mse (was l1): match train loss to the eval metric so all 14 models
+    # are consistent (train=mse, eval=mse) — l1-trained FEATHer was penalized on
+    # the MSE table (2026-07-30 finding). An l1 variant is a supplementary MAE run.
+    "FEATHer":      {"lr": 1e-3, "loss": "mse"},
     "DLinear":      {"lr": 5e-3, "loss": "mse"},
     "PatchTST":     {"lr": 1e-4, "loss": "mse"},
     "iTransformer": {"lr": 1e-4, "loss": "mse"},
