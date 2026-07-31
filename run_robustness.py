@@ -27,7 +27,8 @@ import sys
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from baselines import list_models, get_method_defaults, get_dataset_overrides
+from baselines import (list_models, list_ablation_models,
+                       get_method_defaults, get_dataset_overrides)
 from utils import noise as noise_mod
 from utils.dispatch_queue import run_on_gpus
 from scripts.benchmarks.run_forecast import checkpoint_path
@@ -100,7 +101,19 @@ def load_robust_set(csv_path, fault_types):
 
 
 def enumerate_combos(args, fault_types):
-    if args.model:
+    if args.ablation_axis:
+        # ablation-under-corruption: run the FEATHer ablation variants (same 5
+        # axes as run_forecast.py) through the corruption sweep — the equal-
+        # capacity confound-closer (robustness comes from the design, not params).
+        if args.ablation_axis == "all":
+            models = list_ablation_models()
+        else:
+            prefix = f"FEATHer_{args.ablation_axis}_"
+            models = [m for m in list_ablation_models() if m.startswith(prefix)]
+            if not models:
+                raise SystemExit(f"Unknown ablation axis '{args.ablation_axis}' "
+                                 f"(expected one of ms/gate/dtk/head/complexity/all)")
+    elif args.model:
         models = [args.model]
     elif args.exclude:
         excl = {s.strip() for s in args.exclude.split(",") if s.strip()}
@@ -234,6 +247,11 @@ def main():
     p.add_argument("--model",   type=str, default=None)
     p.add_argument("--exclude", type=str, default=None)
     p.add_argument("--data",    type=str, default=None)
+    p.add_argument("--ablation_axis", type=str, default=None,
+                   help="run FEATHer ablation variants under corruption "
+                        "(ms/gate/dtk/head/complexity/all). Needs their "
+                        "--save_model checkpoints from `run_forecast.py "
+                        "--ablation_axis <axis>` first.")
     p.add_argument("--pred_len", type=int, default=0)
     p.add_argument("--seq_len",  type=int, default=DEFAULT_SEQ_LEN)
     p.add_argument("--num_seeds", type=int, default=DEFAULT_NUM_SEEDS)
