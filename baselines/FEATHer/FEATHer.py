@@ -247,6 +247,7 @@ class FEATHer(nn.Module):
         use_residual_mlp: bool = False,
         mlp_rank: int = 16,
         use_gate: bool = True,
+        use_robust_norm: bool = False,
     ):
         super().__init__()
 
@@ -269,6 +270,20 @@ class FEATHer(nn.Module):
         # — used to isolate whether the gate's reaction to corrupted spectra is
         # the source of FEATHer's robustness fragility. ON by default (canonical).
         self.use_gate = use_gate
+
+        # Robust instance-norm toggle (2026-08-01). When True (and use_norm is
+        # also True), the RevIN center/scale statistics are computed with the
+        # median / MAD instead of the mean / std. The 2026-07-31 diagnosis
+        # showed FEATHer's robustness fragility comes from RevIN: an impulse in
+        # the corrupted window inflates mean/std, and that corrupted scale is
+        # used for BOTH normalization and denormalization, amplifying the error.
+        # Median/MAD have a 50% breakdown point, so a fault spike barely moves
+        # them. Scaling MAD by 1.4826 makes it a consistent estimator of stdev
+        # for Gaussian data, so clean-data behavior stays close to standard
+        # RevIN while corruption is rejected. Adds ZERO parameters (statistics
+        # only) — canonical model byte-identical when OFF. Ignored if use_norm
+        # is False (--no_revin removes normalization entirely and wins).
+        self.use_robust_norm = use_robust_norm
 
         # Input projection
         self.in_proj = nn.Linear(d_model, d_model)
@@ -353,8 +368,14 @@ class FEATHer(nn.Module):
         # them, for no expected gain. If the paper's method section ever
         # describes this as standard RevIN, reword the paper, not this code.
         if self.use_norm:
-            means = x.mean(1, keepdim=True).detach()
-            stdev = torch.sqrt(x.var(1, keepdim=True, unbiased=False) + 1e-5)
+            if self.use_robust_norm:
+                # Robust RevIN: median center + 1.4826*MAD scale (see __init__).
+                # Same half-RevIN asymmetry as below — center detached, scale not.
+                means = x.median(1, keepdim=True).values.detach()
+                stdev = 1.4826 * (x - means).abs().median(1, keepdim=True).values + 1e-5
+            else:
+                means = x.mean(1, keepdim=True).detach()
+                stdev = torch.sqrt(x.var(1, keepdim=True, unbiased=False) + 1e-5)
             x_norm = (x - means) / stdev
         else:
             means, stdev = None, None

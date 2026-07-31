@@ -447,6 +447,8 @@ def parse_args():
     # Robustness diagnostics (2026-07-31): isolate the fragility source.
     p.add_argument("--no_revin",    dest="use_norm", action="store_false", default=True)
     p.add_argument("--gate_uniform", dest="use_gate", action="store_false", default=True)
+    # robust-RevIN (2026-08-01): median/MAD statistics instead of mean/std.
+    p.add_argument("--robust_revin", dest="use_robust_norm", action="store_true", default=False)
 
     # Training
     p.add_argument("--batch_size",  type=int,   default=32)

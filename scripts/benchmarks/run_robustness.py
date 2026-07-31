@@ -309,6 +309,7 @@ def parse_args():
     # (RevIN/gate have no/unchanged params, but change the computation).
     p.add_argument("--no_revin",    dest="use_norm", action="store_false", default=True)
     p.add_argument("--gate_uniform", dest="use_gate", action="store_false", default=True)
+    p.add_argument("--robust_revin", dest="use_robust_norm", action="store_true", default=False)
 
     # Per-(model, dataset) HP injection — MUST mirror the training-time merge
     # or per-dataset architectures (FEATHer period/d_state, sparsetsf_period_len,

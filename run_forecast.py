@@ -342,6 +342,8 @@ def dispatch(missing, args):
             cmd += ["--no_revin"]
         if args.gate_uniform:
             cmd += ["--gate_uniform"]
+        if args.robust_revin:
+            cmd += ["--robust_revin"]
         jobs.append((label, cmd))
 
     failed = run_on_gpus(jobs, args.ngpu, base_gpu=args.gpu,
@@ -420,6 +422,7 @@ def main():
     # Robustness diagnostics (2026-07-31): forwarded to worker only when set.
     p.add_argument("--no_revin",     action="store_true")
     p.add_argument("--gate_uniform", action="store_true")
+    p.add_argument("--robust_revin", action="store_true")
 
     # Output / system
     p.add_argument("--results_csv", type=str, default=RESULTS_CSV)

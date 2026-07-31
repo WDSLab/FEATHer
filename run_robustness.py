@@ -235,6 +235,8 @@ def dispatch(combos, done, args, fault_types):
             cmd += ["--no_revin"]
         if args.gate_uniform:
             cmd += ["--gate_uniform"]
+        if args.robust_revin:
+            cmd += ["--robust_revin"]
         if overrides_str:
             cmd += ["--model_overrides", overrides_str]
         if args.fault_types:
@@ -293,6 +295,7 @@ def main():
     # Diagnostics — forwarded to worker so eval-time forward matches training.
     p.add_argument("--no_revin",     action="store_true")
     p.add_argument("--gate_uniform", action="store_true")
+    p.add_argument("--robust_revin", action="store_true")
 
     p.add_argument("--check", action="store_true",
                    help="Print status without dispatching")
