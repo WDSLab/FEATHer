@@ -474,9 +474,18 @@ def parse_args():
                    help='Semicolon-separated key=value HP overrides '
                         '(e.g. "patchtst_d_model=16;patchtst_n_heads=4").')
 
-    # Data slicing (legacy)
+    # Data slicing (legacy raw knobs — subsample the TRAIN split only)
     p.add_argument("--starting_percent", type=int, default=0)
     p.add_argument("--percent",          type=int, default=100)
+    # Data-efficiency / cold-start convenience: use only `train_frac` of the
+    # train split. mode=recent keeps the MOST RECENT fraction ("new line with
+    # limited history"); mode=first keeps the earliest. Maps onto the raw
+    # starting_percent/percent knobs above. val/test are unaffected (the loader
+    # applies the slice only to set_type==0). Use a distinct --exp_tag per
+    # fraction so resume rows don't collide (train_frac is not in the key).
+    p.add_argument("--train_frac", type=float, default=None,
+                   help="fraction (0,1] of the train split to use (data-efficiency)")
+    p.add_argument("--train_frac_mode", default="recent", choices=["recent", "first"])
 
     # System
     p.add_argument("--gpu", type=int, default=0)
@@ -484,7 +493,12 @@ def parse_args():
                    help="Save state dict to results/checkpoints/<exp_tag>/...pth "
                         "for downstream robustness evaluation.")
 
-    return p.parse_args()
+    args = p.parse_args()
+    if args.train_frac is not None:
+        pct = max(1, min(100, int(round(args.train_frac * 100))))
+        args.percent = pct
+        args.starting_percent = (100 - pct) if args.train_frac_mode == "recent" else 0
+    return args
 
 
 def _apply_overrides(args):

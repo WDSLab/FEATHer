@@ -320,6 +320,9 @@ def dispatch(missing, args):
             "--lr", str(lr_to_use),
             "--loss", loss_to_use,
         ]
+        if args.train_frac is not None:
+            cmd += ["--train_frac", str(args.train_frac),
+                    "--train_frac_mode", args.train_frac_mode]
         no_save = {x.strip() for x in (args.no_save_data or "").split(",") if x.strip()}
         if args.save_model and d not in no_save:
             cmd += ["--save_model"]
@@ -386,6 +389,12 @@ def main():
     p.add_argument("--loss",       type=str,   default=None, choices=["l1", "mse"],
                    help="Override loss. Defaults to each method's paper "
                         "loss (MSE for baselines, L1 for FEATHer).")
+    # Data-efficiency / cold-start: train on only `train_frac` of the train
+    # split (mode=recent -> most recent, the 'new line, limited history' case).
+    # Forwarded to the worker. Use a distinct --exp_tag per fraction.
+    p.add_argument("--train_frac", type=float, default=None,
+                   help="fraction (0,1] of the train split (data-efficiency sweep)")
+    p.add_argument("--train_frac_mode", default="recent", choices=["recent", "first"])
     # FEATHer arch flags default to None (= unset) so dispatch can tell an
     # explicit user value from the default: explicit values BEAT
     # _DATASET_OVERRIDES (audit P2-4); unset falls back to per-dataset
