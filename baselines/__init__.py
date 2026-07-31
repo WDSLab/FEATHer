@@ -35,6 +35,8 @@ def _build_feather(args, n_features, seq_len, pred_len):
         num_bands=args.num_bands,
         use_topk_gate=args.use_topk_gate,
         topk=args.topk,
+        use_residual_mlp=getattr(args, "use_residual_mlp", False),
+        mlp_rank=getattr(args, "mlp_rank", 16),
     )
 
 

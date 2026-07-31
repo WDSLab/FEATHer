@@ -333,6 +333,11 @@ def dispatch(missing, args):
         # λ0.01 — identical values), still overridable per dataset above.
         for k, v in explicit_arch.items():
             cmd += [f"--{k}", str(v)]
+        # Capacity A/B: forward only when enabled (canonical stays byte-identical).
+        if args.use_residual_mlp:
+            cmd += ["--use_residual_mlp"]
+            if args.mlp_rank is not None:
+                cmd += ["--mlp_rank", str(args.mlp_rank)]
         jobs.append((label, cmd))
 
     failed = run_on_gpus(jobs, args.ngpu, base_gpu=args.gpu,
@@ -404,6 +409,10 @@ def main():
     p.add_argument("--period",      type=int,   default=None)
     p.add_argument("--num_bands",   type=int,   default=None)
     p.add_argument("--lambda_spec", type=float, default=None)
+    # Capacity A/B (2026-07-31): forwarded to the worker only when set, so the
+    # canonical sweep is byte-identical when omitted.
+    p.add_argument("--use_residual_mlp", action="store_true")
+    p.add_argument("--mlp_rank",    type=int,   default=None)
 
     # Output / system
     p.add_argument("--results_csv", type=str, default=RESULTS_CSV)

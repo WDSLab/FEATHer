@@ -244,6 +244,8 @@ class FEATHer(nn.Module):
         num_bands: int = 3,
         use_topk_gate: bool = False,
         topk: int = 2,
+        use_residual_mlp: bool = False,
+        mlp_rank: int = 16,
     ):
         super().__init__()
 
@@ -259,9 +261,21 @@ class FEATHer(nn.Module):
         self.num_bands = num_bands
         self.use_topk_gate = use_topk_gate
         self.topk = topk
+        self.use_residual_mlp = use_residual_mlp
 
         # Input projection
         self.in_proj = nn.Linear(d_model, d_model)
+
+        # Optional nonlinear residual MLP (channel-axis low-rank bottleneck),
+        # applied to the gated representation just before the forecasting head:
+        #     h <- h + W_up(GELU(W_down(h))),  W_down: D->r, W_up: r->D
+        # Adds ~2*D*r params (D=7,r=16 -> +247). OFF by default so the canonical
+        # model and every frozen checkpoint are byte-identical; enabled only for
+        # the capacity A/B experiment (2026-07-31). This is FEATHer's first
+        # pointwise nonlinearity in the signal path (otherwise linear+gating).
+        if use_residual_mlp:
+            self.nl_down = nn.Linear(d_model, mlp_rank)
+            self.nl_up = nn.Linear(mlp_rank, d_model)
 
         # Multi-band 1D Conv decomposition
         # POINT: kernel=1, captures high-frequency details
@@ -390,6 +404,12 @@ class FEATHer(nn.Module):
 
         g_expanded = g.view(B, self.num_bands, 1, 1)
         hidden = (g_expanded * bands).sum(dim=1)  # (B, L, D)
+
+        # Optional nonlinear residual refinement (channel-axis bottleneck),
+        # OFF by default. nn.Linear acts on the last (channel) axis, shared
+        # across the L=seq_len time steps.
+        if self.use_residual_mlp:
+            hidden = hidden + self.nl_up(F.gelu(self.nl_down(hidden)))
 
         # Forecasting head
         y = self.sparse_head(hidden)  # (B, pred_len, D)
