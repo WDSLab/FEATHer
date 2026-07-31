@@ -231,6 +231,10 @@ def dispatch(combos, done, args, fault_types):
         ]
         if args.use_residual_mlp:
             cmd += ["--use_residual_mlp", "--mlp_rank", str(args.mlp_rank)]
+        if args.no_revin:
+            cmd += ["--no_revin"]
+        if args.gate_uniform:
+            cmd += ["--gate_uniform"]
         if overrides_str:
             cmd += ["--model_overrides", overrides_str]
         if args.fault_types:
@@ -286,6 +290,9 @@ def main():
     # feather_mlp16 checkpoint includes nl_down/nl_up. OFF by default.
     p.add_argument("--use_residual_mlp", action="store_true")
     p.add_argument("--mlp_rank",    type=int, default=16)
+    # Diagnostics — forwarded to worker so eval-time forward matches training.
+    p.add_argument("--no_revin",     action="store_true")
+    p.add_argument("--gate_uniform", action="store_true")
 
     p.add_argument("--check", action="store_true",
                    help="Print status without dispatching")

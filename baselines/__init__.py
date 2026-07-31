@@ -30,13 +30,14 @@ def _build_feather(args, n_features, seq_len, pred_len):
         d_model=n_features,
         d_state=args.d_state,
         kernel_size=args.kernel_size,
-        use_norm=True,
+        use_norm=getattr(args, "use_norm", True),
         period=args.period,
         num_bands=args.num_bands,
         use_topk_gate=args.use_topk_gate,
         topk=args.topk,
         use_residual_mlp=getattr(args, "use_residual_mlp", False),
         mlp_rank=getattr(args, "mlp_rank", 16),
+        use_gate=getattr(args, "use_gate", True),
     )
 
 

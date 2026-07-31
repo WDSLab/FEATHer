@@ -305,6 +305,10 @@ def parse_args():
     # load_state_dict finds nl_down/nl_up. OFF by default (canonical unchanged).
     p.add_argument("--use_residual_mlp", action="store_true")
     p.add_argument("--mlp_rank",    type=int, default=16)
+    # Diagnostics: must match training so the loaded model's forward matches
+    # (RevIN/gate have no/unchanged params, but change the computation).
+    p.add_argument("--no_revin",    dest="use_norm", action="store_false", default=True)
+    p.add_argument("--gate_uniform", dest="use_gate", action="store_false", default=True)
 
     # Per-(model, dataset) HP injection — MUST mirror the training-time merge
     # or per-dataset architectures (FEATHer period/d_state, sparsetsf_period_len,

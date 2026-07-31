@@ -246,6 +246,7 @@ class FEATHer(nn.Module):
         topk: int = 2,
         use_residual_mlp: bool = False,
         mlp_rank: int = 16,
+        use_gate: bool = True,
     ):
         super().__init__()
 
@@ -262,6 +263,12 @@ class FEATHer(nn.Module):
         self.use_topk_gate = use_topk_gate
         self.topk = topk
         self.use_residual_mlp = use_residual_mlp
+        # Diagnostic toggle (2026-07-31): when False, replace the input-adaptive
+        # FFT gate with fixed uniform band weights. The freq_gate module is
+        # still constructed (state_dict keys unchanged) but bypassed in forward
+        # — used to isolate whether the gate's reaction to corrupted spectra is
+        # the source of FEATHer's robustness fragility. ON by default (canonical).
+        self.use_gate = use_gate
 
         # Input projection
         self.in_proj = nn.Linear(d_model, d_model)
@@ -396,11 +403,13 @@ class FEATHer(nn.Module):
 
         bands = torch.stack(bands_list, dim=1)  # (B, num_bands, L, D)
 
-        # FFT-based gate
-        g = self.freq_gate(x_norm)  # (B, num_bands)
-
-        if self.use_topk_gate:
-            g = sparse_topk_gate(g, k=self.topk)
+        # FFT-based gate (or fixed uniform weights when disabled — diagnostic)
+        if self.use_gate:
+            g = self.freq_gate(x_norm)  # (B, num_bands)
+            if self.use_topk_gate:
+                g = sparse_topk_gate(g, k=self.topk)
+        else:
+            g = x_norm.new_full((B, self.num_bands), 1.0 / self.num_bands)
 
         g_expanded = g.view(B, self.num_bands, 1, 1)
         hidden = (g_expanded * bands).sum(dim=1)  # (B, L, D)

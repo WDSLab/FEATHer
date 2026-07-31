@@ -338,6 +338,10 @@ def dispatch(missing, args):
             cmd += ["--use_residual_mlp"]
             if args.mlp_rank is not None:
                 cmd += ["--mlp_rank", str(args.mlp_rank)]
+        if args.no_revin:
+            cmd += ["--no_revin"]
+        if args.gate_uniform:
+            cmd += ["--gate_uniform"]
         jobs.append((label, cmd))
 
     failed = run_on_gpus(jobs, args.ngpu, base_gpu=args.gpu,
@@ -413,6 +417,9 @@ def main():
     # canonical sweep is byte-identical when omitted.
     p.add_argument("--use_residual_mlp", action="store_true")
     p.add_argument("--mlp_rank",    type=int,   default=None)
+    # Robustness diagnostics (2026-07-31): forwarded to worker only when set.
+    p.add_argument("--no_revin",     action="store_true")
+    p.add_argument("--gate_uniform", action="store_true")
 
     # Output / system
     p.add_argument("--results_csv", type=str, default=RESULTS_CSV)

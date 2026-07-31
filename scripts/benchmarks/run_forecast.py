@@ -444,6 +444,9 @@ def parse_args():
     # bottleneck) before the head. OFF by default -> canonical byte-identical.
     p.add_argument("--use_residual_mlp", action="store_true")
     p.add_argument("--mlp_rank",      type=int, default=16)
+    # Robustness diagnostics (2026-07-31): isolate the fragility source.
+    p.add_argument("--no_revin",    dest="use_norm", action="store_false", default=True)
+    p.add_argument("--gate_uniform", dest="use_gate", action="store_false", default=True)
 
     # Training
     p.add_argument("--batch_size",  type=int,   default=32)
