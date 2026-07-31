@@ -28,6 +28,9 @@ declare -A REPOS=(
   ["TQNet/TQNet-main"]="https://github.com/ACAT-SCUT/TQNet.git"
   ["LMS_AutoTSF/LMS_AutoTSF-main"]="https://github.com/mribrahim/LMS-TSF.git"
   ["DiPE_Linear/DiPE_Linear-main"]="https://github.com/wintertee/DiPE-Linear.git"
+  # Edge-tier additions (2026-07-31): MixLinear ICLR'26 (0.1K), CycleNet NeurIPS'24
+  ["MixLinear/MixLinear-main"]="https://github.com/aitianma/MixLinear.git"
+  ["CycleNet/CycleNet-main"]="https://github.com/ACAT-SCUT/CycleNet.git"
   ["MDMLP_EIA/MDMLP_EIA-main"]="https://github.com/zh1985csuccsu/MDMLP-EIA.git"
 )
 

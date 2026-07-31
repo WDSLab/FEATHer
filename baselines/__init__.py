@@ -94,6 +94,37 @@ def _build_mdmlp_eia(args, n_features, seq_len, pred_len):
     return build(args, n_features, seq_len, pred_len)
 
 
+# Classic practitioner baselines (JMS two-tier lineup, 2026-07-15) — the
+# methods shop-floor/PdM engineers actually deploy. Self-contained nn.Modules
+# (no upstream clone). NOT parameter-budget-constrained: they anchor the
+# "practitioner tier" (accurate but not MCU-deployable) against the sub-1K
+# "edge tier". ARIMA / LightGBM / XGBoost are NOT here — they are not
+# gradient-trained nn.Modules and need a separate harness (run_classical.py).
+def _build_lstm(args, n_features, seq_len, pred_len):
+    from baselines.LSTM.wrapper import build
+    return build(args, n_features, seq_len, pred_len)
+
+
+def _build_gru(args, n_features, seq_len, pred_len):
+    from baselines.GRU.wrapper import build
+    return build(args, n_features, seq_len, pred_len)
+
+
+def _build_mixlinear(args, n_features, seq_len, pred_len):
+    from baselines.MixLinear.wrapper import build
+    return build(args, n_features, seq_len, pred_len)
+
+
+def _build_cyclenet(args, n_features, seq_len, pred_len):
+    from baselines.CycleNet.wrapper import build
+    return build(args, n_features, seq_len, pred_len)
+
+
+def _build_tcn(args, n_features, seq_len, pred_len):
+    from baselines.TCN.wrapper import build
+    return build(args, n_features, seq_len, pred_len)
+
+
 # NOTE — deliberately excluded from the benchmark (cite in Related Work only):
 #   S-Mamba: selective-scan CUDA kernels have no Cortex-M / STM32 port.
 #   TimeCMA: frozen GPT-2 features blow past the sub-1K parameter budget by
@@ -113,6 +144,13 @@ _BUILDERS: Dict[str, Callable] = {
     # R4-requested 2025-2026 SOTA — addresses "outdated baselines" critique
     "DiPE_Linear":  _build_dipe_linear,    # DASFAA 2026
     "MDMLP_EIA":    _build_mdmlp_eia,      # AAAI 2026
+    # Edge-tier additions (2026-07-31) — sub-1K / small-deployable competitors
+    "MixLinear":    _build_mixlinear,      # ICLR 2026, ~0.1K params (sub-1K rival)
+    "CycleNet":     _build_cyclenet,       # NeurIPS 2024, learnable cycle
+    # Classic practitioner baselines (JMS, 2026-07-15) — "practitioner tier"
+    "LSTM":         _build_lstm,
+    "GRU":          _build_gru,
+    "TCN":          _build_tcn,
 }
 
 
@@ -210,6 +248,15 @@ _METHOD_DEFAULTS: Dict[str, Dict] = {
     "DiPE_Linear":  {"lr": 1e-3, "loss": "mse"},
     # MDMLP-EIA: run.py default lr=1e-4
     "MDMLP_EIA":    {"lr": 1e-4, "loss": "mse"},
+    # Edge-tier additions (2026-07-31) — placeholder lr (linear-TS typical);
+    # refine from author scripts / lr search before the real sweep.
+    "MixLinear":    {"lr": 1e-2, "loss": "mse"},
+    "CycleNet":     {"lr": 1e-2, "loss": "mse"},
+    # Classic practitioner baselines (JMS, 2026-07-15) — standard Adam+MSE;
+    # per-dataset lr selected later via run_lr_search.py like the others.
+    "LSTM":         {"lr": 1e-3, "loss": "mse"},
+    "GRU":          {"lr": 1e-3, "loss": "mse"},
+    "TCN":          {"lr": 1e-3, "loss": "mse"},
 }
 
 
