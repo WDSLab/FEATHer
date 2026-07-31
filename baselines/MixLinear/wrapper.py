@@ -44,7 +44,7 @@ class _QuietMixLinear(nn.Module):
 
 def build(args, n_features, seq_len, pred_len):
     mod = isolated_import(_REPO, "models.MixLinear")
-    period_len = int(getattr(args, "period_len", 24))
+    period_len = int(getattr(args, "mixlinear_period_len", 24))
     seg_num_x = math.ceil(seq_len / period_len)
     lpf = min(int(getattr(args, "mixlinear_lpf", 15)), seg_num_x)
     cfg = argparse.Namespace(

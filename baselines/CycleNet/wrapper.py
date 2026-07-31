@@ -45,7 +45,7 @@ def build(args, n_features, seq_len, pred_len):
         seq_len=seq_len,
         pred_len=pred_len,
         enc_in=n_features,
-        cycle=int(getattr(args, "cycle", 24)),
+        cycle=int(getattr(args, "cyclenet_cycle", 24)),
         model_type=getattr(args, "cyclenet_model_type", "linear"),
         d_model=int(getattr(args, "d_model", 512)),
         use_revin=bool(getattr(args, "use_revin", True)),

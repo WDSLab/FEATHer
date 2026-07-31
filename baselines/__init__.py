@@ -227,10 +227,11 @@ _METHOD_DEFAULTS: Dict[str, Dict] = {
     "DiPE_Linear":  {"lr": 1e-3, "loss": "mse"},
     # MDMLP-EIA: run.py default lr=1e-4
     "MDMLP_EIA":    {"lr": 1e-4, "loss": "mse"},
-    # Edge-tier additions (2026-07-31) — placeholder lr (linear-TS typical);
-    # refine from author scripts / lr search before the real sweep.
-    "MixLinear":    {"lr": 1e-2, "loss": "mse"},
-    "CycleNet":     {"lr": 1e-2, "loss": "mse"},
+    # Edge-tier additions (2026-07-31) — published script lr (the argparse
+    # default 1e-4 is a fallback every author script overrides): MixLinear
+    # scripts use 0.03, CycleNet scripts use 0.005.
+    "MixLinear":    {"lr": 3e-2, "loss": "mse"},
+    "CycleNet":     {"lr": 5e-3, "loss": "mse"},
 }
 
 
@@ -478,6 +479,38 @@ _DATASET_OVERRIDES: Dict = {
     ("SparseTSF", "EWELD"): {"sparsetsf_period_len": 24},
     ("TQNet", "EWELD"):     {"tqnet_cycle": 96},
     ("FEATHer", "EWELD"):   {"period": 24},
+    # ---- Edge-tier additions (2026-07-31): freq-tied period, same FFT-detected
+    #   rule as every period model. MixLinear period_len == SparseTSF (segment
+    #   length, divisor of seq_len); CycleNet cycle == TQNet (unconstrained
+    #   daily cycle). lr uses each model's published default (_METHOD_DEFAULTS).
+    ("MixLinear", "Steel"):        {"mixlinear_period_len": 24},
+    ("MixLinear", "WindSCADA"):    {"mixlinear_period_len": 48},
+    ("MixLinear", "BlastFurnace"): {"mixlinear_period_len": 48},
+    ("MixLinear", "N2O"):          {"mixlinear_period_len": 24},
+    ("MixLinear", "MetroPT3"):     {"mixlinear_period_len": 24},
+    ("MixLinear", "EWELD"):        {"mixlinear_period_len": 24},
+    ("MixLinear", "ETTh1"):        {"mixlinear_period_len": 24},
+    ("MixLinear", "ETTh2"):        {"mixlinear_period_len": 24},
+    ("MixLinear", "ETTm1"):        {"mixlinear_period_len": 4},
+    ("MixLinear", "ETTm2"):        {"mixlinear_period_len": 4},
+    ("MixLinear", "Weather"):      {"mixlinear_period_len": 4},
+    ("MixLinear", "Exchange"):     {"mixlinear_period_len": 24},
+    ("MixLinear", "Electricity"):  {"mixlinear_period_len": 24},
+    ("MixLinear", "Traffic"):      {"mixlinear_period_len": 24},
+    ("CycleNet", "Steel"):         {"cyclenet_cycle": 96},
+    ("CycleNet", "WindSCADA"):     {"cyclenet_cycle": 144},
+    ("CycleNet", "BlastFurnace"):  {"cyclenet_cycle": 24},
+    ("CycleNet", "N2O"):           {"cyclenet_cycle": 288},
+    ("CycleNet", "MetroPT3"):      {"cyclenet_cycle": 298},
+    ("CycleNet", "EWELD"):         {"cyclenet_cycle": 96},
+    ("CycleNet", "ETTh1"):         {"cyclenet_cycle": 24},
+    ("CycleNet", "ETTh2"):         {"cyclenet_cycle": 24},
+    ("CycleNet", "ETTm1"):         {"cyclenet_cycle": 96},
+    ("CycleNet", "ETTm2"):         {"cyclenet_cycle": 96},
+    ("CycleNet", "Weather"):       {"cyclenet_cycle": 144},
+    ("CycleNet", "Exchange"):      {"cyclenet_cycle": 24},
+    ("CycleNet", "Electricity"):   {"cyclenet_cycle": 168},
+    ("CycleNet", "Traffic"):       {"cyclenet_cycle": 168},
 }
 
 
