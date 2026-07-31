@@ -93,9 +93,13 @@ def load_done_conditions(csv_path, args):
         & (df["train_exp_tag"].astype(str) == str(args.train_exp_tag))
         & (df["model"].astype(str) == str(args.model))
         & (df["data"].astype(str) == str(args.data))
-        & (df["pred_len"].astype(int) == int(args.pred_len))
-        & (df["seq_len"].astype(int) == int(args.seq_len))
-        & (df["seed"].astype(int) == int(args.seed))
+        # to_numeric(coerce): a torn row from a concurrent append (jobs_per_gpu
+        # > 1) leaves NaN in a numeric column; astype(int) on the whole column
+        # would raise IntCastingNaNError. Coercing makes such rows compare False
+        # (excluded from the resume set) instead of crashing the worker.
+        & (pd.to_numeric(df["pred_len"], errors="coerce") == int(args.pred_len))
+        & (pd.to_numeric(df["seq_len"], errors="coerce") == int(args.seq_len))
+        & (pd.to_numeric(df["seed"], errors="coerce") == int(args.seed))
     ]
     return set(zip(sel["fault_type"].astype(str), sel["severity"].astype(float)))
 
