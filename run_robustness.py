@@ -36,20 +36,16 @@ from scripts.benchmarks.run_forecast import checkpoint_path
 # Defaults — mirror run_forecast.py
 DEFAULT_MODELS = list_models()
 
-# JMS robustness is the paper's core sensor-fault story, so it leads with 3
-# manufacturing main-table datasets (Steel energy / WindSCADA wind / EWELD
-# factory-load) and keeps 2 standard-LTSF anchors (ETTh1 canonical, Weather
-# real-sensor) as a cross-domain comparison — "robust on both standard and
-# manufacturing data". EWELD earns its slot: its 5,741 labeled extreme-weather
-# event windows are a REAL distribution shift, so its checkpoints double as the
-# only non-synthetic robustness test (backing up the four synthetic fault axes).
-# 5 datasets x 4 horizons x 5 seeds x 20 conditions keeps the sweep tractable;
-# PdM sets (CMAPSS/CMAPSS3/PMSM, short-horizon) are a revision-time extension.
-# The ETTh1/Weather checkpoints already come from the LTSF main sweep; the 3
-# mfg ones come from the mfg main sweep (both under --save_model).
-# (GasTurbine was removed 2026-07-14; superseded IoT-J set was
-# ETTh1/Weather/Electricity/SML.)
-ROBUSTNESS_DATASETS = ["Steel", "WindSCADA", "EWELD", "ETTh1", "Weather"]
+# JMS robustness = the paper's core sensor-fault story, scoped (2026-07-31) to
+# the 3 manufacturing datasets only (Steel energy / WindSCADA wind / EWELD
+# factory-load). The LTSF anchors (ETTh1/Weather) were dropped — the paper is
+# manufacturing-focused and LTSF predictions are not used. EWELD earns its slot:
+# its 5,741 labeled extreme-weather event windows are a REAL distribution shift,
+# the only non-synthetic robustness test (backing the four synthetic fault axes).
+# (BlastFurnace/N2O/MetroPT3 could extend mfg coverage, but the big-row
+# N2O/MetroPT3 make the sweep heavier — these 3 are the representative set.)
+# Pair with edge-tier models only via `--exclude <ceiling models>`.
+ROBUSTNESS_DATASETS = ["Steel", "WindSCADA", "EWELD"]
 LTSF_PREDS = [96, 192, 336, 720]
 
 DEFAULT_BASE_SEED = 2025
