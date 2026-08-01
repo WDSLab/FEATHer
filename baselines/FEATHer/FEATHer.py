@@ -384,10 +384,22 @@ class FEATHer(nn.Module):
                 mad = 1.4826 * ad.median(1, keepdim=True).values
                 meanad = 1.253 * ad.mean(1, keepdim=True)
                 stdev = torch.where(mad > 1e-6, mad, meanad) + 1e-5
+                # Hard stability backstop: even with the meanAD fallback, ~6% of
+                # real sensor windows have a near-degenerate robust scale (a
+                # channel >50% constant with a few off-values), so (x-median)/scale
+                # can still reach ~1e2 and destabilize training over epochs. The
+                # median/MAD keep normal channels ROBUST; clipping the normalized
+                # signal to +-CLIP bounds the pathological cells by construction
+                # (a fault spike is capped instead of amplified). Denorm below
+                # multiplies back by the same small scale, so a degenerate channel
+                # simply predicts ~its median — the correct behavior.
+                _ROBUST_CLIP = 10.0
             else:
                 means = x.mean(1, keepdim=True).detach()
                 stdev = torch.sqrt(x.var(1, keepdim=True, unbiased=False) + 1e-5)
             x_norm = (x - means) / stdev
+            if self.use_robust_norm:
+                x_norm = x_norm.clamp(-_ROBUST_CLIP, _ROBUST_CLIP)
         else:
             means, stdev = None, None
             x_norm = x
