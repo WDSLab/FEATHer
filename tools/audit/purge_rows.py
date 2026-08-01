@@ -41,6 +41,7 @@ FILTER_COLUMNS = {
     "model":    ("model",    str),
     "data":     ("data",     str),
     "exp_tag":  ("exp_tag",  str),
+    "train_exp_tag": ("train_exp_tag", str),  # robust CSV: arm key (exp_tag there == "robust")
     "pred_len": ("pred_len", int),
     "seed":     ("seed",     int),
 }
@@ -56,6 +57,8 @@ def parse_args():
                    help="Comma-separated dataset name(s) to purge.")
     p.add_argument("--exp_tag",  type=str, default=None,
                    help="Comma-separated exp_tag(s) to purge.")
+    p.add_argument("--train_exp_tag", type=str, default=None,
+                   help="Comma-separated train_exp_tag(s) to purge (robust CSV).")
     p.add_argument("--pred_len", type=str, default=None,
                    help="Comma-separated pred_len value(s) to purge.")
     p.add_argument("--seed",     type=str, default=None,

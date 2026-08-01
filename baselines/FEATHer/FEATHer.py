@@ -370,9 +370,20 @@ class FEATHer(nn.Module):
         if self.use_norm:
             if self.use_robust_norm:
                 # Robust RevIN: median center + 1.4826*MAD scale (see __init__).
+                # MAD is EXACTLY 0 whenever >50% of the window shares one value
+                # (constant / quantized / gap-filled channels — very common: ~38%
+                # of clean Steel channel-windows, 100% under a hold-fill miss
+                # fault), which would divide by ~0 and blow the model up. Iglewicz
+                # & Hoaglin (1993) fallback: where MAD collapses, use 1.253*meanAD
+                # (mean absolute deviation, 0 only for a truly constant channel, in
+                # which case x-median=0 so the ratio is harmless). meanAD stays
+                # more outlier-robust than std (linear, not squared, in the spike).
                 # Same half-RevIN asymmetry as below — center detached, scale not.
                 means = x.median(1, keepdim=True).values.detach()
-                stdev = 1.4826 * (x - means).abs().median(1, keepdim=True).values + 1e-5
+                ad = (x - means).abs()
+                mad = 1.4826 * ad.median(1, keepdim=True).values
+                meanad = 1.253 * ad.mean(1, keepdim=True)
+                stdev = torch.where(mad > 1e-6, mad, meanad) + 1e-5
             else:
                 means = x.mean(1, keepdim=True).detach()
                 stdev = torch.sqrt(x.var(1, keepdim=True, unbiased=False) + 1e-5)
