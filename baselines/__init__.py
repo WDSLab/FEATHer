@@ -39,6 +39,7 @@ def _build_feather(args, n_features, seq_len, pred_len):
         mlp_rank=getattr(args, "mlp_rank", 16),
         use_gate=getattr(args, "use_gate", True),
         use_robust_norm=getattr(args, "use_robust_norm", False),
+        revin_mode=getattr(args, "revin_mode", None),
     )
 
 

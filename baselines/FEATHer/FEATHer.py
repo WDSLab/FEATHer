@@ -248,6 +248,7 @@ class FEATHer(nn.Module):
         mlp_rank: int = 16,
         use_gate: bool = True,
         use_robust_norm: bool = False,
+        revin_mode: str = None,
     ):
         super().__init__()
 
@@ -271,18 +272,34 @@ class FEATHer(nn.Module):
         # the source of FEATHer's robustness fragility. ON by default (canonical).
         self.use_gate = use_gate
 
-        # Robust instance-norm toggle (2026-08-01). When True (and use_norm is
-        # also True), the RevIN center/scale statistics are computed with the
-        # median / MAD instead of the mean / std. The 2026-07-31 diagnosis
-        # showed FEATHer's robustness fragility comes from RevIN: an impulse in
-        # the corrupted window inflates mean/std, and that corrupted scale is
-        # used for BOTH normalization and denormalization, amplifying the error.
-        # Median/MAD have a 50% breakdown point, so a fault spike barely moves
-        # them. Scaling MAD by 1.4826 makes it a consistent estimator of stdev
-        # for Gaussian data, so clean-data behavior stays close to standard
-        # RevIN while corruption is rejected. Adds ZERO parameters (statistics
-        # only) — canonical model byte-identical when OFF. Ignored if use_norm
-        # is False (--no_revin removes normalization entirely and wins).
+        # Instance-norm variant selector (2026-08-01/02). All variants add ZERO
+        # parameters (statistics only) — "standard" is byte-identical canonical.
+        # Ignored entirely when use_norm is False (--no_revin).
+        #
+        #   "standard"  canonical RevIN: window mean/std, norm + denorm.
+        #   "mad"       median / 1.4826*MAD (+meanAD fallback, +-10 clamp).
+        #               KEPT ONLY as the negative-result ablation arm: under a
+        #               mass zero-fill miss fault the median hits its 50%
+        #               breakdown (flips to the fill value) -> Dw explodes
+        #               (Steel miss@0.5 Dw 4.6 vs 1.6 standard), and the noisier
+        #               order statistics also hurt clean MSE. Matches R2-IN
+        #               (arXiv:2510.04667) evaluated only on natural outliers.
+        #   "winsor"    winsorize the window to +-_WINSOR_BOUND, then the usual
+        #               mean/std on the CLIPPED copy (bounded influence: a spike
+        #               contributes at most the bound; zero-fill degrades
+        #               gracefully like the mean — no breakdown jump).
+        #   "center"    winsorized-mean CENTERING ONLY — no window scale at all
+        #               (x_norm = clip(x)-mean; denorm adds the mean back).
+        #               Rationale (2026-08-01 fault-axis fingerprint): gauss/
+        #               impulse/miss all corrupt the window std, which multiplies
+        #               errors in BOTH norm and denorm (quant, which leaves std
+        #               alone, shows Dw=1.0). Freezing scale at the train-time
+        #               Scaler removes the multiplicative path; window adaptation
+        #               keeps only the level term nonstationary data needs.
+        if revin_mode is None:
+            revin_mode = "mad" if use_robust_norm else "standard"
+        assert revin_mode in ("standard", "mad", "winsor", "center"), revin_mode
+        self.revin_mode = revin_mode
         self.use_robust_norm = use_robust_norm
 
         # Input projection
@@ -368,38 +385,36 @@ class FEATHer(nn.Module):
         # them, for no expected gain. If the paper's method section ever
         # describes this as standard RevIN, reword the paper, not this code.
         if self.use_norm:
-            if self.use_robust_norm:
-                # Robust RevIN: median center + 1.4826*MAD scale (see __init__).
-                # MAD is EXACTLY 0 whenever >50% of the window shares one value
-                # (constant / quantized / gap-filled channels — very common: ~38%
-                # of clean Steel channel-windows, 100% under a hold-fill miss
-                # fault), which would divide by ~0 and blow the model up. Iglewicz
-                # & Hoaglin (1993) fallback: where MAD collapses, use 1.253*meanAD
-                # (mean absolute deviation, 0 only for a truly constant channel, in
-                # which case x-median=0 so the ratio is harmless). meanAD stays
-                # more outlier-robust than std (linear, not squared, in the spike).
-                # Same half-RevIN asymmetry as below — center detached, scale not.
+            mode = self.revin_mode
+            if mode == "mad":
+                # Negative-result ablation arm (see __init__). Median center +
+                # MAD scale with the Iglewicz-Hoaglin meanAD fallback (MAD is
+                # exactly 0 whenever >50% of the window shares one value) and a
+                # +-10 clamp backstop (near-degenerate scales still reach ~1e2).
                 means = x.median(1, keepdim=True).values.detach()
                 ad = (x - means).abs()
                 mad = 1.4826 * ad.median(1, keepdim=True).values
                 meanad = 1.253 * ad.mean(1, keepdim=True)
                 stdev = torch.where(mad > 1e-6, mad, meanad) + 1e-5
-                # Hard stability backstop: even with the meanAD fallback, ~6% of
-                # real sensor windows have a near-degenerate robust scale (a
-                # channel >50% constant with a few off-values), so (x-median)/scale
-                # can still reach ~1e2 and destabilize training over epochs. The
-                # median/MAD keep normal channels ROBUST; clipping the normalized
-                # signal to +-CLIP bounds the pathological cells by construction
-                # (a fault spike is capped instead of amplified). Denorm below
-                # multiplies back by the same small scale, so a degenerate channel
-                # simply predicts ~its median — the correct behavior.
-                _ROBUST_CLIP = 10.0
-            else:
+                x_norm = ((x - means) / stdev).clamp(-10.0, 10.0)
+            elif mode in ("winsor", "center"):
+                # Bounded-influence statistics: winsorize the window (data is
+                # train-Scaler standardized, so +-4 = "beyond 4 train-sigmas is
+                # not a plausible sensor value"), then plain mean(/std) on the
+                # clipped copy. The model consumes the clipped window too, so a
+                # fault spike enters the signal path capped at the bound.
+                xw = x.clamp(-4.0, 4.0)
+                means = xw.mean(1, keepdim=True).detach()
+                if mode == "winsor":
+                    stdev = torch.sqrt(xw.var(1, keepdim=True, unbiased=False) + 1e-5)
+                    x_norm = (xw - means) / stdev
+                else:  # "center": no window scale — see __init__ rationale.
+                    stdev = None
+                    x_norm = xw - means
+            else:  # "standard" — canonical RevIN, byte-identical.
                 means = x.mean(1, keepdim=True).detach()
                 stdev = torch.sqrt(x.var(1, keepdim=True, unbiased=False) + 1e-5)
-            x_norm = (x - means) / stdev
-            if self.use_robust_norm:
-                x_norm = x_norm.clamp(-_ROBUST_CLIP, _ROBUST_CLIP)
+                x_norm = (x - means) / stdev
         else:
             means, stdev = None, None
             x_norm = x
@@ -467,9 +482,10 @@ class FEATHer(nn.Module):
         # Forecasting head
         y = self.sparse_head(hidden)  # (B, pred_len, D)
 
-        # Denormalization
+        # Denormalization ("center" mode has no window scale — additive only)
         if self.use_norm:
-            y = y * stdev[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1)
+            if stdev is not None:
+                y = y * stdev[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1)
             y = y + means[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1)
 
         if return_components:

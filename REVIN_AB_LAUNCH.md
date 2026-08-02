@@ -84,6 +84,38 @@ its clean MSE ≥ mlp16 / not worse than norevin — especially on EWELD if remo
 hurts clean there. `--robust_revin` MUST be present in BOTH the train and the
 robustness command for a given arm (else eval forward diverges from training).
 
+## STEP 1d/2d — winsor / center arms (2026-08-02, the mechanism-targeted fixes)
+After `git pull` (needs `--revin_mode`). Background: the mad arm (median/MAD =
+R2-IN, arXiv:2510.04667) FAILED — median 50% breakdown under zero-fill miss
+(Steel miss@0.5 Dw 4.6) + worse clean everywhere. Fault-axis fingerprint says
+the real amplifier is the WINDOW SCALE multiplicative path (gauss/impulse/miss
+all corrupt std; quant leaves it alone and shows Dw=1.0). Hence:
+  winsor = clip window to +-4 then usual mean/std  (fixes stats corruption only)
+  center = winsorized-mean centering, NO window scale (kills the multiplicative
+           path entirely — predicted winner incl. gauss)
+winsor-vs-center delta = clean ablation of the multiplicative-path hypothesis.
+
+```bash
+# --- train + ckpt -> feather_mlp_ab.csv ---
+python run_forecast.py --model FEATHer --data Steel     --exp_tag feather_mlp_winsor --results_csv results/feather_mlp_ab.csv --use_residual_mlp --mlp_rank 16 --revin_mode winsor --num_seeds 3 --save_model --ngpu 1 --jobs_per_gpu 4
+python run_forecast.py --model FEATHer --data WindSCADA --exp_tag feather_mlp_winsor --results_csv results/feather_mlp_ab.csv --use_residual_mlp --mlp_rank 16 --revin_mode winsor --num_seeds 3 --save_model --ngpu 1 --jobs_per_gpu 4
+python run_forecast.py --model FEATHer --data EWELD     --exp_tag feather_mlp_winsor --results_csv results/feather_mlp_ab.csv --use_residual_mlp --mlp_rank 16 --revin_mode winsor --num_seeds 3 --save_model --ngpu 1 --jobs_per_gpu 4
+python run_forecast.py --model FEATHer --data Steel     --exp_tag feather_mlp_center --results_csv results/feather_mlp_ab.csv --use_residual_mlp --mlp_rank 16 --revin_mode center --num_seeds 3 --save_model --ngpu 1 --jobs_per_gpu 4
+python run_forecast.py --model FEATHer --data WindSCADA --exp_tag feather_mlp_center --results_csv results/feather_mlp_ab.csv --use_residual_mlp --mlp_rank 16 --revin_mode center --num_seeds 3 --save_model --ngpu 1 --jobs_per_gpu 4
+python run_forecast.py --model FEATHer --data EWELD     --exp_tag feather_mlp_center --results_csv results/feather_mlp_ab.csv --use_residual_mlp --mlp_rank 16 --revin_mode center --num_seeds 3 --save_model --ngpu 1 --jobs_per_gpu 4
+
+# --- robustness -> robust_mlp_ab.csv (flags MUST mirror training) ---
+python run_robustness.py --model FEATHer --data Steel     --train_exp_tag feather_mlp_winsor --exp_tag robust --results_csv results/robust_mlp_ab.csv --use_residual_mlp --mlp_rank 16 --revin_mode winsor --jobs_per_gpu 4
+python run_robustness.py --model FEATHer --data WindSCADA --train_exp_tag feather_mlp_winsor --exp_tag robust --results_csv results/robust_mlp_ab.csv --use_residual_mlp --mlp_rank 16 --revin_mode winsor --jobs_per_gpu 4
+python run_robustness.py --model FEATHer --data EWELD     --train_exp_tag feather_mlp_winsor --exp_tag robust --results_csv results/robust_mlp_ab.csv --use_residual_mlp --mlp_rank 16 --revin_mode winsor --jobs_per_gpu 4
+python run_robustness.py --model FEATHer --data Steel     --train_exp_tag feather_mlp_center --exp_tag robust --results_csv results/robust_mlp_ab.csv --use_residual_mlp --mlp_rank 16 --revin_mode center --jobs_per_gpu 4
+python run_robustness.py --model FEATHer --data WindSCADA --train_exp_tag feather_mlp_center --exp_tag robust --results_csv results/robust_mlp_ab.csv --use_residual_mlp --mlp_rank 16 --revin_mode center --jobs_per_gpu 4
+python run_robustness.py --model FEATHer --data EWELD     --train_exp_tag feather_mlp_center --exp_tag robust --results_csv results/robust_mlp_ab.csv --use_residual_mlp --mlp_rank 16 --revin_mode center --jobs_per_gpu 4
+```
+Success = center: Steel Dw 1.20 -> ~1.05 (rival level, incl gauss), EWELD clean
+<= 0.53 (mlp16 level), WindSCADA no regression. winsor expected to fix impulse
+but NOT gauss — if so, that contrast is the multiplicative-path evidence.
+
 ## STEP 3 — verdict
 ```bash
 PYTHONUTF8=1 python tools/audit/revin_ab_summary.py

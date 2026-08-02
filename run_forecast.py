@@ -344,6 +344,8 @@ def dispatch(missing, args):
             cmd += ["--gate_uniform"]
         if args.robust_revin:
             cmd += ["--robust_revin"]
+        if args.revin_mode:
+            cmd += ["--revin_mode", args.revin_mode]
         jobs.append((label, cmd))
 
     failed = run_on_gpus(jobs, args.ngpu, base_gpu=args.gpu,
@@ -423,6 +425,8 @@ def main():
     p.add_argument("--no_revin",     action="store_true")
     p.add_argument("--gate_uniform", action="store_true")
     p.add_argument("--robust_revin", action="store_true")
+    p.add_argument("--revin_mode", type=str, default=None,
+                   choices=["standard", "mad", "winsor", "center"])
 
     # Output / system
     p.add_argument("--results_csv", type=str, default=RESULTS_CSV)

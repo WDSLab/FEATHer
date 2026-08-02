@@ -237,6 +237,8 @@ def dispatch(combos, done, args, fault_types):
             cmd += ["--gate_uniform"]
         if args.robust_revin:
             cmd += ["--robust_revin"]
+        if args.revin_mode:
+            cmd += ["--revin_mode", args.revin_mode]
         if overrides_str:
             cmd += ["--model_overrides", overrides_str]
         if args.fault_types:
@@ -296,6 +298,8 @@ def main():
     p.add_argument("--no_revin",     action="store_true")
     p.add_argument("--gate_uniform", action="store_true")
     p.add_argument("--robust_revin", action="store_true")
+    p.add_argument("--revin_mode", type=str, default=None,
+                   choices=["standard", "mad", "winsor", "center"])
 
     p.add_argument("--check", action="store_true",
                    help="Print status without dispatching")

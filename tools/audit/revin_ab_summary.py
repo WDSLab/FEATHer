@@ -27,7 +27,8 @@ import argparse, os
 import pandas as pd
 
 ARMS = ["feather_base", "feather_mlp16", "feather_mlp_gateoff",
-        "feather_mlp_norevin", "feather_mlp_robustrevin"]
+        "feather_mlp_norevin", "feather_mlp_robustrevin",
+        "feather_mlp_winsor", "feather_mlp_center"]
 DEFAULT_DIR = r"C:\Users\lee\Dropbox\WDSLab\05. 실험\FEATHer\results"
 
 
