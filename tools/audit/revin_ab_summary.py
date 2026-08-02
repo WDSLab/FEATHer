@@ -28,7 +28,8 @@ import pandas as pd
 
 ARMS = ["feather_base", "feather_mlp16", "feather_mlp_gateoff",
         "feather_mlp_norevin", "feather_mlp_robustrevin",
-        "feather_mlp_winsor", "feather_mlp_center"]
+        "feather_mlp_winsor", "feather_mlp_center",
+        "feather_mlp_center_b25", "feather_mlp_center_t05"]
 DEFAULT_DIR = r"C:\Users\lee\Dropbox\WDSLab\05. 실험\FEATHer\results"
 
 
@@ -53,6 +54,8 @@ def main():
     print("ROBUST Dw  (robust_mlp_ab.csv; mean over faults x severities, drop clean)")
     print("=" * 66)
     rr = rob[rob.get("fault_type", "clean") != "clean"].copy()
+    # concurrent-append torn rows leave NaNs in key columns — drop them
+    rr = rr.dropna(subset=["data", "train_exp_tag", "fault_type", "Dw"])
     dw = (rr.groupby(["data", "train_exp_tag"])
             .agg(n=("Dw", "size"), Dw=("Dw", "mean")).round(4))
     print(dw)

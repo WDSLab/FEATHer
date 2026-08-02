@@ -452,6 +452,8 @@ def parse_args():
     # Instance-norm variant (2026-08-02): winsorized full RevIN vs center-only.
     p.add_argument("--revin_mode", type=str, default=None,
                    choices=["standard", "mad", "winsor", "center"])
+    p.add_argument("--winsor_bound", type=float, default=None)
+    p.add_argument("--center_trim",  type=float, default=None)
 
     # Training
     p.add_argument("--batch_size",  type=int,   default=32)

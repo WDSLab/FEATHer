@@ -312,6 +312,8 @@ def parse_args():
     p.add_argument("--robust_revin", dest="use_robust_norm", action="store_true", default=False)
     p.add_argument("--revin_mode", type=str, default=None,
                    choices=["standard", "mad", "winsor", "center"])
+    p.add_argument("--winsor_bound", type=float, default=None)
+    p.add_argument("--center_trim",  type=float, default=None)
 
     # Per-(model, dataset) HP injection — MUST mirror the training-time merge
     # or per-dataset architectures (FEATHer period/d_state, sparsetsf_period_len,

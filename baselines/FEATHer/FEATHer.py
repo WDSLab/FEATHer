@@ -249,6 +249,8 @@ class FEATHer(nn.Module):
         use_gate: bool = True,
         use_robust_norm: bool = False,
         revin_mode: str = None,
+        winsor_bound: float = 4.0,
+        center_trim: float = 0.0,
     ):
         super().__init__()
 
@@ -301,6 +303,19 @@ class FEATHer(nn.Module):
         assert revin_mode in ("standard", "mad", "winsor", "center"), revin_mode
         self.revin_mode = revin_mode
         self.use_robust_norm = use_robust_norm
+        # Knobs for the winsor/center statistics (2026-08-02 Steel-residual
+        # probes; defaults reproduce the first winsor/center arms exactly):
+        #   winsor_bound  clip range in train-Scaler sigmas. The impulse fault
+        #                 injects ~3-sigma spikes, so the default 4.0 leaves
+        #                 them UNclipped (measured: winsor arm ~= standard Dw);
+        #                 2.5 actually caps them.
+        #   center_trim   symmetric trimmed-mean fraction for the center
+        #                 estimate (0.05 = drop top+bottom 5% of the window
+        #                 before averaging). Removes <=5%-rate spikes from the
+        #                 center entirely; under mass zero-fill it degrades
+        #                 gracefully like the mean (no median-style flip).
+        self.winsor_bound = float(winsor_bound)
+        self.center_trim = float(center_trim)
 
         # Input projection
         self.in_proj = nn.Linear(d_model, d_model)
@@ -403,8 +418,15 @@ class FEATHer(nn.Module):
                 # not a plausible sensor value"), then plain mean(/std) on the
                 # clipped copy. The model consumes the clipped window too, so a
                 # fault spike enters the signal path capped at the bound.
-                xw = x.clamp(-4.0, 4.0)
-                means = xw.mean(1, keepdim=True).detach()
+                xw = x.clamp(-self.winsor_bound, self.winsor_bound)
+                if self.center_trim > 0:
+                    # Symmetric trimmed mean along time: sort, drop k lowest +
+                    # k highest, average the rest (k = trim fraction * L).
+                    k = int(round(self.center_trim * L))
+                    xs, _ = torch.sort(xw, dim=1)
+                    means = xs[:, k:L - k, :].mean(1, keepdim=True).detach()
+                else:
+                    means = xw.mean(1, keepdim=True).detach()
                 if mode == "winsor":
                     stdev = torch.sqrt(xw.var(1, keepdim=True, unbiased=False) + 1e-5)
                     x_norm = (xw - means) / stdev
