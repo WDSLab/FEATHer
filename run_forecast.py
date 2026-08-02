@@ -350,6 +350,8 @@ def dispatch(missing, args):
             cmd += ["--winsor_bound", str(args.winsor_bound)]
         if args.center_trim is not None:
             cmd += ["--center_trim", str(args.center_trim)]
+        if args.channel_mode:
+            cmd += ["--channel_mode", args.channel_mode]
         jobs.append((label, cmd))
 
     failed = run_on_gpus(jobs, args.ngpu, base_gpu=args.gpu,
@@ -433,6 +435,8 @@ def main():
                    choices=["standard", "mad", "winsor", "center"])
     p.add_argument("--winsor_bound", type=float, default=None)
     p.add_argument("--center_trim",  type=float, default=None)
+    p.add_argument("--channel_mode", type=str, default=None,
+                   choices=["mix", "ci_full"])
 
     # Output / system
     p.add_argument("--results_csv", type=str, default=RESULTS_CSV)

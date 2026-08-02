@@ -243,6 +243,8 @@ def dispatch(combos, done, args, fault_types):
             cmd += ["--winsor_bound", str(args.winsor_bound)]
         if args.center_trim is not None:
             cmd += ["--center_trim", str(args.center_trim)]
+        if args.channel_mode:
+            cmd += ["--channel_mode", args.channel_mode]
         if overrides_str:
             cmd += ["--model_overrides", overrides_str]
         if args.fault_types:
@@ -306,6 +308,8 @@ def main():
                    choices=["standard", "mad", "winsor", "center"])
     p.add_argument("--winsor_bound", type=float, default=None)
     p.add_argument("--center_trim",  type=float, default=None)
+    p.add_argument("--channel_mode", type=str, default=None,
+                   choices=["mix", "ci_full"])
 
     p.add_argument("--check", action="store_true",
                    help="Print status without dispatching")

@@ -251,6 +251,7 @@ class FEATHer(nn.Module):
         revin_mode: str = None,
         winsor_bound: float = 4.0,
         center_trim: float = 0.0,
+        channel_mode: str = "mix",
     ):
         super().__init__()
 
@@ -317,8 +318,24 @@ class FEATHer(nn.Module):
         self.winsor_bound = float(winsor_bound)
         self.center_trim = float(center_trim)
 
+        # Channel handling (2026-08-02). "mix" = canonical (in_proj D->D and DTK
+        # D->d_state->D both MIX channels; params grow ~D^2, and D=28 gets
+        # compressed into an 8-dim latent -> the high-channel accuracy gap vs
+        # DLinear). "ci_full" = channel-independent: the forward folds
+        # (B,L,D)->(B*D,L,1) so every layer sees ONE channel (weights shared
+        # across channels, no cross-channel info), rebuilding all sub-modules at
+        # width 1. Effect: params become D-INDEPENDENT (BlastFurnace D=28
+        # 2274->~970, sub-1K restored), matches the DLinear/SparseTSF channel
+        # strategy, and a corrupted channel can't leak into others (robustness
+        # bonus). Risk: low-channel data (Steel D=6) may benefit from mixing, so
+        # this is an A/B, not a default. OFF ("mix") = canonical byte-identical.
+        assert channel_mode in ("mix", "ci_full"), channel_mode
+        self.channel_mode = channel_mode
+        eff_d = 1 if channel_mode == "ci_full" else d_model
+        self.eff_d = eff_d
+
         # Input projection
-        self.in_proj = nn.Linear(d_model, d_model)
+        self.in_proj = nn.Linear(eff_d, eff_d)
 
         # Optional nonlinear residual MLP (channel-axis low-rank bottleneck),
         # applied to the gated representation just before the forecasting head:
@@ -328,19 +345,19 @@ class FEATHer(nn.Module):
         # the capacity A/B experiment (2026-07-31). This is FEATHer's first
         # pointwise nonlinearity in the signal path (otherwise linear+gating).
         if use_residual_mlp:
-            self.nl_down = nn.Linear(d_model, mlp_rank)
-            self.nl_up = nn.Linear(mlp_rank, d_model)
+            self.nl_down = nn.Linear(eff_d, mlp_rank)
+            self.nl_up = nn.Linear(mlp_rank, eff_d)
 
         # Multi-band 1D Conv decomposition
         # POINT: kernel=1, captures high-frequency details
         self.conv_point = nn.Conv1d(
-            d_model, d_model, kernel_size=1, padding=0, groups=d_model
+            eff_d, eff_d, kernel_size=1, padding=0, groups=eff_d
         )
 
         # HIGH: kernel=3 (only when num_bands == 4)
         if num_bands == 4:
             self.conv_high = nn.Conv1d(
-                d_model, d_model, kernel_size=3, padding=1, groups=d_model
+                eff_d, eff_d, kernel_size=3, padding=1, groups=eff_d
             )
         else:
             self.conv_high = None
@@ -348,7 +365,7 @@ class FEATHer(nn.Module):
         # MID: kernel=5 (when num_bands >= 3)
         if num_bands >= 3:
             self.conv_mid = nn.Conv1d(
-                d_model, d_model, kernel_size=5, padding=2, groups=d_model
+                eff_d, eff_d, kernel_size=5, padding=2, groups=eff_d
             )
         else:
             self.conv_mid = None
@@ -358,7 +375,7 @@ class FEATHer(nn.Module):
 
         # Shared temporal kernel
         self.dense_kernel = DenseTemporalKernel(
-            d_model=d_model,
+            d_model=eff_d,
             d_state=d_state,
             kernel_size=kernel_size
         )
@@ -374,7 +391,7 @@ class FEATHer(nn.Module):
         self.sparse_head = SparsePeriodKernel(
             seq_len=seq_len,
             pred_len=pred_len,
-            d_model=d_model,
+            d_model=eff_d,
             period=period,
         )
 
@@ -390,6 +407,13 @@ class FEATHer(nn.Module):
         """
         B, L, D = x.size()
         assert L == self.seq_len, f"Expected seq_len={self.seq_len}, got {L}"
+
+        # Channel-independent mode: fold channels into the batch so every layer
+        # (built at width 1) sees one univariate series. Normalization below then
+        # runs per (sample, channel), which is the correct instance norm anyway.
+        ci = self.channel_mode == "ci_full"
+        if ci:
+            x = x.permute(0, 2, 1).reshape(B * D, L, 1)
 
         # Instance normalization.
         # DELIBERATE asymmetry (audit P3, decided 2026-07-14): `means` is
@@ -490,9 +514,9 @@ class FEATHer(nn.Module):
             if self.use_topk_gate:
                 g = sparse_topk_gate(g, k=self.topk)
         else:
-            g = x_norm.new_full((B, self.num_bands), 1.0 / self.num_bands)
+            g = x_norm.new_full((x_norm.size(0), self.num_bands), 1.0 / self.num_bands)
 
-        g_expanded = g.view(B, self.num_bands, 1, 1)
+        g_expanded = g.view(-1, self.num_bands, 1, 1)
         hidden = (g_expanded * bands).sum(dim=1)  # (B, L, D)
 
         # Optional nonlinear residual refinement (channel-axis bottleneck),
@@ -509,6 +533,10 @@ class FEATHer(nn.Module):
             if stdev is not None:
                 y = y * stdev[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1)
             y = y + means[:, 0, :].unsqueeze(1).repeat(1, self.pred_len, 1)
+
+        # Unfold channels back: (B*D, pred_len, 1) -> (B, pred_len, D)
+        if ci:
+            y = y.reshape(B, D, self.pred_len).permute(0, 2, 1)
 
         if return_components:
             H = torch.stack(bands_list, dim=0)  # (num_bands, B, L, D)

@@ -454,6 +454,8 @@ def parse_args():
                    choices=["standard", "mad", "winsor", "center"])
     p.add_argument("--winsor_bound", type=float, default=None)
     p.add_argument("--center_trim",  type=float, default=None)
+    p.add_argument("--channel_mode", type=str, default=None,
+                   choices=["mix", "ci_full"])
 
     # Training
     p.add_argument("--batch_size",  type=int,   default=32)

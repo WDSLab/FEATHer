@@ -42,6 +42,7 @@ def _build_feather(args, n_features, seq_len, pred_len):
         revin_mode=getattr(args, "revin_mode", None),
         winsor_bound=getattr(args, "winsor_bound", None) or 4.0,
         center_trim=getattr(args, "center_trim", None) or 0.0,
+        channel_mode=getattr(args, "channel_mode", None) or "mix",
     )
 
 

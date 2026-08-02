@@ -314,6 +314,8 @@ def parse_args():
                    choices=["standard", "mad", "winsor", "center"])
     p.add_argument("--winsor_bound", type=float, default=None)
     p.add_argument("--center_trim",  type=float, default=None)
+    p.add_argument("--channel_mode", type=str, default=None,
+                   choices=["mix", "ci_full"])
 
     # Per-(model, dataset) HP injection — MUST mirror the training-time merge
     # or per-dataset architectures (FEATHer period/d_state, sparsetsf_period_len,
