@@ -130,6 +130,13 @@ def train_single(args, data_name, pred_len, device, seed):
     df, freq, embed = data_factory.data_select(data_name, args.root_path)
     n_features = df.shape[1] - 1
 
+    # Lookback fix (2026-08-03): label_len must be <= seq_len, else __getitem__'s
+    # r_begin = index + seq_len - label_len goes negative for early indices,
+    # producing empty [0, D] target windows that crash the DataLoader collate.
+    # Default label_len=96 breaks the short-lookback sweep (seq_len=48). No-op at
+    # seq_len>=96 (byte-identical main/L192/L336). Edge models ignore label_len.
+    args.label_len = min(args.label_len, args.seq_len)
+
     train_data, train_loader = data_factory.data_provider(
         args.root_path, data_name, args.features, args.batch_size,
         args.seq_len, args.label_len, pred_len, "train",
