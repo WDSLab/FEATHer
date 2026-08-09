@@ -120,6 +120,8 @@ def dispatch(missing, args):
             "--channel_mode", "ci_full",
             "--use_residual_mlp",
             "--mlp_rank", str(FIXED["mlp_rank"]),
+            # epoch-oracle ceiling (min-over-epochs test MSE, "<tag>_oracle" row)
+            "--oracle_test",
         ]
         jobs.append((label, cmd))
 
@@ -138,12 +140,14 @@ def summarize(args):
     if df.empty:
         print("No CINgrid_* rows yet.")
         return
+    orc = df[df.exp_tag.str.endswith("_oracle")]     # epoch-oracle rows
+    reg = df[~df.exp_tag.str.endswith("_oracle")]    # honest val-protocol rows
     base_tag = _tag(BASE_CONFIG)
     full = len(args.preds) * len(args.seed_list)
 
     print("\n########## per-dataset best (LTSF = val-selected is REPORTED) ##########")
     for d in args.datasets:
-        sub = df[(df.data == d) & (df.pred_len.isin(args.preds))]
+        sub = reg[(reg.data == d) & (reg.pred_len.isin(args.preds))]
         if sub.empty:
             continue
         g = sub.groupby("exp_tag").agg(
@@ -164,6 +168,17 @@ def summarize(args):
               f"testMSE={ceil.mse:.4f}  par={int(ceil.par)}")
         if not brow.empty:
             print(f"  base d8/k7/B3         : testMSE={brow.iloc[0].mse:.4f}")
+        # epoch-oracle ceiling (legacy FASTer-style min-over-epochs, diagnostic)
+        so = orc[(orc.data == d) & (orc.pred_len.isin(args.preds))]
+        if len(so):
+            go = so.groupby("exp_tag").agg(mse=("MSE", "mean"),
+                                           n=("MSE", "size")).reset_index()
+            goc = go[go["n"] >= full]
+            if len(goc):
+                ob = goc.sort_values("mse").iloc[0]
+                print(f"  EPOCH-ORACLE ceiling  : "
+                      f"{ob.exp_tag.replace('CINgrid_','').replace('_oracle',''):<12} "
+                      f"testMSE={ob.mse:.4f}  [diagnostic, test-peeking]")
 
 
 def main():
@@ -173,10 +188,14 @@ def main():
     p.add_argument("--seeds", type=str, default=",".join(str(s) for s in SEARCH_SEEDS))
     p.add_argument("--seq_len", type=int, default=96)
     p.add_argument("--num_epochs", type=int, default=50)
-    p.add_argument("--patience", type=int, default=10)
+    # patience == num_epochs -> NO early stop (full legacy-style sweep so the
+    # epoch-oracle explores all 50 epochs, like old FASTer).
+    p.add_argument("--patience", type=int, default=50)
     p.add_argument("--batch_size", type=int, default=32)
     p.add_argument("--loss", type=str, default="mse", choices=["l1", "mse"])
-    p.add_argument("--results_csv", type=str, default="results/feather_CIN_grid.csv")
+    # fresh CSV (_o) — old feather_CIN_grid.csv rows were patience-10/no-oracle,
+    # must not mix with the full-sweep oracle runs.
+    p.add_argument("--results_csv", type=str, default="results/feather_CIN_grid_o.csv")
     p.add_argument("--ngpu", type=int, default=1)
     p.add_argument("--jobs_per_gpu", type=int, default=4)
     p.add_argument("--gpu", type=int, default=0)
