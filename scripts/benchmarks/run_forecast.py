@@ -192,6 +192,13 @@ def train_single(args, data_name, pred_len, device, seed):
     best_epoch = 0
     patience_left = args.patience
 
+    # --oracle_test (diagnostic, opt-in): min-over-epochs TEST MSE, the legacy
+    # FASTer selection (no val, best test epoch). Ceiling probe ONLY — test
+    # peeking, never reportable. Recorded as a second "<exp_tag>_oracle" row.
+    oracle_mse = float("inf")
+    oracle_mae = float("nan")
+    oracle_epoch = -1
+
     for epoch in range(args.num_epochs):
         # ---------- Train ----------
         model.train()
@@ -253,6 +260,31 @@ def train_single(args, data_name, pred_len, device, seed):
         # best_val, and lets the P2-5 "no finite val_loss" guard pass on a
         # degenerate (NaN-weight) model. NaN keeps best_state None -> P2-5 fails.
         val_loss = val_sum / val_cnt if val_cnt > 0 else float("nan")
+
+        # ---------- Oracle test probe (diagnostic, opt-in) ----------
+        # NOTE: with early stopping active the probe only sees epochs up to the
+        # stop; pass --patience == --num_epochs for the full legacy-style sweep.
+        if args.oracle_test:
+            o_se = o_ae = 0.0
+            o_n = 0
+            with torch.no_grad():
+                for batch_x, batch_y, _, _ in test_loader:
+                    batch_x = batch_x.float().to(device)
+                    batch_y = batch_y.float().to(device)
+                    output = model(batch_x[:, :, :n_features])
+                    y_true = batch_y[:, :, :n_features][:, -pred_len:].cpu().numpy()
+                    y_pred = output[:, -pred_len:].cpu().numpy()
+                    diff = y_pred - y_true          # NaN where target imputed
+                    fin = np.isfinite(diff)
+                    o_se += float(np.sum(diff[fin] ** 2))
+                    o_ae += float(np.sum(np.abs(diff[fin])))
+                    o_n += int(fin.sum())
+            if o_n > 0:
+                o_mse = o_se / o_n
+                if np.isfinite(o_mse) and o_mse < oracle_mse:
+                    oracle_mse = o_mse
+                    oracle_mae = o_ae / o_n
+                    oracle_epoch = epoch
 
         if np.isfinite(val_loss) and val_loss < best_val:
             best_val = val_loss
@@ -366,6 +398,23 @@ def train_single(args, data_name, pred_len, device, seed):
     }
     append_result_row(args.results_csv, row)
 
+    # Diagnostic oracle row (same schema, "<exp_tag>_oracle") — min-over-epochs
+    # test MSE, the legacy FASTer-style ceiling. CORR/R2 not tracked per epoch.
+    if args.oracle_test and np.isfinite(oracle_mse):
+        orow = dict(row)
+        orow.update({
+            "exp_tag":    args.exp_tag + "_oracle",
+            "MSE":        round(float(oracle_mse), 6),
+            "MAE":        round(float(oracle_mae), 6),
+            "RMSE":       round(float(np.sqrt(oracle_mse)), 6),
+            "CORR":       float("nan"),
+            "R2":         float("nan"),
+            "best_epoch": int(oracle_epoch),
+        })
+        append_result_row(args.results_csv, orow)
+        print(f"  -> ORACLE (min-over-epochs test, ep {oracle_epoch+1}): "
+              f"MSE={oracle_mse:.4f} [diagnostic only — test peeking]")
+
     # Optional: deterministic checkpoint for downstream robustness eval.
     # The model currently holds the best-val state, so the saved checkpoint
     # is exactly the model whose test metrics were just reported.
@@ -477,6 +526,11 @@ def parse_args():
     # optimizer recipe (AdamW + weight_decay 1e-4 + lr 1e-2).
     p.add_argument("--optimizer",    type=str,   default="adam", choices=["adam", "adamw"])
     p.add_argument("--weight_decay", type=float, default=0.0)
+    # Oracle probe (2026-08-09): min-over-epochs TEST MSE — the legacy FASTer
+    # selection. DIAGNOSTIC ceiling only (test peeking, never reportable).
+    # Writes an extra "<exp_tag>_oracle" row. Use --patience == --num_epochs
+    # to disable early stop for the full legacy-style epoch sweep.
+    p.add_argument("--oracle_test", action="store_true")
 
     # Seed control
     p.add_argument("--seeds",         type=str, default="")
