@@ -321,6 +321,18 @@ def get_method_defaults(name):
 # default architecture; only lr is dataset-selected via run_lr_search.py.
 # -----------------------------------------------------------------------------
 
+# FEATHer FINAL canonical mfg config ("N" cell) — shared across all 6 mfg
+# datasets (one-config protocol); merged with a per-dataset `period` below.
+_FEATHER_MFG_N: Dict = {
+    "channel_mode": "mix",
+    "use_residual_mlp": True,
+    "mlp_rank": 16,
+    "d_state": 16,
+    "kernel_size": 7,
+    "num_bands": 4,
+    "lambda_spec": 0.01,
+}
+
 _DATASET_OVERRIDES: Dict = {
 
     # ---- DLinear (cure-lab/LTSF-Linear) -----------------------------------
@@ -479,17 +491,23 @@ _DATASET_OVERRIDES: Dict = {
     ("TQNet", "BlastFurnace"): {"tqnet_cycle": 24},
     ("TQNet", "MetroPT3"):     {"tqnet_cycle": 298},
     ("TQNet", "N2O"):          {"tqnet_cycle": 288},
-    ("FEATHer", "Steel"):        {"period": 24},
-    ("FEATHer", "WindSCADA"):    {"period": 48},
-    ("FEATHer", "BlastFurnace"): {"period": 48},
-    ("FEATHer", "MetroPT3"):     {"period": 24},
-    ("FEATHer", "N2O"):          {"period": 24},
+    # FEATHer mfg = FINAL canonical "N" cell (2026-08-11, grid search 27/27 done,
+    # mean-rank val winner = ds16_k7_B4): channel-mixing + nonlinear residual MLP,
+    # d_state 16 (only axis the grid moved; d16>d8>d4), num_bands 4 (full 4-band
+    # decomposition, best at d16), kernel 7. ONE config across all mfg (symmetric
+    # one-config protocol); only `period` is per-dataset (FFT-detected). loss=mse,
+    # lr=1e-3 come from _METHOD_DEFAULTS. All keys forward via --model_overrides.
+    ("FEATHer", "Steel"):        {**_FEATHER_MFG_N, "period": 24},
+    ("FEATHer", "WindSCADA"):    {**_FEATHER_MFG_N, "period": 48},
+    ("FEATHer", "BlastFurnace"): {**_FEATHER_MFG_N, "period": 48},
+    ("FEATHer", "MetroPT3"):     {**_FEATHER_MFG_N, "period": 24},
+    ("FEATHer", "N2O"):          {**_FEATHER_MFG_N, "period": 24},
     # EWELD (15-min factory load, added 2026-07-14): strong daily cycle ->
     # FEATHer/SparseTSF period 24 (snap of the [2,48] dominant), TQNet cycle 96
     # (daily = 96 samples/day), same rule as Steel (also 15-min).
     ("SparseTSF", "EWELD"): {"sparsetsf_period_len": 24},
     ("TQNet", "EWELD"):     {"tqnet_cycle": 96},
-    ("FEATHer", "EWELD"):   {"period": 24},
+    ("FEATHer", "EWELD"):   {**_FEATHER_MFG_N, "period": 24},
     # ---- Edge-tier additions (2026-07-31): freq-tied period, same FFT-detected
     #   rule as every period model. MixLinear period_len == SparseTSF (segment
     #   length, divisor of seq_len); CycleNet cycle == TQNet (unconstrained
