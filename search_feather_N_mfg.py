@@ -83,10 +83,13 @@ def load_done_set(csv_path):
     df = pd.read_csv(csv_path)
     if df.empty:
         return set()
+    key = ["exp_tag", "data", "pred_len", "seq_len", "seed"]
+    # drop torn/partial rows (concurrent-append can leave NaN in a key column);
+    # they get re-run harmlessly (resume dedups on the full key).
+    df = df.dropna(subset=key)
     return set(
         (str(r.exp_tag), str(r.data), int(r.pred_len), int(r.seq_len), int(r.seed))
-        for r in df[["exp_tag", "data", "pred_len", "seq_len", "seed"]]
-            .itertuples(index=False)
+        for r in df[key].itertuples(index=False)
     )
 
 
