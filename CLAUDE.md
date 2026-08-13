@@ -12,6 +12,43 @@ forecasting head.
 
 ## Current status (2026-07-14e)
 
+**⚡⚡⚡⚡⚡⚡⚡ 2026-08-14 (최종 HP 확정 + 배포 프레이밍 확립 + mfg final 완료;
+상세 = `memory/project_final_hp_framing_0814.md`):**
+- **① 모델 패밀리 확정 = 2변종(채널모드 스위치)**: **mfg = FEATHer-N**(channel_mode `mix`
+  + 잔차MLP rank16, canonical **`ds16_k7_B4`** = d_state16/kernel7/num_bands4, **전 mfg
+  통일 1개**, period만 데이터별 FFT) / **LTSF = FEATHer-CI**(`ci_full` + 잔차, **per-dataset**
+  6개 config). **둘 다 MSE 학습**, 차이 = 채널모드 하나. "채널상관 강한 산업센서=mix, 약한
+  저채널=독립" = inductive bias(DLinear/NLinear 선례). 단일 config로 둘 다 못잡음(필연).
+- **② 그리드서치(각 27config, val-rank)**: **d_state만 유의미**(d16>d8>d4), **kernel/num_bands
+  flat**(노이즈). mfg mean-rank 1위=ds16_k3_B3이나 **num_bands=4 채택**(4밴드 시그니처 +
+  d16서 test-best) → **ds16_k7_B4**. LTSF: **CIN(0.3588) < L(0.3647)** → CI 확정.
+- **③ ★ mfg final 3seed 완료 = 배포가능 1위**: `feather_final.csv` 72행, **FEATHer-N OVERALL
+  0.6940** > CycleNet 0.720 > FITS 0.726 > DiPE 0.729 > Mix/Sparse 0.749. 저장 =
+  `analysis/01_accuracy_mfg.xlsx`(FEATHer 822p). **LTSF final(--group ltsf) 아직** → 03
+  FEATHer blank(돌리면 채움). LTSF CIN val=0.3588 ≈ FITS 0.3582(**4/6 데이터 승**, 동률).
+- **④ ★★ 프레이밍 = "128KB MCU 배포가능 중 최정확"(sub-1K 폐기)**: sub-1K 강제하면 **DiPE
+  (339p,0.729)한테 짐**(sub-1K 모델 중 DiPE 1위·CIN 2위)=자멸 프레임. MCU-deployable로 가면
+  N 1위 + 물리적 참(N 최대 4522p=18KB<<128KB). **배포집합 6개**(SparseTSF/MixLinear/DiPE/
+  FITS/FEATHer-N/CIN); **CycleNet(H720 288KB)·DLinear(545KB) flash 폭발로 배제**(FITS 20KB↔
+  CycleNet 288KB=14배갭). **입력버퍼 방어**: L=720 윈도우(720×D×4B)>20KB SRAM(Steel도 19.7KB)
+  → L=96이 이 보드 최대 룩백, **모델무관**(채널독립 예외 없음).
+- **⑤ config를 `_DATASET_OVERRIDES`에 동결**(`_FEATHER_MFG_N`/`_FEATHER_LTSF_CI` 공유dict +
+  per-dataset period/arch) → **`run_forecast.py --model FEATHer --group {mfg,ltsf}`로 직접**
+  (새 도구 안 만듦; arch키 자동 `--model_overrides` forward; 그리드는 워커 직접호출이라 무영향).
+- **⑥ 옛 FASTer 미스터리 종결**: 옛 코드 **test-peeking**(val없이 min-over-epochs test) →
+  0.373 재현·인용 불가(이중오라클로도 ETT 못따라감=코드 아티팩트). 하이브리드(옛+현=0.347)=
+  cherry-picking 금지. `--oracle_test` 플래그로 우리도 천장 볼 수 있게 함(진단전용).
+  [[project-old-faster-test-peeking-0809]]
+- **▶ 커밋(personal/ijaehun; 서버 origin=ijaehun)**: b925a12(--oracle_test)·529f56e(NaN-tolerant
+  resume torn-row)·ef1cdc8(mfg N override)·7689840(LTSF CI override)·76b80d1(--best_only)·
+  cf704f9(build_paper_tables→final). ⚠ 서버 VSCode 업뎃 시 askpass 깨짐 → 새 터미널 또는
+  `GIT_ASKPASS= git pull origin main`.
+- **▶ 다음**: (1) **LTSF final** 발사(`--group ltsf --exp_tag final`, config 코드에 있음)→
+  03 채움 + best_only 천장 정리 (2) **보드 재측정**(최종 ds16_k7_B4 golden 재생성; 07-27은
+  옛 453p) = 배포특성화 3종(6모델 latency/energy/memory 실측 + 배터리 projection + 호라이즌
+  flash벽) (3) **Ablation**(설계됨): A 부품(잔차/게이트/밴드/DTK/SPK/RevIN)·B 채널모드·C HP민감도
+  (⚠ 게이트/밴드 약할것=정직보고) (4) GRU/XGBoost=접음(리비전 카드). [[project-final-hp-framing-0814]]
+
 **⚡⚡⚡⚡⚡⚡ 2026-08-05 (배포집합 프레이밍 + L/N/CI 패밀리 + 천장스캔 발사 +
 MixLinear 보드포팅 완료; 상세 = `memory/project_deployment_family_pivot_0805.md`):**
 - **① 프레이밍 확정 = "MCU 배포가능 모델 중 최정확"** (경량tier 아님). DLinear는 배포표서
