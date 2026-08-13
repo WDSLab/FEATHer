@@ -24,12 +24,18 @@ LTSF = ["ETTh1", "ETTh2", "ETTm1", "ETTm2", "Electricity", "Exchange", "Traffic"
 HS = [96, 192, 336, 720]
 FAULTS = ["gauss", "impulse", "miss", "quant"]
 REF_PARAMS = {
-    "SparseTSF": 41, "MixLinear": 49, "DiPE_Linear": 267, "FEATHer": 640,
+    # FEATHer = FINAL N cell (ds16_k7_B4) at D=7/H=96 (Steel 822); scales with
+    # D and H (up to 4522 @ BlastFurnace D=28 / H720) — still << 128KB flash.
+    "SparseTSF": 41, "MixLinear": 49, "DiPE_Linear": 267, "FEATHer": 822,
     "FITS": 1200, "CycleNet": 9536, "DLinear": 18624, "PatchTST": 35171,
     "TimeMixer": 75497, "TQNet": 86192, "LMS_AutoTSF": 181318,
     "TimesNet": 605479, "iTransformer": 841568, "MDMLP_EIA": 1632832,
 }
-EDGE7 = ["SparseTSF", "MixLinear", "DiPE_Linear", "FITS", "CycleNet", "DLinear", "FEATHer"]
+# Edge/deployment comparison = MCU-deployable baselines only (compare like-for-like).
+# DLinear excluded: not deployable -- at H720 it needs 139,680 params x 4B = 545KB
+# >> 128KB flash (F103RB); it cannot run on the target device, so it is out of the
+# deployable comparison set entirely.
+EDGE7 = ["SparseTSF", "MixLinear", "DiPE_Linear", "FITS", "CycleNet", "FEATHer"]
 
 
 def order_models(models):
@@ -121,9 +127,11 @@ def acc_matrix(d, datasets, metric, per_h):
 def load_acc():
     b = pd.read_csv(f"{R}/baselines/fcst_results_baselines.csv")
     b = b[b.exp_tag == "main"]
-    # FEATHer = residual-MLP full rerun (feather_v2_mlp; exp_tag feather_mlp)
-    f = pd.read_csv(f"{R}/feather/feather_v2_mlp.csv")
-    f = f[f.exp_tag == "feather_mlp"]
+    # FEATHer = FINAL grid-tuned 3-seed run (2026-08-13): mfg = canonical N cell
+    # (ds16_k7_B4), LTSF = per-dataset CI cell. exp_tag "final" in feather_final.csv.
+    # LTSF rows fill in once the --group ltsf final sweep lands.
+    f = pd.read_csv(f"{R}/feather/feather_final.csv")
+    f = f[f.exp_tag == "final"]
     return pd.concat([b, f])
 
 
