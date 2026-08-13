@@ -333,6 +333,15 @@ _FEATHER_MFG_N: Dict = {
     "lambda_spec": 0.01,
 }
 
+# FEATHer FINAL canonical LTSF config ("CI" cell) — channel-INDEPENDENT +
+# residual; per-dataset d_state/kernel/num_bands/period merged in below.
+_FEATHER_LTSF_CI: Dict = {
+    "channel_mode": "ci_full",
+    "use_residual_mlp": True,
+    "mlp_rank": 16,
+    "lambda_spec": 0.01,
+}
+
 _DATASET_OVERRIDES: Dict = {
 
     # ---- DLinear (cure-lab/LTSF-Linear) -----------------------------------
@@ -459,12 +468,18 @@ _DATASET_OVERRIDES: Dict = {
     # too) — sub-1K claim stays H=96-scoped. These feed the LTSF
     # *generalization* section; the MFG main-table canonical arch stays frozen
     # at base (d8/k7/p12/B3) — nothing in this LTSF OFAT contradicts it.
-    ("FEATHer", "ETTh1"):       {"d_state": 8,  "kernel_size": 7, "period": 6,  "num_bands": 3, "lambda_spec": 0.01,  "lr": 0.001},
-    ("FEATHer", "ETTh2"):       {"d_state": 8,  "kernel_size": 7, "period": 12, "num_bands": 4, "lambda_spec": 0.01,  "lr": 0.001},
-    ("FEATHer", "ETTm1"):       {"d_state": 16, "kernel_size": 9, "period": 6,  "num_bands": 2, "lambda_spec": 0.0,   "lr": 0.005},
-    ("FEATHer", "ETTm2"):       {"d_state": 8,  "kernel_size": 7, "period": 6,  "num_bands": 2, "lambda_spec": 0.01,  "lr": 0.005},
-    ("FEATHer", "Weather"):     {"d_state": 8,  "kernel_size": 9, "period": 6,  "num_bands": 2, "lambda_spec": 0.1,   "lr": 0.005},
-    ("FEATHer", "Exchange"):    {"d_state": 8,  "kernel_size": 7, "period": 8,  "num_bands": 3, "lambda_spec": 0.01,  "lr": 0.001},
+    # FEATHer LTSF = FINAL "CI" cell (2026-08-13, grid 27/27 done). LTSF favors
+    # channel-INDEPENDENCE (ci_full) over the mfg channel-mix: CIN OVERALL 0.3588
+    # ties FITS 0.3582 (4/6 datasets won), beats the base-L cell (0.3647). Per-
+    # dataset tuning (symmetric w/ baselines that tune per-dataset); val-selected
+    # d_state/kernel/num_bands below, period = per-dataset FFT. loss=mse, lr=1e-3
+    # from _METHOD_DEFAULTS. Old L-cell (mix, no residual) OFAT configs replaced.
+    ("FEATHer", "ETTh1"):    {**_FEATHER_LTSF_CI, "d_state": 16, "kernel_size": 3, "num_bands": 3, "period": 6},   # 0.4429
+    ("FEATHer", "ETTh2"):    {**_FEATHER_LTSF_CI, "d_state": 16, "kernel_size": 3, "num_bands": 4, "period": 12},  # 0.3847
+    ("FEATHer", "ETTm1"):    {**_FEATHER_LTSF_CI, "d_state": 8,  "kernel_size": 7, "num_bands": 4, "period": 6},   # 0.4087
+    ("FEATHer", "ETTm2"):    {**_FEATHER_LTSF_CI, "d_state": 8,  "kernel_size": 3, "num_bands": 2, "period": 6},   # 0.2849
+    ("FEATHer", "Weather"):  {**_FEATHER_LTSF_CI, "d_state": 16, "kernel_size": 7, "num_bands": 3, "period": 6},   # 0.2669
+    ("FEATHer", "Exchange"): {**_FEATHER_LTSF_CI, "d_state": 16, "kernel_size": 7, "num_bands": 2, "period": 8},   # 0.3648
     ("FEATHer", "Electricity"): {"d_state": 16, "kernel_size": 9, "period": 24, "num_bands": 4, "lambda_spec": 0.0,   "lr": 0.005},
     ("FEATHer", "Traffic"):     {"d_state": 8,  "kernel_size": 7, "period": 12, "num_bands": 3, "lambda_spec": 0.01,  "lr": 0.005},
 
