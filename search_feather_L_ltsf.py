@@ -59,6 +59,22 @@ def enumerate_configs():
 
 
 def enumerate_runs(args):
+    # --best_only: run ONLY the val-selected best config per dataset (read from
+    # the completed grid CSV), at the requested seeds — the per-dataset "final"
+    # + epoch-oracle ceiling at 3 seeds.
+    if getattr(args, "best_only", False):
+        best = _load_best_configs(args.grid_csv, args.datasets, args.preds)
+        runs = []
+        for d, cfg in best.items():
+            p = _period(d)
+            exp_tag = _tag(cfg)
+            for h in args.preds:
+                if args.seq_len % p or h % p:
+                    continue
+                for s in args.seed_list:
+                    runs.append((exp_tag, cfg, d, h, p, args.seq_len, s))
+        return runs
+
     runs = []
     for exp_tag, cfg in enumerate_configs():
         for d in args.datasets:
@@ -69,6 +85,25 @@ def enumerate_runs(args):
                 for s in args.seed_list:
                     runs.append((exp_tag, cfg, d, h, p, args.seq_len, s))
     return runs
+
+
+def _load_best_configs(grid_csv, datasets, preds):
+    """val-selected best config per dataset from a completed 1-seed grid CSV."""
+    import re
+    df = pd.read_csv(grid_csv).dropna(subset=["exp_tag", "MSE"])
+    df = df[~df.exp_tag.str.endswith("_oracle")]
+    best = {}
+    for d in datasets:
+        g = df[df.data == d].groupby("exp_tag").agg(
+            val=("val_loss", "mean"), n=("MSE", "size")).reset_index()
+        gc = g[g["n"] >= len(preds)]
+        if gc.empty:
+            continue
+        tag = gc.sort_values("val").iloc[0]["exp_tag"]
+        m = re.search(r"ds(\d+)_k(\d+)_B(\d+)", tag)
+        best[d] = {"d_state": int(m.group(1)), "kernel_size": int(m.group(2)),
+                   "num_bands": int(m.group(3))}
+    return best
 
 
 def load_done_set(csv_path):
@@ -193,6 +228,11 @@ def main():
     # fresh CSV (_o) — old feather_L_grid.csv rows were patience-10/no-oracle,
     # must not mix with the full-sweep oracle runs.
     p.add_argument("--results_csv", type=str, default="results/feather_L_grid_o.csv")
+    # --best_only: run only the per-dataset val-best config (read from --grid_csv)
+    # at --seeds seeds. Pair with a fresh --results_csv (e.g. feather_L_final.csv)
+    # and --seeds 2025,2026,2027.
+    p.add_argument("--best_only", action="store_true")
+    p.add_argument("--grid_csv", type=str, default="results/feather_L_grid_o.csv")
     p.add_argument("--ngpu", type=int, default=1)
     p.add_argument("--jobs_per_gpu", type=int, default=4)
     p.add_argument("--gpu", type=int, default=0)
