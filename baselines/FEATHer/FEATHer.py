@@ -48,28 +48,85 @@ class FFTFrequencyGate(nn.Module):
     """
     FFT-based frequency gate for adaptive band weighting.
 
-    Computes FFT magnitude spectrum, applies Conv1d, and outputs
-    softmax-normalized weights for each frequency band.
+    Two modes:
+
+    "global" (default, canonical — byte-identical to every frozen checkpoint)
+        magnitude spectrum -> Conv1d -> AdaptiveAvgPool1d(1) -> softmax.
+
+        ⚠ MEASURED DEFECT (2026-08-14): this gate is provably BLIND to
+        spectral SHAPE. Averaging a convolution over the whole frequency
+        axis collapses to
+
+            mean_i( sum_k w_k * mag[i+k] )  ~=  (sum_k w_k) * mean(mag)
+
+        so every band logit is an affine function of ONE scalar (the mean
+        spectral magnitude); the band index only changes a multiplier and a
+        bias, and frequency POSITION is discarded. Since the input is
+        instance-normalized, Parseval pins mean(mag) to near-constant, so
+        the weights barely move at all. Probe: two inputs with identical
+        energy but opposite spectra (2-cycle vs 40-cycle sinusoid) get
+        gate weights equal to 4 decimals; across 512 real ETTh1 windows the
+        per-band weight std is 0.0003-0.0115. The only shape sensitivity
+        left is the zero-padding edge effect on the first/last few bins.
+        This explains three separately-observed flat results: gate on/off
+        makes no difference, num_bands is flat, and lambda_spec is flat —
+        the "adaptive" gate was already a fixed weight vector.
+
+    "banded" (fix)
+        Slice the power spectrum into num_bands equal-width contiguous
+        frequency ranges, take each range's ENERGY RATIO (scale-invariant),
+        and map the log-ratios to logits with a small linear layer. The gate
+        then measures actual spectral composition and responds to shape.
+        Band-to-slice assignment mirrors utils/losses.py exactly: slices run
+        low->high and band s (0 = POINT, highest-frequency) owns slice
+        S-1-s, so the gate, the decomposition, and the spectral-separation
+        regularizer all use one convention. Params: S^2 + S (20 for S=4)
+        vs the conv's 5S + S (24) — slightly FEWER.
 
     Args:
         seq_len: Input sequence length
         num_bands: Number of frequency bands (2, 3, or 4)
-        kernel_size: Kernel size for Conv1d
+        kernel_size: Kernel size for Conv1d ("global" mode only)
+        gate_mode: "global" (canonical) or "banded" (shape-aware fix)
     """
 
-    def __init__(self, seq_len: int, num_bands: int = 3, kernel_size: int = 5):
+    def __init__(self, seq_len: int, num_bands: int = 3, kernel_size: int = 5,
+                 gate_mode: str = "global"):
         super().__init__()
+        assert gate_mode in ("global", "banded"), gate_mode
         self.seq_len = seq_len
         self.num_bands = num_bands
+        self.gate_mode = gate_mode
 
-        self.conv = nn.Conv1d(
-            in_channels=1,
-            out_channels=num_bands,
-            kernel_size=kernel_size,
-            padding=kernel_size // 2,
-            bias=True,
-        )
-        self.pool = nn.AdaptiveAvgPool1d(1)
+        if gate_mode == "banded":
+            # Precompute the equal-width rfft slices (low -> high), same rule
+            # as utils/losses.spectral_separation_loss_scales.
+            n_freq = seq_len // 2 + 1
+            step = n_freq // num_bands
+            self._bounds = [
+                (s * step, n_freq if s == num_bands - 1 else (s + 1) * step)
+                for s in range(num_bands)
+            ]
+            self.proj = nn.Linear(num_bands, num_bands)
+            # Zero-init => the gate starts EXACTLY uniform (1/S per band),
+            # i.e. at the fixed-weight behaviour the "global" gate is stuck
+            # at, and learns to deviate from there. Two reasons: (a) random
+            # init saturates the softmax immediately (log-ratios of a nearly
+            # empty band reach log(1e-6) ~ -14, giving one-hot gates before
+            # any training), (b) it makes the comparison controlled — any
+            # gain over gate_uniform is attributable to LEARNED adaptivity.
+            # A zero-init linear still trains: dL/dW = dL/dz * feats^T != 0.
+            nn.init.zeros_(self.proj.weight)
+            nn.init.zeros_(self.proj.bias)
+        else:
+            self.conv = nn.Conv1d(
+                in_channels=1,
+                out_channels=num_bands,
+                kernel_size=kernel_size,
+                padding=kernel_size // 2,
+                bias=True,
+            )
+            self.pool = nn.AdaptiveAvgPool1d(1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -85,6 +142,22 @@ class FFTFrequencyGate(nn.Module):
         x32 = x.float()
         Freq = torch.fft.rfft(x32, dim=1)
         mag = torch.abs(Freq)
+
+        if self.gate_mode == "banded":
+            # Channel-mean POWER spectrum (mirrors utils/losses._power_spectrum)
+            P = (mag ** 2).mean(dim=2)                       # (B, Lf)
+            total = P.sum(dim=1, keepdim=True) + 1e-6
+            ratios = torch.stack(
+                [P[:, lo:hi].sum(dim=1) for (lo, hi) in self._bounds], dim=1
+            ) / total                                        # (B, S), low -> high
+            # band s owns slice S-1-s  ->  reverse to band order (POINT first)
+            feats = torch.log(ratios.flip(dims=[1]) + 1e-6)
+            # Center the log-ratios. Softmax is shift-invariant and a per-band
+            # constant is absorbed by proj's bias, so this leaves the function
+            # class unchanged — it only keeps the linear layer's inputs from
+            # sitting around -14 (conditioning).
+            feats = feats - feats.mean(dim=1, keepdim=True)
+            return torch.softmax(self.proj(feats), dim=-1)
 
         # Channel mean -> (B, L_f, 1) -> (B, 1, L_f)
         mag_mean = mag.mean(dim=2, keepdim=True).permute(0, 2, 1)
@@ -252,6 +325,7 @@ class FEATHer(nn.Module):
         winsor_bound: float = 4.0,
         center_trim: float = 0.0,
         channel_mode: str = "mix",
+        gate_mode: str = "global",
     ):
         super().__init__()
 
@@ -299,9 +373,26 @@ class FEATHer(nn.Module):
         #               alone, shows Dw=1.0). Freezing scale at the train-time
         #               Scaler removes the multiplicative path; window adaptation
         #               keeps only the level term nonstationary data needs.
+        #   "last"      NLinear-style LEVEL ANCHOR: use the last observed value
+        #               of the window, x[:, -1, :], as the level instead of the
+        #               window mean; no window scale (denorm adds the anchor
+        #               back). For a (near) random walk the window mean is a
+        #               strictly worse level estimate than the last value, and
+        #               the canonical mean anchor is then actively harmful.
+        #               Measured on the test windows (2026-08-14, naive-forecast
+        #               MSE, no training): the last-value anchor beats the mean
+        #               anchor by 13-42% on Exchange at every horizon, and LOSES
+        #               by 16-85% on ETTh1/h2/m1/m2/Weather. So this is a
+        #               per-dataset, val-selected option — never a new default.
+        #   "last_std"  same anchor, but keep the canonical window-std scaling
+        #               (x_norm = (x - x[:,-1]) / std). Separates "which level"
+        #               from "scale on/off"; without it a "last" win could not
+        #               be attributed to the anchor rather than to dropping the
+        #               scale (which "center" already changes on its own).
         if revin_mode is None:
             revin_mode = "mad" if use_robust_norm else "standard"
-        assert revin_mode in ("standard", "mad", "winsor", "center"), revin_mode
+        assert revin_mode in ("standard", "mad", "winsor", "center",
+                              "last", "last_std"), revin_mode
         self.revin_mode = revin_mode
         self.use_robust_norm = use_robust_norm
         # Knobs for the winsor/center statistics (2026-08-02 Steel-residual
@@ -385,6 +476,7 @@ class FEATHer(nn.Module):
             seq_len=seq_len,
             num_bands=num_bands,
             kernel_size=5,
+            gate_mode=gate_mode,
         )
 
         # Sparse period-aware forecasting head
@@ -436,6 +528,17 @@ class FEATHer(nn.Module):
                 meanad = 1.253 * ad.mean(1, keepdim=True)
                 stdev = torch.where(mad > 1e-6, mad, meanad) + 1e-5
                 x_norm = ((x - means) / stdev).clamp(-10.0, 10.0)
+            elif mode in ("last", "last_std"):
+                # Level anchor = last observed step (NLinear). Detached like
+                # every other centering statistic here; shape (B,1,D) so the
+                # shared denorm path below broadcasts unchanged.
+                means = x[:, -1:, :].detach()
+                if mode == "last_std":
+                    stdev = torch.sqrt(x.var(1, keepdim=True, unbiased=False) + 1e-5)
+                    x_norm = (x - means) / stdev
+                else:
+                    stdev = None
+                    x_norm = x - means
             elif mode in ("winsor", "center"):
                 # Bounded-influence statistics: winsorize the window (data is
                 # train-Scaler standardized, so +-4 = "beyond 4 train-sigmas is

@@ -352,6 +352,8 @@ def dispatch(missing, args):
             cmd += ["--center_trim", str(args.center_trim)]
         if args.channel_mode:
             cmd += ["--channel_mode", args.channel_mode]
+        if args.gate_mode:
+            cmd += ["--gate_mode", args.gate_mode]
         jobs.append((label, cmd))
 
     failed = run_on_gpus(jobs, args.ngpu, base_gpu=args.gpu,
@@ -432,11 +434,14 @@ def main():
     p.add_argument("--gate_uniform", action="store_true")
     p.add_argument("--robust_revin", action="store_true")
     p.add_argument("--revin_mode", type=str, default=None,
-                   choices=["standard", "mad", "winsor", "center"])
+                   choices=["standard", "mad", "winsor", "center",
+                            "last", "last_std"])
     p.add_argument("--winsor_bound", type=float, default=None)
     p.add_argument("--center_trim",  type=float, default=None)
     p.add_argument("--channel_mode", type=str, default=None,
                    choices=["mix", "ci_full"])
+    p.add_argument("--gate_mode", type=str, default=None,
+                   choices=["global", "banded"])
 
     # Output / system
     p.add_argument("--results_csv", type=str, default=RESULTS_CSV)

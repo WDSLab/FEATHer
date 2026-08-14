@@ -507,11 +507,16 @@ def parse_args():
     p.add_argument("--robust_revin", dest="use_robust_norm", action="store_true", default=False)
     # Instance-norm variant (2026-08-02): winsorized full RevIN vs center-only.
     p.add_argument("--revin_mode", type=str, default=None,
-                   choices=["standard", "mad", "winsor", "center"])
+                   choices=["standard", "mad", "winsor", "center",
+                            "last", "last_std"])
     p.add_argument("--winsor_bound", type=float, default=None)
     p.add_argument("--center_trim",  type=float, default=None)
     p.add_argument("--channel_mode", type=str, default=None,
                    choices=["mix", "ci_full"])
+    # FFT-gate variant (2026-08-14): "global" = canonical (shape-blind, see
+    # FFTFrequencyGate docstring); "banded" = per-band energy-ratio gate.
+    p.add_argument("--gate_mode", type=str, default=None,
+                   choices=["global", "banded"])
 
     # Training
     p.add_argument("--batch_size",  type=int,   default=32)

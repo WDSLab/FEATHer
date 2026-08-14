@@ -311,11 +311,14 @@ def parse_args():
     p.add_argument("--gate_uniform", dest="use_gate", action="store_false", default=True)
     p.add_argument("--robust_revin", dest="use_robust_norm", action="store_true", default=False)
     p.add_argument("--revin_mode", type=str, default=None,
-                   choices=["standard", "mad", "winsor", "center"])
+                   choices=["standard", "mad", "winsor", "center",
+                            "last", "last_std"])
     p.add_argument("--winsor_bound", type=float, default=None)
     p.add_argument("--center_trim",  type=float, default=None)
     p.add_argument("--channel_mode", type=str, default=None,
                    choices=["mix", "ci_full"])
+    p.add_argument("--gate_mode", type=str, default=None,
+                   choices=["global", "banded"])
 
     # Per-(model, dataset) HP injection — MUST mirror the training-time merge
     # or per-dataset architectures (FEATHer period/d_state, sparsetsf_period_len,
