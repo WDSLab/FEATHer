@@ -93,12 +93,24 @@ class FFTFrequencyGate(nn.Module):
     def __init__(self, seq_len: int, num_bands: int = 3, kernel_size: int = 5,
                  gate_mode: str = "global"):
         super().__init__()
-        assert gate_mode in ("global", "banded"), gate_mode
+        assert gate_mode in ("global", "banded", "static"), gate_mode
         self.seq_len = seq_len
         self.num_bands = num_bands
         self.gate_mode = gate_mode
 
-        if gate_mode == "banded":
+        if gate_mode == "static":
+            # Input-INDEPENDENT learned band mixture: w = softmax(theta).
+            # Motivated by measurement, not simplification: a TRAINED "global"
+            # gate on ETTh1 returns [0.1496, 0.51055, 0.33985] for 2-, 20- and
+            # 44-cycle inputs of equal energy — identical to 5 decimals — and
+            # moves by only +-0.02 across 3,584 real test windows, while
+            # sitting far from uniform (POINT band 0.012 vs 0.333). So the
+            # gate's contribution is the LEARNED MIXTURE, not adaptivity; the
+            # rfft that produces it is dead weight at inference. This arm keeps
+            # the mixture and drops the FFT (S params instead of 6S, and no
+            # transform / twiddle table on the MCU). Zero-init = uniform start.
+            self.band_logits = nn.Parameter(torch.zeros(num_bands))
+        elif gate_mode == "banded":
             # Precompute the equal-width rfft slices (low -> high), same rule
             # as utils/losses.spectral_separation_loss_scales.
             n_freq = seq_len // 2 + 1
@@ -137,6 +149,11 @@ class FFTFrequencyGate(nn.Module):
             (B, num_bands) softmax-normalized gate weights
         """
         B, L, D = x.shape
+
+        if self.gate_mode == "static":
+            # No transform at all — the mixture does not depend on x.
+            w = torch.softmax(self.band_logits, dim=0)
+            return w.unsqueeze(0).expand(B, self.num_bands)
 
         # Convert to float32 to avoid cuFFT errors in autocast(fp16)
         x32 = x.float()

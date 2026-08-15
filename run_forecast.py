@@ -441,7 +441,7 @@ def main():
     p.add_argument("--channel_mode", type=str, default=None,
                    choices=["mix", "ci_full"])
     p.add_argument("--gate_mode", type=str, default=None,
-                   choices=["global", "banded"])
+                   choices=["global", "banded", "static"])
 
     # Output / system
     p.add_argument("--results_csv", type=str, default=RESULTS_CSV)

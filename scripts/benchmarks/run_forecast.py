@@ -516,7 +516,7 @@ def parse_args():
     # FFT-gate variant (2026-08-14): "global" = canonical (shape-blind, see
     # FFTFrequencyGate docstring); "banded" = per-band energy-ratio gate.
     p.add_argument("--gate_mode", type=str, default=None,
-                   choices=["global", "banded"])
+                   choices=["global", "banded", "static"])
 
     # Training
     p.add_argument("--batch_size",  type=int,   default=32)
