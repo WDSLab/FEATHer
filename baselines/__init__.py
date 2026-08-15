@@ -44,6 +44,7 @@ def _build_feather(args, n_features, seq_len, pred_len):
         center_trim=getattr(args, "center_trim", None) or 0.0,
         channel_mode=getattr(args, "channel_mode", None) or "mix",
         gate_mode=getattr(args, "gate_mode", None) or "global",
+        dtk_act=getattr(args, "dtk_act", None) or "none",
     )
 
 

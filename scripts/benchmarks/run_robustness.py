@@ -319,6 +319,10 @@ def parse_args():
                    choices=["mix", "ci_full"])
     p.add_argument("--gate_mode", type=str, default=None,
                    choices=["global", "banded", "static"])
+    # DTK latent nonlinearity (2026-08-16): "none" = canonical (linear DTK,
+    # which makes the multi-band block collapse to one filter).
+    p.add_argument("--dtk_act", type=str, default=None,
+                   choices=["none", "gelu", "relu", "tanh"])
 
     # Per-(model, dataset) HP injection — MUST mirror the training-time merge
     # or per-dataset architectures (FEATHer period/d_state, sparsetsf_period_len,

@@ -517,6 +517,10 @@ def parse_args():
     # FFTFrequencyGate docstring); "banded" = per-band energy-ratio gate.
     p.add_argument("--gate_mode", type=str, default=None,
                    choices=["global", "banded", "static"])
+    # DTK latent nonlinearity (2026-08-16): "none" = canonical (linear DTK,
+    # which makes the multi-band block collapse to one filter).
+    p.add_argument("--dtk_act", type=str, default=None,
+                   choices=["none", "gelu", "relu", "tanh"])
 
     # Training
     p.add_argument("--batch_size",  type=int,   default=32)

@@ -354,6 +354,8 @@ def dispatch(missing, args):
             cmd += ["--channel_mode", args.channel_mode]
         if args.gate_mode:
             cmd += ["--gate_mode", args.gate_mode]
+        if args.dtk_act:
+            cmd += ["--dtk_act", args.dtk_act]
         jobs.append((label, cmd))
 
     failed = run_on_gpus(jobs, args.ngpu, base_gpu=args.gpu,
@@ -442,6 +444,10 @@ def main():
                    choices=["mix", "ci_full"])
     p.add_argument("--gate_mode", type=str, default=None,
                    choices=["global", "banded", "static"])
+    # DTK latent nonlinearity (2026-08-16): "none" = canonical (linear DTK,
+    # which makes the multi-band block collapse to one filter).
+    p.add_argument("--dtk_act", type=str, default=None,
+                   choices=["none", "gelu", "relu", "tanh"])
 
     # Output / system
     p.add_argument("--results_csv", type=str, default=RESULTS_CSV)

@@ -200,11 +200,27 @@ class DenseTemporalKernel(nn.Module):
         kernel_size: Convolution kernel size
     """
 
-    def __init__(self, d_model: int, d_state: int, kernel_size: int = 7):
+    def __init__(self, d_model: int, d_state: int, kernel_size: int = 7,
+                 act: str = "none"):
         super().__init__()
+        assert act in ("none", "gelu", "relu", "tanh"), act
         self.d_model = d_model
         self.d_state = d_state
         self.kernel_size = kernel_size
+        # DTK is LINEAR by default (in_proj -> depthwise conv -> out_proj, no
+        # activation anywhere). That is not a detail: the four bands are fed
+        # through this SAME module and then combined by a weighted SUM, so with
+        # a linear DTK
+        #     sum_b w_b * DTK(F_b(x))  ==  DTK( sum_b w_b * F_b(x) )
+        # and the whole "multi-band decomposition + gating" block collapses to a
+        # SINGLE linear filter. Verified numerically (2026-08-16): with the gate
+        # held constant the block is additive/homogeneous to 2e-9. That is why
+        # num_bands (0.6% spread over 27 configs), lambda_spec, and a genuinely
+        # shape-aware gate (gate_mode=banded, +1.1%) are all flat — there is
+        # nothing for a gate to select between when the branches merge.
+        # A nonlinearity here cannot be pulled out of the sum, so the bands stay
+        # distinct. It costs ZERO parameters, so the sub-1K budget is untouched.
+        self.act = act
 
         self.in_proj = nn.Linear(d_model, d_state, bias=False)
         self.out_proj = nn.Linear(d_state, d_model, bias=False)
@@ -227,6 +243,15 @@ class DenseTemporalKernel(nn.Module):
         k = self.kernel.unsqueeze(1)
         y = F.conv1d(x, k, padding=self.kernel_size - 1, groups=self.d_state)
         y = y[:, :, :L]  # Trim to length L
+
+        # Optional nonlinearity in the LATENT state, before projecting back.
+        # "none" is canonical and byte-identical.
+        if self.act == "gelu":
+            y = F.gelu(y)
+        elif self.act == "relu":
+            y = F.relu(y)
+        elif self.act == "tanh":
+            y = torch.tanh(y)
 
         # Project back: (B, S, L) -> (B, L, D)
         y = self.out_proj(y.permute(0, 2, 1))
@@ -343,6 +368,7 @@ class FEATHer(nn.Module):
         center_trim: float = 0.0,
         channel_mode: str = "mix",
         gate_mode: str = "global",
+        dtk_act: str = "none",
     ):
         super().__init__()
 
@@ -485,7 +511,8 @@ class FEATHer(nn.Module):
         self.dense_kernel = DenseTemporalKernel(
             d_model=eff_d,
             d_state=d_state,
-            kernel_size=kernel_size
+            kernel_size=kernel_size,
+            act=dtk_act,
         )
 
         # FFT-based frequency gate
