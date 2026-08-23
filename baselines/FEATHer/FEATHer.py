@@ -258,6 +258,34 @@ class DenseTemporalKernel(nn.Module):
         return y
 
 
+class DenseLinearHead(nn.Module):
+    """Plain time-axis projection — the control head for the SPK ablation.
+
+    Maps (B, L, D) -> (B, pred_len, D) with one shared Linear(L -> pred_len)
+    per channel, i.e. the head DLinear and most linear forecasters use. It is
+    the natural "what does the period structure buy us?" control: everything
+    upstream (bands, DTK, gate, residual MLP, channel mode) is untouched.
+
+    NOTE this is NOT capacity-matched, and that asymmetry is the finding, not
+    a flaw: at Steel/H96 SPK costs ~166 params (a depthwise aggregation conv
+    plus an n->m backbone over period phases) while this dense head costs
+    L*H + H ~= 9.3k. Swapping it in makes the model an order of magnitude
+    larger, so report the parameter count alongside the accuracy delta —
+    SPK's claim is efficiency, and a near-tie here IS the supporting result.
+    """
+
+    def __init__(self, seq_len: int, pred_len: int, d_model: int):
+        super().__init__()
+        self.seq_len = seq_len
+        self.pred_len = pred_len
+        self.d_model = d_model
+        self.linear = nn.Linear(seq_len, pred_len)
+
+    def forward(self, h: torch.Tensor) -> torch.Tensor:
+        # (B, L, D) -> (B, D, L) -> (B, D, H) -> (B, H, D)
+        return self.linear(h.permute(0, 2, 1)).permute(0, 2, 1)
+
+
 class SparsePeriodKernel(nn.Module):
     """
     Period-aware sparse forecasting kernel (inspired by SparseTSF).
@@ -369,6 +397,7 @@ class FEATHer(nn.Module):
         channel_mode: str = "mix",
         gate_mode: str = "global",
         dtk_act: str = "none",
+        head_mode: str = "spk",
     ):
         super().__init__()
 
@@ -523,13 +552,24 @@ class FEATHer(nn.Module):
             gate_mode=gate_mode,
         )
 
-        # Sparse period-aware forecasting head
-        self.sparse_head = SparsePeriodKernel(
-            seq_len=seq_len,
-            pred_len=pred_len,
-            d_model=eff_d,
-            period=period,
-        )
+        # Forecasting head. "spk" = canonical period-aware sparse kernel;
+        # "linear" swaps in a dense time projection and is the ablation control
+        # (see DenseLinearHead — it is deliberately not capacity-matched).
+        assert head_mode in ("spk", "linear"), head_mode
+        self.head_mode = head_mode
+        if head_mode == "linear":
+            self.sparse_head = DenseLinearHead(
+                seq_len=seq_len,
+                pred_len=pred_len,
+                d_model=eff_d,
+            )
+        else:
+            self.sparse_head = SparsePeriodKernel(
+                seq_len=seq_len,
+                pred_len=pred_len,
+                d_model=eff_d,
+                period=period,
+            )
 
     def forward(self, x: torch.Tensor, return_components: bool = False):
         """

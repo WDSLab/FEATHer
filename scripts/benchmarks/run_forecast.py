@@ -521,6 +521,12 @@ def parse_args():
     # which makes the multi-band block collapse to one filter).
     p.add_argument("--dtk_act", type=str, default=None,
                    choices=["none", "gelu", "relu", "tanh"])
+    # Forecasting head (2026-08-24): "spk" = canonical period-aware sparse
+    # kernel; "linear" = dense time projection, the SPK ablation control.
+    # NB the control is much LARGER (Steel/H96 ~166 -> ~9.3k params), so read
+    # its accuracy delta together with the parameter count.
+    p.add_argument("--head_mode", type=str, default=None,
+                   choices=["spk", "linear"])
 
     # Training
     p.add_argument("--batch_size",  type=int,   default=32)

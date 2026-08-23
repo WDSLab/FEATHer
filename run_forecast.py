@@ -212,9 +212,14 @@ def load_done_set(csv_path):
 # table that is supposed to defend the design). Capacity knobs (d_state,
 # kernel width, band count as a size) are not components either; their
 # sensitivity already comes from the 27-config grid in tools/search/.
+# channel_mode is likewise absent: mix vs ci_full is not a component being
+# removed, it is the axis that separates the two shipping variants (mfg
+# FEATHer-N mixes, LTSF FEATHer-CIN does not). Putting it here would claim
+# "removing channel mixing hurts" in a table while our own LTSF model runs the
+# removed setting. It belongs in the model-family comparison, where the
+# 08-05 ceiling scan already puts CIN at 0.7356 vs N 0.6974 on mfg.
 ABLATION_ARMS = {
     "noresid": ("residual MLP off",              {"no_residual_mlp": True}),
-    "ci":      ("channel mixing -> independent", {"channel_mode": "ci_full"}),
     "gateuni": ("FFT gate -> uniform weights",   {"gate_uniform": True}),
     # num_bands is asserted to be in {2,3,4}, so 2 is the floor — this halves
     # the decomposition rather than removing it.
@@ -224,6 +229,11 @@ ABLATION_ARMS = {
     # in and out of the latent space but mixes nothing across time, which is
     # the component's whole purpose.
     "dtk1":    ("DTK temporal mixing off (k=1)", {"kernel_size": 1}),
+    # The head cannot simply be switched off — without one the model emits no
+    # forecast — so the control is a dense time projection. It is much LARGER
+    # than SPK, which is the point: SPK claims parameter efficiency, so a
+    # near-tie in accuracy is the supporting result. Report params alongside.
+    "nospk":   ("SPK head -> dense linear",      {"head_mode": "linear"}),
 }
 ABLATION_CSV = "results/ablation.csv"
 
@@ -353,6 +363,8 @@ def dispatch(missing, args):
             cli_switches.add("gate_mode")
         if args.dtk_act:
             cli_switches.add("dtk_act")
+        if args.head_mode:
+            cli_switches.add("head_mode")
         if args.revin_mode:
             cli_switches.add("revin_mode")
         if args.mlp_rank is not None:
@@ -426,6 +438,8 @@ def dispatch(missing, args):
             cmd += ["--gate_mode", args.gate_mode]
         if args.dtk_act:
             cmd += ["--dtk_act", args.dtk_act]
+        if args.head_mode:
+            cmd += ["--head_mode", args.head_mode]
         jobs.append((label, cmd))
 
     failed = run_on_gpus(jobs, args.ngpu, base_gpu=args.gpu,
@@ -524,6 +538,11 @@ def main():
                    choices=["global", "banded", "static"])
     # DTK latent nonlinearity (2026-08-16): "none" = canonical (linear DTK,
     # which makes the multi-band block collapse to one filter).
+    p.add_argument("--head_mode", type=str, default=None,
+                   choices=["spk", "linear"],
+                   help="Forecasting head: spk (canonical period-aware kernel) "
+                        "or linear (dense projection = the SPK ablation "
+                        "control; NOT capacity-matched, it is far larger).")
     p.add_argument("--dtk_act", type=str, default=None,
                    choices=["none", "gelu", "relu", "tanh"])
 
