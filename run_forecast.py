@@ -218,22 +218,37 @@ def load_done_set(csv_path):
 # "removing channel mixing hurts" in a table while our own LTSF model runs the
 # removed setting. It belongs in the model-family comparison, where the
 # 08-05 ceiling scan already puts CIN at 0.7356 vs N 0.6974 on mfg.
+# Entries are (tier, what-it-removes, arg patch). The tier splits the reported
+# table in two, because the arms are not the same kind of claim:
+#
+#   "design"   FEATHer's own frequency machinery — the components the method
+#              section argues for. The 08-16 linear-collapse analysis predicts
+#              most of these land near zero, and saying so first (with the
+#              proof and the failed nonlinear repair) is the honest-analysis
+#              contribution rather than a hole in the paper.
+#   "standard" borrowed, off-the-shelf capacity. The residual MLP is an FFN-
+#              style bottleneck with no novelty, bolted on in 07-31 as a
+#              capacity A/B. It is NOT a contribution and must not be reported
+#              as one — but it is 247 of the shipping model's 938 parameters
+#              and is likely the largest effect in the table, so omitting it
+#              would leave a quarter of the model unexplained and would hide
+#              the one part that clearly works.
 ABLATION_ARMS = {
-    "noresid": ("residual MLP off",              {"no_residual_mlp": True}),
-    "gateuni": ("FFT gate -> uniform weights",   {"gate_uniform": True}),
+    "gateuni": ("design", "FFT gate -> uniform weights",   {"gate_uniform": True}),
     # num_bands is asserted to be in {2,3,4}, so 2 is the floor — this halves
     # the decomposition rather than removing it.
-    "band2":   ("multi-band 4 -> 2",             {"num_bands": 2}),
-    "nospec":  ("spectral-separation loss off",  {"lambda_spec": 0.0}),
+    "band2":   ("design", "multi-band 4 -> 2",             {"num_bands": 2}),
+    "nospec":  ("design", "spectral-separation loss off",  {"lambda_spec": 0.0}),
     # kernel_size=1 makes the DTK pointwise: the shared kernel still projects
     # in and out of the latent space but mixes nothing across time, which is
     # the component's whole purpose.
-    "dtk1":    ("DTK temporal mixing off (k=1)", {"kernel_size": 1}),
+    "dtk1":    ("design", "DTK temporal mixing off (k=1)", {"kernel_size": 1}),
     # The head cannot simply be switched off — without one the model emits no
     # forecast — so the control is a dense time projection. It is much LARGER
     # than SPK, which is the point: SPK claims parameter efficiency, so a
     # near-tie in accuracy is the supporting result. Report params alongside.
-    "nospk":   ("SPK head -> dense linear",      {"head_mode": "linear"}),
+    "nospk":   ("design", "SPK head -> dense linear",      {"head_mode": "linear"}),
+    "noresid": ("standard", "residual MLP off",            {"no_residual_mlp": True}),
 }
 ABLATION_CSV = "results/ablation.csv"
 
@@ -598,14 +613,14 @@ def main():
 
     base_tag = args.exp_tag
     for arm in arms:
-        desc, patch = ABLATION_ARMS[arm]
+        tier, desc, patch = ABLATION_ARMS[arm]
         arm_args = argparse.Namespace(**vars(args))
         for k, v in patch.items():
             setattr(arm_args, k, v)
         arm_args.exp_tag = (f"abl_{arm}" if base_tag == DEFAULT_EXP_TAG
                             else f"{base_tag}_{arm}")
         print("\n" + "=" * 70)
-        print(f"ABLATION ARM  {arm}  ({desc})   exp_tag={arm_args.exp_tag}")
+        print(f"ABLATION ARM  {arm}  [{tier}]  ({desc})   exp_tag={arm_args.exp_tag}")
         print("=" * 70, flush=True)
         run_sweep(arm_args)
 

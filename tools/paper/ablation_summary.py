@@ -67,9 +67,11 @@ def main() -> int:
             continue
         a_mean, b_mean = by_ds[common].mean(), base_by_ds[common].mean()
         delta = (a_mean - b_mean) / b_mean * 100
+        tier, removed, _ = ABLATION_ARMS[arm]
         rows.append({
+            "tier": tier,
             "arm": arm,
-            "removed": ABLATION_ARMS[arm][0],
+            "removed": removed,
             "cells": len(grp),
             "ds": len(common),
             "ablated": round(a_mean, 4),
@@ -82,10 +84,23 @@ def main() -> int:
         print("no arm rows to compare yet")
         return 1
 
-    df = pd.DataFrame(rows).sort_values("delta_%", ascending=False)
-    print(df.to_string(index=False))
+    df = pd.DataFrame(rows)
+    # Report the two tiers separately: FEATHer's own frequency machinery is the
+    # claim under test, the borrowed capacity component is context. Mixing them
+    # in one ranked list invites reading a standard FFN bottleneck as one of
+    # our contributions.
+    for tier, label in [("design", "FEATHer design components (the method's claim)"),
+                        ("standard", "standard borrowed capacity (NOT a contribution)")]:
+        sub = df[df.tier == tier].sort_values("delta_%", ascending=False)
+        if sub.empty:
+            continue
+        print(f"\n--- {label} ---")
+        print(sub.drop(columns="tier").to_string(index=False))
+
     print(f"\n+delta_% = removing it made the model WORSE = the component helps.")
     print(f"|delta| >= {SIGNAL_PCT}% counts as signal; below that is seed noise.")
+    print("nospk swaps in a much LARGER head (~938 -> ~10k params at Steel/H96), "
+          "so read its delta next to that cost: a near-tie favours SPK.")
 
     missing = [a for a in ABLATION_ARMS if a not in df.arm.values]
     if missing:
