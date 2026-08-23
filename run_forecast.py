@@ -175,7 +175,7 @@ def load_done_set(csv_path):
     )
 
 
-# Component ablation — one switch off per arm, applied to the SHIPPING model.
+# Component ablation — one of OUR components off per arm, on the SHIPPING model.
 #
 # Each arm patches the args that `dispatch()` forwards to the worker, so the
 # run starts from whatever `_DATASET_OVERRIDES` freezes for the group (mfg =
@@ -192,15 +192,25 @@ def load_done_set(csv_path):
 #
 # Verdict threshold: a 24-cell mean carries +-0.3~0.5% seed noise, so only a
 # >=2% change is signal (2026-08-16 calibration). Promote those arms to 3 seeds.
+# Scope: every arm removes something WE added. RevIN is deliberately not an arm
+# — it is Kim et al. 2022, used by most of the lineup, so removing it measures
+# a borrowed component and justifies none of our parameters (and on the pre-08
+# model removing it *improved* Steel clean MSE, which would read badly in a
+# table that is supposed to defend the design). Capacity knobs (d_state,
+# kernel width, band count as a size) are not components either; their
+# sensitivity already comes from the 27-config grid in tools/search/.
 ABLATION_ARMS = {
-    "noresid": ("residual MLP off",          {"no_residual_mlp": True}),
+    "noresid": ("residual MLP off",              {"no_residual_mlp": True}),
     "ci":      ("channel mixing -> independent", {"channel_mode": "ci_full"}),
-    "norevin": ("RevIN off",                 {"no_revin": True}),
-    "gateuni": ("FFT gate -> uniform",       {"gate_uniform": True}),
-    # num_bands is asserted to be in {2,3,4}, so 2 is the floor; 4 -> 2 still
-    # halves the decomposition.
-    "band2":   ("4 bands -> 2",              {"num_bands": 2}),
-    "d4":      ("d_state 16 -> 4",           {"d_state": 4}),
+    "gateuni": ("FFT gate -> uniform weights",   {"gate_uniform": True}),
+    # num_bands is asserted to be in {2,3,4}, so 2 is the floor — this halves
+    # the decomposition rather than removing it.
+    "band2":   ("multi-band 4 -> 2",             {"num_bands": 2}),
+    "nospec":  ("spectral-separation loss off",  {"lambda_spec": 0.0}),
+    # kernel_size=1 makes the DTK pointwise: the shared kernel still projects
+    # in and out of the latent space but mixes nothing across time, which is
+    # the component's whole purpose.
+    "dtk1":    ("DTK temporal mixing off (k=1)", {"kernel_size": 1}),
 }
 ABLATION_CSV = "results/ablation.csv"
 
