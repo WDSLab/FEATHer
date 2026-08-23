@@ -19,9 +19,16 @@ def corr_mean(pred, true):
     # the unselected entries UNINITIALIZED — pass out=zeros so invalid (B,F)
     # pairs hold a defined value (they are masked out of `r` at the end, but
     # garbage here could surface as spurious warnings/NaN-propagation).
-    x_mean = np.divide((x*m).sum(axis=1), cnt,
+    # AUDIT-FIX (2026-08-24, CORR-NAN-MASK): zero out with np.where, NOT `x*m`.
+    # Boolean m multiplies as 0/1 and `nan * 0 == nan`, so a single masked
+    # target poisoned the whole (B,F) sum -> mean NaN -> that pair silently
+    # vanished under the closing nanmean. On MetroPT3@720 that dropped 62% of
+    # pairs, and the survivors (outage-free windows) are a biased subset.
+    xz = np.where(m, x, 0.0)
+    yz = np.where(m, y, 0.0)
+    x_mean = np.divide(xz.sum(axis=1), cnt,
                        out=np.zeros(cnt.shape, dtype=float), where=valid)[:, None, :]
-    y_mean = np.divide((y*m).sum(axis=1), cnt,
+    y_mean = np.divide(yz.sum(axis=1), cnt,
                        out=np.zeros(cnt.shape, dtype=float), where=valid)[:, None, :]
 
     # Centering
@@ -61,12 +68,15 @@ def r2_mean(pred, true):
     # Use minimum of 1 for denominator to avoid cnt=0, calculate only valid locations with where=valid
     # AUDIT-FIX (2026-07-14, P3): out=zeros — `where=` alone leaves the
     # unselected entries uninitialized (see corr_mean).
-    y_mean = np.divide((y * m).sum(axis=1), np.maximum(cnt, 1),
+    # AUDIT-FIX (2026-08-24, CORR-NAN-MASK): zero out with np.where, not `* m`
+    # — `nan * 0 == nan` made one masked target NaN the whole (B,F) statistic,
+    # silently deleting that pair from the closing nanmean (see corr_mean).
+    y_mean = np.divide(np.where(m, y, 0.0).sum(axis=1), np.maximum(cnt, 1),
                        out=np.zeros(cnt.shape, dtype=float), where=valid)[:, None, :]
 
     # SSE, SST (masked)
-    sse = ((y - x) ** 2 * m).sum(axis=1)           # (B, F)
-    sst = ((y - y_mean) ** 2 * m).sum(axis=1)      # (B, F)
+    sse = np.where(m, (y - x) ** 2, 0.0).sum(axis=1)       # (B, F)
+    sst = np.where(m, (y - y_mean) ** 2, 0.0).sum(axis=1)  # (B, F)
 
     r2 = np.full_like(sse, np.nan, dtype=float)
 
