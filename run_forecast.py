@@ -17,9 +17,22 @@ Usage:
     python run_forecast.py --exclude TimesNet,S_Mamba    # skip heavy models
     python run_forecast.py --ngpu 2                      # dynamic 2-GPU queue
 
+Component ablation (FEATHer only — each arm removes one thing WE added, on the
+shipping model; see ABLATION_ARMS below):
+    python run_forecast.py --ablation_arm all --group mfg --num_seeds 1
+                                                         # 6 arms x 24 = 144 runs
+    python run_forecast.py --ablation_arm gateuni,band2 --group mfg
+                                                         # subset
+    python run_forecast.py --check --ablation_arm all --group mfg --num_seeds 1
+                                                         # count first
+    python tools/paper/ablation_summary.py --per_dataset # verdict (>=2% = signal)
+Rows are tagged abl_<arm> and routed to results/ablation.csv, so the headline
+CSV stays clean; the main sweep is the baseline and is never re-run.
+
 Multi-GPU: `--ngpu N` runs a CF-JEPA-style dynamic queue — one worker
 subprocess per GPU (indices --gpu .. --gpu+N-1); a free GPU grabs the next
 (model, dataset, pred_len) job, so fast models never leave a GPU idle.
+Single specific GPU: `--ngpu 1 --gpu 0` pins everything to cuda:0.
 """
 
 import argparse
