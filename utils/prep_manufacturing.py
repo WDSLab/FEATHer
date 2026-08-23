@@ -9,15 +9,15 @@ from raw without touching the raw files.
 
 GAP-FILL POLICY (MASK-FIX 2026-07-15, supersedes audit-P3 interp): for the
 gridded sensor sets ALL gaps are held at the last observation (hold-last,
-fully causal — no interpolation, no lookahead; leading edge back-filled), and
+fully causal ??no interpolation, no lookahead; leading edge back-filled), and
 a companion `mask.csv` (1=observed, 0=imputed) is written alongside data.csv.
 The loader NaN-outs imputed TARGET cells so the training loss and test metrics
-are computed on OBSERVED values only — the standard convention for datasets
+are computed on OBSERVED values only ??the standard convention for datasets
 that natively contain missing samples (traffic/medical/sensor). The filled
 values are still used as model INPUT. `_fill_gaps` prints the gap audit on
 every run so a changed raw re-download is visible. State this policy (hold-last
 + observed-only scoring) in the paper. NB: MetroPT/BlastFurnace raw are
-gap-free per their source papers — gaps here are resampling/logger-off
+gap-free per their source papers ??gaps here are resampling/logger-off
 artifacts, so describe them as unobserved time, not sensor NaNs.
 
 RAW PROVENANCE (download once, place in data/<name>/):
@@ -38,8 +38,8 @@ RAW PROVENANCE (download once, place in data/<name>/):
                (run-to-failure trajectories ~200 cycles are too short for long
                horizons; engine-aware windowing via Dataset_CMAPSS).
 
-Run:  python tools/prep_manufacturing.py            # all
-      python tools/prep_manufacturing.py Steel CMAPSS  # subset
+Run:  python utils/prep_manufacturing.py            # all
+      python utils/prep_manufacturing.py Steel CMAPSS  # subset
 """
 import os
 import sys
@@ -58,14 +58,14 @@ def _w(df, name, mask=None):
     if mask is not None:
         # MASK-FIX (2026-07-15): companion mask.csv (1=observed, 0=imputed),
         # POSITIONALLY aligned to the WRITTEN data.csv channel columns (`mask`
-        # must already be reordered/renamed to match — the loader NaN-outs
+        # must already be reordered/renamed to match ??the loader NaN-outs
         # imputed TARGET cells from the loss/metrics, i.e. observed-only
         # scoring, the standard convention for natively-missing sensor data).
         chan_cols = list(df.columns[1:])                    # drop 'date'
         m = np.asarray(mask).astype("int8")
         assert m.shape == (len(df), len(chan_cols)), (
             f"{name}: mask shape {m.shape} != data "
-            f"{(len(df), len(chan_cols))} — column/row misalignment")
+            f"{(len(df), len(chan_cols))} ??column/row misalignment")
         mdf = pd.DataFrame(m, columns=chan_cols)
         mdf.insert(0, "date", df["date"].values)
         mdf.to_csv(os.path.join(DATA, name, "mask.csv"), index=False)
@@ -106,7 +106,7 @@ def _fill_gaps(df, cols, name, interp_limit, step_desc, max_gap_bound=None):
     if max_gap_bound is not None:
         assert worst <= max_gap_bound, (
             f"{name}: max gap {worst} steps exceeds the audited bound "
-            f"{max_gap_bound} — raw source changed? Re-vet before filling.")
+            f"{max_gap_bound} ??raw source changed? Re-vet before filling.")
 
     out = df.copy()
     interp = out[cols].interpolate(limit_direction="both")
@@ -195,7 +195,7 @@ def pmsm():
 
 
 def cmapss3():
-    # NASA C-MAPSS FD003 — same single-operating-condition setup as FD001 but
+    # NASA C-MAPSS FD003 ??same single-operating-condition setup as FD001 but
     # TWO fault modes (HPC degradation + fan degradation) and longer
     # trajectories (median 220 / max 525 cycles -> ~3x the H=96 windows of
     # FD001). Vetted 2026-07-02: FD003's constant sensors {s1,s5,s16,s18,s19}
@@ -225,7 +225,7 @@ def blastfurnace():
     # Build one multivariate hourly series:
     #   (1) winsorize each process channel to its [0.5, 99.5] pct computed on
     #       the TRAIN region only (first 70% rows, matching Dataset_Custom's
-    #       0.7/0.1/0.2 split — audit P3: full-series quantiles were textbook
+    #       0.7/0.1/0.2 split ??audit P3: full-series quantiles were textbook
     #       preprocessing leakage, 2 scalars/channel). The raw carries gross
     #       sensor faults (a shared ~3311 temperature error SENTINEL,
     #       physically-impossible negatives, zero-dropouts); tail-clip touches
@@ -276,12 +276,12 @@ def blastfurnace():
 
 def eweld():
     # EWELD (Liu et al., Scientific Data 10:615, 2023, DOI 10.1038/
-    # s41597-023-02503-6; Figshare 10.6084/m9.figshare.21893808) — 386
+    # s41597-023-02503-6; Figshare 10.6084/m9.figshare.21893808) ??386
     # industrial/commercial 15-min smart-meter load series (2016-2022) with
     # 5,741 labeled extreme-weather events. Each user file = [Time, Value(kWh)]
     # = a single load channel. We build a manufacturing multivariate load-bank
     # from Section C (Manufacturing) METAL divisions (C24 basic metals + C25
-    # fabricated metals — domain-aligned with Steel/BlastFurnace): the 14
+    # fabricated metals ??domain-aligned with Steel/BlastFurnace): the 14
     # lowest-ID users that fully cover a gap-free 3-year window 2018-01-01..
     # 2020-12-31 (>99% complete on the 15-min grid; residual forward-filled).
     # D=14 -> sub-1K CORE. 15-min sampling -> daily(96)/weekly/ANNUAL multi-
@@ -317,12 +317,12 @@ def eweld():
     # removed from the C24/C25 divisions) must fail loudly, not silently
     # change D and break every trained checkpoint's input width.
     assert len(cols) == 14, (
-        f"EWELD: expected exactly 14 qualifying users, got {len(cols)} — "
+        f"EWELD: expected exactly 14 qualifying users, got {len(cols)} ??"
         f"raw EWELD.zip contents changed?")
     out = pd.DataFrame(cols, index=grid).reset_index().rename(columns={"index": "date"})
     out["date"] = out["date"].dt.strftime("%Y-%m-%d %H:%M:%S")
     # MASK-FIX (2026-07-15): mask the residual forward-filled cells (<1%/chan)
-    # so they are scored-out (observed-only) — same convention as the gap-
+    # so they are scored-out (observed-only) ??same convention as the gap-
     # filled sensor sets. Column order matches `out` (dict insertion order).
     mask = np.column_stack([obs[k] for k in cols]).astype("int8")
     _w(out, "EWELD", mask=mask if (mask == 0).any() else None)
@@ -338,7 +338,7 @@ def n2o():
     # inlet flow); DROP the quality flags, O2/phase SETPOINTS, PROCESSPHASE /
     # PHASECODE (categorical), valve PCT, inlet STATE. Resample to 5-min MEAN
     # -> residual NaN ~5.8% (filled per the module gap policy: linear <=1 h,
-    # hold-last beyond — see _fill_gaps), ~210k rows over 2 yr
+    # hold-last beyond ??see _fill_gaps), ~210k rows over 2 yr
     # (2022-06..2024-06). Standardized copy-last persistence 1.10->1.53 over
     # H=96..720 = non-trivial. D=14 -> sub-1K CORE. Continuous INDUSTRIAL
     # PROCESS monitoring (bio-chemical); target = N2O (the source paper's
@@ -362,7 +362,7 @@ def n2o():
     g = (df.set_index("time")[list(ren)].rename(columns=ren)
            .resample("5min").mean())
     # 5-min grid. MASK-FIX (2026-07-15): interp_limit=0 -> all gaps hold-last
-    # (Long SCADA outages exist — audited 2026-07-14: INLET.Q up to 26,643
+    # (Long SCADA outages exist ??audited 2026-07-14: INLET.Q up to 26,643
     # steps = 92 d; airflows 66 d); imputed cells masked from loss/metrics.
     g, obs = _fill_gaps(g, list(ren.values()), "N2O",
                         interp_limit=0, step_desc="5-min", max_gap_bound=30000)
@@ -373,13 +373,13 @@ def n2o():
 
 
 def metropt3():
-    # MetroPT-3 (UCI #791; Veloso et al., Scientific Data 9:764, 2022) —
+    # MetroPT-3 (UCI #791; Veloso et al., Scientific Data 9:764, 2022) ??
     # metro-train Air Production Unit (APU) reciprocating air compressor. UCI
     # ships a ~10-s decimated stream (1,516,948 rows, 2020-02-01..2020-09-01,
     # 0 NaN). Keep the 7 ANALOG sensor channels (TP2/TP3/H1/DV_pressure/
     # Reservoirs pressures, Motor_current, Oil_temperature); DROP the 8 digital/
     # binary status signals (COMP/DV_eletric/Towers/MPG/LPS/Pressure_switch/
-    # Oil_level/Caudal_impulses) — not continuous. Resample to 1-min MEAN (mild
+    # Oil_level/Caudal_impulses) ??not continuous. Resample to 1-min MEAN (mild
     # anti-aliasing aggregation, same convention as the rebuilt PMSM / SCADA):
     # ~307k rows; standardized copy-last persistence 0.80->1.14 over H=96..720
     # = non-trivial (native 10-s also passes at ~1.4; the compressor duty-cycle
@@ -394,7 +394,7 @@ def metropt3():
     df["timestamp"] = pd.to_datetime(df["timestamp"])
     g = df.set_index("timestamp")[analog].resample("1min").mean()
     # 1-min grid. MASK-FIX (2026-07-15): interp_limit=0 -> all gaps hold-last
-    # (recording/logger-off gaps up to 48 h — these are unobserved time, not
+    # (recording/logger-off gaps up to 48 h ??these are unobserved time, not
     # sensor NaNs; the raw stream is gap-free); imputed cells masked from
     # loss/metrics via the companion mask (observed-only scoring).
     g, obs = _fill_gaps(g, analog, "MetroPT3",
