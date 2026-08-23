@@ -29,7 +29,7 @@ import sys
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from baselines import (list_models, list_ablation_models,
+from baselines import (list_models,
                        get_method_defaults, get_dataset_overrides)
 from utils.dispatch_queue import run_on_gpus
 
@@ -175,24 +175,41 @@ def load_done_set(csv_path):
     )
 
 
+# Component ablation — one switch off per arm, applied to the SHIPPING model.
+#
+# Each arm patches the args that `dispatch()` forwards to the worker, so the
+# run starts from whatever `_DATASET_OVERRIDES` freezes for the group (mfg =
+# FEATHer-N: channel_mode=mix, residual MLP r16, d16/k7/B4, per-dataset FFT
+# period) and turns off exactly one thing. That keeps every arm directly
+# comparable to the main-table row, which supplies the baseline and is not
+# re-run.
+#
+# This REPLACED the old `--ablation_axis` sweep over the 30
+# `FEATHer_<axis>_<variant>` registry entries (archived 2026-08-24). Those
+# builders predate the residual MLP and the channel mode, so they construct
+# the pre-08 architecture: their numbers could not be compared against the
+# shipping model, which is the whole point of an ablation.
+#
+# Verdict threshold: a 24-cell mean carries +-0.3~0.5% seed noise, so only a
+# >=2% change is signal (2026-08-16 calibration). Promote those arms to 3 seeds.
+ABLATION_ARMS = {
+    "noresid": ("residual MLP off",          {"no_residual_mlp": True}),
+    "ci":      ("channel mixing -> independent", {"channel_mode": "ci_full"}),
+    "norevin": ("RevIN off",                 {"no_revin": True}),
+    "gateuni": ("FFT gate -> uniform",       {"gate_uniform": True}),
+    # num_bands is asserted to be in {2,3,4}, so 2 is the floor; 4 -> 2 still
+    # halves the decomposition.
+    "band2":   ("4 bands -> 2",              {"num_bands": 2}),
+    "d4":      ("d_state 16 -> 4",           {"d_state": 4}),
+}
+ABLATION_CSV = "results/ablation.csv"
+
+
 def enumerate_combos(args):
     """Generate (exp_tag, model, data, pred_len, seq_len, seed) tuples for
     the requested sweep."""
 
-    if args.ablation_axis:
-        # FEATHer ablation sweep — one axis (ms/gate/dtk/head/complexity)
-        # or "all" 30 variants. Combine with --data / --pred_len to scope.
-        if args.ablation_axis == "all":
-            models = list_ablation_models()
-        else:
-            prefix = f"FEATHer_{args.ablation_axis}_"
-            models = [m for m in list_ablation_models()
-                      if m.startswith(prefix)]
-            if not models:
-                raise SystemExit(
-                    f"Unknown ablation axis '{args.ablation_axis}' "
-                    f"(use ms, gate, dtk, head, complexity, or all)")
-    elif args.model:
+    if args.model:
         models = [args.model]
     elif args.exclude:
         excl = {s.strip() for s in args.exclude.split(",") if s.strip()}
@@ -405,9 +422,14 @@ def main():
     # What to run
     p.add_argument("--model",   type=str, default=None,
                    help="Single model; omit to run all registered.")
-    p.add_argument("--ablation_axis", type=str, default=None,
-                   help="FEATHer ablation sweep: ms, gate, dtk, head, "
-                        "complexity, or all (30 variants).")
+    p.add_argument("--ablation_arm", type=str, default=None,
+                   help="Component ablation on the shipping FEATHer: "
+                        + ", ".join(ABLATION_ARMS) + ", or 'all'. Each arm "
+                        "turns off one component and tags its rows abl_<arm>; "
+                        "results go to " + ABLATION_CSV + " unless "
+                        "--results_csv says otherwise. The main sweep supplies "
+                        "the baseline and is not re-run "
+                        "(compare with tools/paper/ablation_summary.py).")
     p.add_argument("--exclude", type=str, default=None,
                    help="Comma-separated models to skip.")
     p.add_argument("--data",    type=str, default=None,
@@ -508,6 +530,46 @@ def main():
 
     args = p.parse_args()
 
+    if not args.ablation_arm:
+        run_sweep(args)
+        return
+
+    # --- component ablation: one sweep per arm ------------------------------
+    arms = (list(ABLATION_ARMS) if args.ablation_arm == "all"
+            else [a.strip() for a in args.ablation_arm.split(",") if a.strip()])
+    unknown = [a for a in arms if a not in ABLATION_ARMS]
+    if unknown:
+        raise SystemExit(f"Unknown ablation arm(s) {unknown}; "
+                         f"choose from {list(ABLATION_ARMS)} or 'all'")
+
+    if args.model and args.model != "FEATHer":
+        raise SystemExit("--ablation_arm ablates FEATHer's own components; "
+                         f"it cannot be combined with --model {args.model}")
+    args.model = "FEATHer"
+
+    # Never let ablation rows land in the main results CSV — the exp_tag would
+    # keep them separate, but a stray arm row in the headline file is the kind
+    # of thing nobody notices until a table looks wrong.
+    if args.results_csv == RESULTS_CSV:
+        args.results_csv = ABLATION_CSV
+        print(f"[ablation] results -> {args.results_csv}")
+
+    base_tag = args.exp_tag
+    for arm in arms:
+        desc, patch = ABLATION_ARMS[arm]
+        arm_args = argparse.Namespace(**vars(args))
+        for k, v in patch.items():
+            setattr(arm_args, k, v)
+        arm_args.exp_tag = (f"abl_{arm}" if base_tag == DEFAULT_EXP_TAG
+                            else f"{base_tag}_{arm}")
+        print("\n" + "=" * 70)
+        print(f"ABLATION ARM  {arm}  ({desc})   exp_tag={arm_args.exp_tag}")
+        print("=" * 70, flush=True)
+        run_sweep(arm_args)
+
+
+def run_sweep(args):
+    """Enumerate → resume-filter → dispatch one sweep configuration."""
     combos = enumerate_combos(args)
     done = load_done_set(args.results_csv)
     missing = [c for c in combos if c not in done]

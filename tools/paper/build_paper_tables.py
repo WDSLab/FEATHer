@@ -7,13 +7,16 @@ FEATHer forced to the BOTTOM). FEATHer = residual-MLP rerun (feather_v2_mlp, 08-
   analysis/02_robustness_mfg.xlsx  per model: Dw row / corruptMSE row  (edge-7)
     1_avg (per-dataset, fault-mean) ; 2_per_fault (per dataset x fault)
 """
+import os
+
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 BEST = PatternFill("solid", fgColor="C6EFCE")
 SECOND = PatternFill("solid", fgColor="FFEB9C")
-HDR = PatternFill("solid", fgColor="D9E1F2")
+HDR = PatternFill("solid", fgColor="DDDDDD")
+OURS = PatternFill("solid", fgColor="FFF2CC")
 BOLD = Font(bold=True)
 CT = Alignment(horizontal="center", vertical="center")
 THIN = Border(*[Side(style="thin", color="BFBFBF")] * 4)
@@ -44,14 +47,24 @@ def order_models(models):
 
 
 # ---------- generic per-model two-metric-row writer ----------
-def write_sheet(wb, name, models, specs, mats, metric_labels, two_row):
-    """specs=[(group,sub)]; mats={label: DataFrame[model x MultiIndex(group,sub)]}."""
+def write_sheet(wb, name, models, specs, mats, metric_labels, two_row, title=None):
+    """specs=[(group,sub)]; mats={label: DataFrame[model x MultiIndex(group,sub)]}.
+
+    Layout (CF-JEPA convention): merged caption on row 1, blank spacer row 2,
+    header from row 3 (row 3-4 when `two_row`), body below.
+    """
     ws = wb.create_sheet(name)
-    hdr2 = 2 if two_row else 1
+    ncols = 3 + len(specs)
+    h1 = 1
+    if title:
+        ws.cell(1, 1, title).font = Font(size=10)
+        ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=ncols)
+        h1 = 3                      # 1 = caption, 2 = spacer, 3 = header
+    h2 = h1 + 1 if two_row else h1
     for i, t in enumerate(("model", "params", "metric")):
-        ws.cell(1, i + 1, t).font = BOLD
+        c = ws.cell(h1, i + 1, t); c.font = BOLD; c.alignment = CT; c.fill = HDR
         if two_row:
-            ws.merge_cells(start_row=1, start_column=i + 1, end_row=2, end_column=i + 1)
+            ws.merge_cells(start_row=h1, start_column=i + 1, end_row=h2, end_column=i + 1)
     col0 = 4
     colmap = []
     if two_row:
@@ -60,18 +73,18 @@ def write_sheet(wb, name, models, specs, mats, metric_labels, two_row):
             g = specs[i][0]; j = i
             while j < len(specs) and specs[j][0] == g:
                 j += 1
-            ws.merge_cells(start_row=1, start_column=cc, end_row=1, end_column=cc + (j - i) - 1)
-            hc = ws.cell(1, cc, g); hc.font = BOLD; hc.alignment = CT; hc.fill = HDR
+            ws.merge_cells(start_row=h1, start_column=cc, end_row=h1, end_column=cc + (j - i) - 1)
+            hc = ws.cell(h1, cc, g); hc.font = BOLD; hc.alignment = CT; hc.fill = HDR
             for k in range(j - i):
-                sc = ws.cell(2, cc + k, specs[i + k][1]); sc.font = BOLD; sc.alignment = CT; sc.fill = HDR
+                sc = ws.cell(h2, cc + k, specs[i + k][1]); sc.font = BOLD; sc.alignment = CT; sc.fill = HDR
                 colmap.append((cc + k, specs[i + k]))
             cc += (j - i); i = j
     else:
         for k, spec in enumerate(specs):
-            hc = ws.cell(1, col0 + k, spec[0]); hc.font = BOLD; hc.alignment = CT; hc.fill = HDR
+            hc = ws.cell(h1, col0 + k, spec[0]); hc.font = BOLD; hc.alignment = CT; hc.fill = HDR
             colmap.append((col0 + k, spec))
 
-    top = hdr2 + 1
+    top = h2 + 1
     row_of = {}
     for mi, m in enumerate(models):
         r0 = top + mi * len(metric_labels)
@@ -99,16 +112,29 @@ def write_sheet(wb, name, models, specs, mats, metric_labels, two_row):
                 ws.cell(vals[0][1], ec).fill = BEST; ws.cell(vals[0][1], ec).font = BOLD
                 ws.cell(vals[1][1], ec).fill = SECOND
     last = top + len(models) * len(metric_labels) - 1
-    for row in ws.iter_rows(min_row=1, max_row=last, min_col=1, max_col=col0 + len(specs) - 1):
+    for row in ws.iter_rows(min_row=h1, max_row=last, min_col=1, max_col=col0 + len(specs) - 1):
         for cell in row:
             cell.border = THIN
+    # "ours" band on the identity columns (best/2nd fills own the value columns)
+    if "FEATHer" in models:
+        r = row_of[("FEATHer", metric_labels[0])]
+        for rr in range(r, r + len(metric_labels)):
+            for cc in (1, 2, 3):
+                ws.cell(rr, cc).fill = OURS
     ws.column_dimensions["A"].width = 13
     ws.column_dimensions["B"].width = 9
     ws.column_dimensions["C"].width = 10
+    ws.freeze_panes = ws.cell(top, col0)
 
 
 # ---------- accuracy ----------
-def acc_matrix(d, datasets, metric, per_h):
+def acc_matrix(d, datasets, metric, per_h, common=None):
+    """common = 데이터셋 목록을 주면 OVERALL을 그 위에서만 계산.
+
+    모델마다 커버리지가 다르면 OVERALL이 서로 다른 데이터셋 집합의 평균이 되어
+    비교가 성립하지 않는다 (덜 돈 모델이 유리/불리해짐). OVERALL은 반드시
+    '모든 모델이 가진' 공통 집합에서만 낸다.
+    """
     specs, series = [], {}
     for ds in datasets:
         piv = d[d.data == ds].pivot_table(index="model", columns="pred_len", values=metric)
@@ -119,20 +145,40 @@ def acc_matrix(d, datasets, metric, per_h):
         else:
             specs.append((ds, "Avg")); series[(ds, "Avg")] = piv["Avg"]
     df = pd.DataFrame(series); df.columns = pd.MultiIndex.from_tuples(df.columns)
-    df[("OVERALL", "Avg")] = df[[c for c in df.columns if c[1] == "Avg"]].mean(axis=1)
-    specs.append(("OVERALL", "Avg"))
+    avg_cols = [c for c in df.columns if c[1] == "Avg"]
+    if common is not None:
+        avg_cols = [c for c in avg_cols if c[0] in common]
+    lab = "OVERALL" if common is None or len(common) == len(datasets) else \
+          f"OVERALL ({len(common)}ds)"
+    df[(lab, "Avg")] = df[avg_cols].mean(axis=1)
+    specs.append((lab, "Avg"))
     return specs, df
 
 
+def common_datasets(d, datasets, models):
+    """표시할 모든 모델이 4호라이즌 전부 가진 데이터셋만."""
+    ok = []
+    for ds in datasets:
+        sub = d[d.data == ds]
+        if all(sub[sub.model == m].pred_len.nunique() == len(HS) for m in models):
+            ok.append(ds)
+    return ok
+
+
 def load_acc():
-    b = pd.read_csv(f"{R}/baselines/fcst_results_baselines.csv")
-    b = b[b.exp_tag == "main"]
-    # FEATHer = FINAL grid-tuned 3-seed run (2026-08-13): mfg = canonical N cell
-    # (ds16_k7_B4), LTSF = per-dataset CI cell. exp_tag "final" in feather_final.csv.
-    # LTSF rows fill in once the --group ltsf final sweep lands.
-    f = pd.read_csv(f"{R}/feather/feather_final.csv")
-    f = f[f.exp_tag == "final"]
-    return pd.concat([b, f])
+    """병합된 벤치마크별 raw 파일이 단일 소스 — `tools/paper/merge_raw.py`가 만든다.
+
+    mfg  = 베이스라인 13 + FEATHer-N (mix + 잔차MLP, ds16_k7_B4)
+    ltsf = 베이스라인 13 + FEATHer-CIN (ci_full + 잔차MLP, 데이터셋별 arch;
+           레벨 앵커는 train-only 규칙 → Exchange만 last_std)
+    """
+    parts = []
+    for name in ("mfg", "ltsf"):
+        p = f"{R}/{name}_raw.csv"
+        if not os.path.exists(p):
+            raise SystemExit(f"[merge 필요] {p} 없음 — python tools/paper/merge_raw.py")
+        parts.append(pd.read_csv(p))
+    return pd.concat(parts, ignore_index=True)
 
 
 # ---------- robustness ----------
@@ -155,39 +201,63 @@ def rob_matrix(d, datasets, valuecol, per_fault):
 
 def load_rob():
     # FEATHer = residual-MLP robustness (robust_feather_v2_mlp)
-    d = pd.concat([pd.read_csv(f"{R}/baselines/robust_results_baselines.csv"),
-                   pd.read_csv(f"{R}/feather/robust_feather_v2_mlp.csv")])
+    d = pd.concat([pd.read_csv(f"{R}/_archive/robustness/robust_results_baselines.csv"),
+                   pd.read_csv(f"{R}/_archive/robustness/robust_feather_v2_mlp.csv")])
     d = d[d.fault_type != "clean"].copy()
     for c in ("Dw", "MSE"):
         d[c] = pd.to_numeric(d[c], errors="coerce")
     return d.dropna(subset=["Dw"])
 
 
-if __name__ == "__main__":
-    import os
-    os.makedirs("analysis", exist_ok=True)
+CAP = {  # sheet -> caption suffix (CF-JEPA convention: merged caption on row 1)
+    "1_avg": "all models, horizon-averaged",
+    "2_per_horizon": "all models, per horizon",
+    "3_edge_avg": "MCU-deployable models, horizon-averaged",
+    "4_edge_per_horizon": "MCU-deployable models, per horizon",
+    "2_per_fault": "MCU-deployable models, per fault type",
+}
+PROTO = ("seq_len=96, 3 seeds (2025-2027), best-val-epoch selection, "
+         "MSE training. Lower is better; best shaded green, 2nd yellow.")
 
-    acc = load_acc()
+
+def save(wb, path, label):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    wb.save(path)
+    print(f"saved {path}  [{label}]")
+
+
+def accuracy_book(acc, datasets, table_no, what, out):
     all_m = order_models([m for m in acc.model.unique() if m in REF_PARAMS])
     edge = order_models([m for m in EDGE7 if m in acc.model.unique()])
     wb = Workbook(); wb.remove(wb.active)
     for name, models, per_h in [("1_avg", all_m, False), ("2_per_horizon", all_m, True),
                                 ("3_edge_avg", edge, False), ("4_edge_per_horizon", edge, True)]:
-        sp, mse = acc_matrix(acc, MFG, "MSE", per_h)
-        _, mae = acc_matrix(acc, MFG, "MAE", per_h)
-        write_sheet(wb, name, models, sp, {"MSE": mse, "MAE": mae}, ["MSE", "MAE"], per_h)
-    wb.save("analysis/01_accuracy_mfg.xlsx"); print("saved 01_accuracy_mfg.xlsx")
+        common = common_datasets(acc, datasets, models)
+        sp, mse = acc_matrix(acc, datasets, "MSE", per_h, common)
+        _, mae = acc_matrix(acc, datasets, "MAE", per_h, common)
+        title = f"Table {table_no}. {what} — {CAP[name]}. {PROTO}"
+        if len(common) < len(datasets):
+            gap = [d for d in datasets if d not in common]
+            title += (f" OVERALL is averaged over the {len(common)} datasets every model "
+                      f"covers; {', '.join(gap)} not yet run for all models and are "
+                      f"EXCLUDED from OVERALL (per-dataset columns still shown).")
+        write_sheet(wb, name, models, sp, {"MSE": mse, "MAE": mae}, ["MSE", "MAE"],
+                    per_h, title=title)
+    save(wb, out, f"{len(all_m)} models x {len(datasets)} datasets")
 
-    # ---- LTSF accuracy (same 4-sheet layout over the 8 LTSF datasets) ----
-    all_l = order_models([m for m in acc.model.unique() if m in REF_PARAMS])
-    edge_l = order_models([m for m in EDGE7 if m in acc.model.unique()])
-    wb = Workbook(); wb.remove(wb.active)
-    for name, models, per_h in [("1_avg", all_l, False), ("2_per_horizon", all_l, True),
-                                ("3_edge_avg", edge_l, False), ("4_edge_per_horizon", edge_l, True)]:
-        sp, mse = acc_matrix(acc, LTSF, "MSE", per_h)
-        _, mae = acc_matrix(acc, LTSF, "MAE", per_h)
-        write_sheet(wb, name, models, sp, {"MSE": mse, "MAE": mae}, ["MSE", "MAE"], per_h)
-    wb.save("analysis/03_accuracy_ltsf.xlsx"); print("saved 03_accuracy_ltsf.xlsx")
+
+if __name__ == "__main__":
+    acc = load_acc()
+
+    accuracy_book(acc, MFG, 2, "Forecasting accuracy on the six manufacturing datasets",
+                  "analysis/mfg/main_table.xlsx")
+
+    # FEATHer's LTSF cell is CIN (channel-INDEPENDENT), so its count differs from
+    # the mfg N cell: quote it under the same D=7/H=96 convention (ETTh1 = 420).
+    REF_PARAMS["FEATHer"] = 420
+    accuracy_book(acc, LTSF, 3, "Generalization to the eight standard LTSF benchmarks",
+                  "analysis/ltsf/main_table.xlsx")
+    REF_PARAMS["FEATHer"] = 822
 
     rob = load_rob()
     redge = order_models([m for m in EDGE7 if m in rob.model.unique()])
@@ -195,5 +265,9 @@ if __name__ == "__main__":
     for name, per_f in [("1_avg", False), ("2_per_fault", True)]:
         sp, dw = rob_matrix(rob, MFG, "Dw", per_f)
         _, cm = rob_matrix(rob, MFG, "MSE", per_f)
-        write_sheet(wb, name, redge, sp, {"Dw": dw, "corruptMSE": cm}, ["Dw", "corruptMSE"], per_f)
-    wb.save("analysis/02_robustness_mfg.xlsx"); print("saved 02_robustness_mfg.xlsx | edge:", redge)
+        cap = CAP["2_per_fault"] if per_f else CAP["3_edge_avg"]
+        write_sheet(wb, name, redge, sp, {"Dw": dw, "corruptMSE": cm}, ["Dw", "corruptMSE"],
+                    per_f, title=(f"Table R. Sensor-fault robustness on the manufacturing "
+                                  f"datasets — {cap}. Dw = corrupt/clean MSE ratio. "
+                                  f"NOT REPORTED IN THE PAPER (FEATHer ranks last)."))
+    save(wb, "analysis/diagnostics/robustness.xlsx", f"edge: {redge}")

@@ -144,63 +144,23 @@ _BUILDERS: Dict[str, Callable] = {
 
 
 # -----------------------------------------------------------------------------
-# FEATHer ablation variants
+# FEATHer ablation
 # -----------------------------------------------------------------------------
-# Five ablation axes — multiscale (15), gating (4), DTK (4), head (4),
-# complexity (3) = 30 variants total. Registered as first-class models so
-# they sweep through the same orchestrator / worker / CSV / checkpoint
-# protocol as the 12-baseline main lineup. Reviewer R8 #6 ("ablations
-# only on H=96 or H=720") is then directly addressable by running each
-# variant across all four horizons with the 5-seed protocol.
+# The 30 `FEATHer_<axis>_<variant>` builders that used to live here (multiscale
+# 15 / gating 4 / DTK 4 / head 4 / complexity 3) were archived on 2026-08-24 to
+# _archive/ablation_v1/, together with baselines/FEATHer/ablation/ and
+# tools/paper/ablation_table.py.
 #
-# Naming: FEATHer_<axis>_<variant>
-#   axes: ms (multiscale), gate, dtk, head, complexity
-# Example: FEATHer_ms_PHML, FEATHer_gate_fft, FEATHer_dtk_full
-def _make_feather_ablation(module_path, class_name, kwarg_name, variant_value):
-    def _build(args, n_features, seq_len, pred_len):
-        import importlib
-        mod = importlib.import_module(module_path)
-        cls = getattr(mod, class_name)
-        kwargs = dict(
-            seq_len=seq_len,
-            pred_len=pred_len,
-            d_model=n_features,
-            d_state=args.d_state,
-            kernel_size=args.kernel_size,
-            use_norm=True,
-            period=args.period,
-        )
-        # FEATHer_Multiscale takes band_config instead of num_bands.
-        if class_name != "FEATHer_Multiscale":
-            kwargs["num_bands"] = getattr(args, "num_bands", 4)
-        kwargs[kwarg_name] = variant_value
-        return cls(**kwargs)
-    return _build
-
-
-_ABLATION_SPECS = [
-    # (axis, module, class, kwarg, [variants])
-    ("ms",         "baselines.FEATHer.ablation.multiscale", "FEATHer_Multiscale", "band_config",
-     ["P", "H", "M", "L",
-      "PH", "PM", "PL", "HM", "HL", "ML",
-      "PHM", "PHL", "PML", "HML",
-      "PHML"]),
-    ("gate",       "baselines.FEATHer.ablation.gating",     "FEATHer_Gating",     "gating_type",
-     ["none", "uniform", "softmax", "fft"]),
-    ("dtk",        "baselines.FEATHer.ablation.dtk",        "FEATHer_DTK",        "dtk_type",
-     ["none", "mlp", "shallow", "full"]),
-    ("head",       "baselines.FEATHer.ablation.head",       "FEATHer_Head",       "head_type",
-     ["linear", "mlp", "conv", "spk"]),
-    ("complexity", "baselines.FEATHer.ablation.complexity", "FEATHer_Complexity", "complexity",
-     ["half", "full", "double"]),
-]
-
-_ABLATION_BUILDERS: Dict[str, Callable] = {}
-for _axis, _module, _klass, _kwarg, _variants in _ABLATION_SPECS:
-    for _v in _variants:
-        _name = f"FEATHer_{_axis}_{_v}"
-        _ABLATION_BUILDERS[_name] = _make_feather_ablation(_module, _klass, _kwarg, _v)
-del _axis, _module, _klass, _kwarg, _variants, _v, _name
+# They were written before the residual MLP (07-31) and the channel mode
+# (08-05) existed and never forwarded either, so they built the pre-08
+# architecture. Running them would have ablated a model that is not the one in
+# the main table, and the deltas would have been meaningless.
+#
+# Ablation now runs as `run_forecast.py --ablation_arm <arm>`: one switch off
+# per arm on the shipping model, using the flags the worker already exposes.
+# See ABLATION_ARMS there. Head/DTK-variant ablations are the one thing that
+# did not survive the move — they need the archived modules updated to accept
+# channel_mode / use_residual_mlp before they would be comparable.
 
 
 # Per-method training defaults — sourced from each paper's official ETTh1
@@ -252,9 +212,7 @@ def get_model(name, args, n_features, seq_len, pred_len):
     """Construct a model by registered name.
 
     Args:
-        name: registered model key (case-sensitive). Accepts both the 12
-            main-lineup keys and the 30 FEATHer_<axis>_<variant> ablation
-            keys.
+        name: registered model key (case-sensitive) from the main lineup.
         args: argparse.Namespace carrying model + training hyperparameters.
         n_features: input feature dimension.
         seq_len, pred_len: temporal lengths.
@@ -264,28 +222,17 @@ def get_model(name, args, n_features, seq_len, pred_len):
     """
     if name in _BUILDERS:
         return _BUILDERS[name](args, n_features, seq_len, pred_len)
-    if name in _ABLATION_BUILDERS:
-        return _ABLATION_BUILDERS[name](args, n_features, seq_len, pred_len)
-    available = ", ".join(sorted(list(_BUILDERS) + list(_ABLATION_BUILDERS)))
+    available = ", ".join(sorted(_BUILDERS))
     raise KeyError(f"Unknown model '{name}'. Available: {available}")
-
-
-def list_ablation_models():
-    """FEATHer ablation variants — 30 entries across 5 axes."""
-    return sorted(_ABLATION_BUILDERS.keys())
 
 
 def get_method_defaults(name):
     """Per-paper training defaults (lr, loss) for `name`.
 
-    Ablation variants inherit FEATHer's defaults (lr=1e-3, loss=l1) so
-    the spec-loss-aware FEATHer protocol applies uniformly. Returns an
-    empty dict if the model is unregistered.
+    Returns an empty dict if the model is unregistered.
     """
     if name in _METHOD_DEFAULTS:
         return dict(_METHOD_DEFAULTS[name])
-    if name in _ABLATION_BUILDERS:
-        return dict(_METHOD_DEFAULTS["FEATHer"])
     return {}
 
 

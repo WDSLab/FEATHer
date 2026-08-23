@@ -1,8 +1,8 @@
 """Build analysis/04_complexity.xlsx from results/complexity.csv (paper Table-5 style).
 
 Layout: for each representative dataset, a block of 4 horizon columns; each model
-has a Parameters row and a MACs row. FEATHer row = placeholder (variant TBD).
-Re-run after complexity.csv is regenerated (e.g. once FEATHer variant is fixed).
+has a Parameters row and a MACs row. FEATHer = FINAL frozen cells
+(mfg = N / LTSF = CIN, measured 2026-08-17).
 """
 import csv
 import os
@@ -10,7 +10,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 
 CSV = "results/complexity.csv"
-OUT = "analysis/04_complexity.xlsx"
+OUT = "analysis/deployment/complexity.xlsx"
 
 # representative datasets: small / mid / high-channel
 DATASETS = [("Steel", "Steel (D=6, mfg)"),
@@ -49,7 +49,7 @@ border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
 # Title
 ws.cell(1, 1, "Table 5. Model Complexity — Parameters and MACs across datasets and horizons").font = Font(bold=True, size=12)
-ws.cell(2, 1, "MACs = matmul/conv (FlopCounterMode) + FFT (N·log2N per transform). Element-wise freq ops excluded. FEATHer variant TBD.").font = Font(italic=True, size=9)
+ws.cell(2, 1, "MACs = matmul/conv (FlopCounterMode) + FFT (N·log2N per transform). Element-wise freq ops excluded. FEATHer = FINAL cells (mfg: N / LTSF: CIN).").font = Font(italic=True, size=9)
 
 # Header rows (row 4: dataset groups, row 5: horizons)
 r_grp, r_hz, r_start = 4, 5, 6
@@ -115,7 +115,7 @@ def write_model(name, label, is_tbd=False):
 
 for m in MODELS:
     write_model(m, MODEL_LABEL.get(m, m))
-write_model("FEATHer", "FEATHer (ours)", is_tbd=True)
+write_model("FEATHer", "FEATHer (ours)")
 
 # widths
 ws.column_dimensions["A"].width = 15
@@ -137,7 +137,7 @@ for i, m in enumerate(MODELS):
         v = get(m, d, 96, "params")
         ws2.cell(3 + i, 2 + j, v if v is not None else "-")
 
-os.makedirs("analysis", exist_ok=True)
+os.makedirs(os.path.dirname(OUT), exist_ok=True)
 wb.save(OUT)
 print(f"wrote -> {OUT}")
 print(f"  Complexity sheet: {len(MODELS)+1} models x {len(DATASETS)} datasets x {len(HORIZONS)} horizons")
