@@ -1,16 +1,19 @@
 # Lazy submodule loading (PEP 562).
 #
 # AUDIT-FIX (2026-07-14, P3): eager `from . import data_factory, losses, ...`
-# made ANY `import utils.<x>` pull torch (and matplotlib) transitively, which
-# defeated the point of the torch-free utils/severity.py that
-# tools/paper/robust_summary.py depends on. Submodules now import on first
-# attribute access; `from utils import data_factory` and `utils.losses.foo`
-# both keep working unchanged.
+# made ANY `import utils.<x>` pull torch (and matplotlib) transitively.
+# Submodules now import on first attribute access; `from utils import
+# data_factory` and `utils.losses.foo` both keep working unchanged.
+#
+# 2026-08-24: `noise` and `severity` (the corruption grids) moved to
+# _archive/robustness/utils/ along with the rest of the robustness track,
+# which is out of the paper — FEATHer degraded worst of the edge tier, so the
+# claim was dropped. Restore from there if a reviewer asks for it.
 import importlib
 
 _SUBMODULES = {
     "data_factory", "data_loader", "dispatch_queue", "losses", "metrics",
-    "noise", "seed", "severity", "timefeatures",
+    "seed", "timefeatures",
 }
 
 __all__ = sorted(_SUBMODULES)
