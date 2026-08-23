@@ -5,7 +5,7 @@ Forecasting worker.
 Runs one (model, dataset, pred_len) configuration across a given list of
 seeds. Each completed run appends one row to `results/fcst_results.csv`.
 
-This is the *worker* — call it directly when iterating manually, or let the
+This is the *worker* ??call it directly when iterating manually, or let the
 top-level `run_forecast.py` orchestrator dispatch missing combos
 automatically.
 
@@ -55,10 +55,10 @@ CSV_FIELDS = [
 def append_result_row(csv_path, row):
     os.makedirs(os.path.dirname(csv_path) or ".", exist_ok=True)
     df_new = pd.DataFrame([row], columns=CSV_FIELDS)
-    # AUDIT-FIX (2026-07-14, cfd90c5, P2-2) — atomic create-with-header:
+    # AUDIT-FIX (2026-07-14, cfd90c5, P2-2) ??atomic create-with-header:
     # under --ngpu/--jobs_per_gpu several workers can race on a FRESH csv; a
     # non-atomic exists()-then-write can leave a second header mid-file and
-    # break resume parsing. open(mode="x") is O_CREAT|O_EXCL — exactly one
+    # break resume parsing. open(mode="x") is O_CREAT|O_EXCL ??exactly one
     # worker wins the header.
     try:
         with open(csv_path, "x", newline="") as f:
@@ -93,7 +93,7 @@ def _masked_loss(output, target, loss_name):
 
     The loader NaN-outs imputed TARGET cells for the gap-filled sensor sets
     (observed-only scoring). Plain nn.L1Loss/MSELoss returns NaN for any batch
-    that contains a NaN, which the training loop then skips — silently dropping
+    that contains a NaN, which the training loop then skips ??silently dropping
     nearly every partially-masked batch. Reduce over the finite cells instead.
     For datasets with no masked cells the mask is all-True -> identical to the
     plain mean (byte-identical results). Returns NaN if a batch has zero
@@ -184,7 +184,7 @@ def train_single(args, data_name, pred_len, device, seed):
     # baselines have no band structure to disentangle.
     use_spec_loss = args.model.startswith("FEATHer") and (args.lambda_spec > 0)
 
-    # Validation-based model selection — same protocol as every baseline's
+    # Validation-based model selection ??same protocol as every baseline's
     # official implementation: val loss picks the epoch (with early
     # stopping), test is evaluated exactly once on the selected model.
     best_val = float("inf")
@@ -193,7 +193,7 @@ def train_single(args, data_name, pred_len, device, seed):
     patience_left = args.patience
 
     # --oracle_test (diagnostic, opt-in): min-over-epochs TEST MSE, the legacy
-    # FASTer selection (no val, best test epoch). Ceiling probe ONLY — test
+    # FASTer selection (no val, best test epoch). Ceiling probe ONLY ??test
     # peeking, never reportable. Recorded as a second "<exp_tag>_oracle" row.
     oracle_mse = float("inf")
     oracle_mae = float("nan")
@@ -255,7 +255,7 @@ def train_single(args, data_name, pred_len, device, seed):
                     val_cnt += bs
         # AUDIT-FIX (2026-07-19, MASK-NAN-GRAD): if NOT ONE val batch had a
         # finite observed loss (fully diverged, or every window fully imputed),
-        # val_cnt == 0 must yield NaN — not 0.0. The old `sum / max(1, cnt)`
+        # val_cnt == 0 must yield NaN ??not 0.0. The old `sum / max(1, cnt)`
         # returned 0.0, which reads as a perfect score, gets accepted as
         # best_val, and lets the P2-5 "no finite val_loss" guard pass on a
         # degenerate (NaN-weight) model. NaN keeps best_state None -> P2-5 fails.
@@ -308,14 +308,14 @@ def train_single(args, data_name, pred_len, device, seed):
 
     # ---------- Test (once, on the best-val model) ----------
     # AUDIT-FIX (2026-07-14, P2-5): if val_loss was never finite, there is no
-    # best-val model — evaluating the last-epoch weights would write a
+    # best-val model ??evaluating the last-epoch weights would write a
     # normal-looking row (val_loss=inf, best_epoch=0) and --save_model would
     # checkpoint a degenerate state. Fail the seed instead: no row is
     # written, and the worker exits non-zero via the P2-1 path so the
     # orchestrator surfaces the group.
     if best_state is None:
         raise RuntimeError(
-            f"no finite val_loss in {args.num_epochs} epoch(s) — degenerate "
+            f"no finite val_loss in {args.num_epochs} epoch(s) ??degenerate "
             f"run (diverged/NaN); refusing to report last-epoch metrics")
     model.load_state_dict(best_state)
     model.eval()
@@ -323,7 +323,7 @@ def train_single(args, data_name, pred_len, device, seed):
     # (nansum of squared/abs error over finite cells / finite-cell count),
     # NOT a batch-size-weighted mean of per-batch nanmeans. On unmasked data
     # the two are algebraically identical (every cell observed); on the
-    # mask.csv sets they diverge — up to ~13% on MetroPT3 — because batch-size
+    # mask.csv sets they diverge ??up to ~13% on MetroPT3 ??because batch-size
     # weighting ignores that batches carry different observed-cell counts.
     # This matches the persistence/classical baselines' estimator so the main
     # table compares like with like. CORR/R2 stay batch-weighted (they are
@@ -340,7 +340,7 @@ def train_single(args, data_name, pred_len, device, seed):
             y_true = batch_y[:, :, :n_features][:, -pred_len:].cpu().numpy()
             y_pred = output[:, -pred_len:].cpu().numpy()
             # AUDIT-FIX (2026-07-19, MASK-NAN-GRAD #2): the nan-aware metric
-            # drops NaN cells — intended for imputed TARGET cells, but it would
+            # drops NaN cells ??intended for imputed TARGET cells, but it would
             # ALSO silently drop a non-finite PREDICTION on an observed cell,
             # improving a partially-diverged model's score. A best-val model
             # must be finite; treat any non-finite pred on an observed cell as
@@ -348,7 +348,7 @@ def train_single(args, data_name, pred_len, device, seed):
             obs = np.isfinite(y_true)
             if not np.isfinite(y_pred[obs]).all():
                 raise RuntimeError(
-                    "non-finite prediction on observed test cells — "
+                    "non-finite prediction on observed test cells ??"
                     "degenerate best-val model; refusing to report metrics")
             diff = y_pred - y_true               # NaN where target imputed
             fin = np.isfinite(diff)
@@ -363,11 +363,11 @@ def train_single(args, data_name, pred_len, device, seed):
                     cr_cnt[i] += bs
     # AUDIT-FIX (2026-07-19, MASK-NAN-GRAD #1): no observed cell across all
     # batches (fully diverged / fully masked) must NOT become `0/max(1,0)==0`
-    # — a fake perfect score that slips past the P2-5 guard (the val loop was
+    # ??a fake perfect score that slips past the P2-5 guard (the val loop was
     # fixed in d56aa05; this is its test-loop twin).
     if n_obs == 0:
         raise RuntimeError(
-            "no observed test cells across all batches — degenerate run")
+            "no observed test cells across all batches ??degenerate run")
     mse = se_sum / n_obs
     mae = ae_sum / n_obs
     # RMSE = sqrt(global MSE) (P1-3): identity holds by construction now.
@@ -398,7 +398,7 @@ def train_single(args, data_name, pred_len, device, seed):
     }
     append_result_row(args.results_csv, row)
 
-    # Diagnostic oracle row (same schema, "<exp_tag>_oracle") — min-over-epochs
+    # Diagnostic oracle row (same schema, "<exp_tag>_oracle") ??min-over-epochs
     # test MSE, the legacy FASTer-style ceiling. CORR/R2 not tracked per epoch.
     if args.oracle_test and np.isfinite(oracle_mse):
         orow = dict(row)
@@ -413,7 +413,7 @@ def train_single(args, data_name, pred_len, device, seed):
         })
         append_result_row(args.results_csv, orow)
         print(f"  -> ORACLE (min-over-epochs test, ep {oracle_epoch+1}): "
-              f"MSE={oracle_mse:.4f} [diagnostic only — test peeking]")
+              f"MSE={oracle_mse:.4f} [diagnostic only ??test peeking]")
 
     # Optional: deterministic checkpoint for downstream robustness eval.
     # The model currently holds the best-val state, so the saved checkpoint
@@ -423,10 +423,10 @@ def train_single(args, data_name, pred_len, device, seed):
                                pred_len, args.seq_len, seed)
         os.makedirs(os.path.dirname(ckpt), exist_ok=True)
         torch.save(model.state_dict(), ckpt)
-        print(f"  -> checkpoint saved → {ckpt}")
+        print(f"  -> checkpoint saved ??{ckpt}")
 
     print(f"  -> Test (best-val ep {best_epoch+1}): MSE={test_metric[0]:.4f} "
-          f"MAE={test_metric[1]:.4f} saved → {args.results_csv}")
+          f"MAE={test_metric[1]:.4f} saved ??{args.results_csv}")
 
 
 # =============================================================================
@@ -469,7 +469,7 @@ def train(args):
         # treat it as "not yet run" forever (this is exactly how the
         # missing-reformer_pytorch incident hid 4 models). Finish the
         # remaining seeds, then flag the group.
-        print(f"[FATAL] {n_failed}/{len(seeds)} seed run(s) failed — "
+        print(f"[FATAL] {n_failed}/{len(seeds)} seed run(s) failed ??"
               f"exiting non-zero so the orchestrator reports this group.")
         sys.exit(1)
 
@@ -516,7 +516,7 @@ def parse_args():
     # FFT-gate variant (2026-08-14): "global" = canonical (shape-blind, see
     # FFTFrequencyGate docstring); "banded" = per-band energy-ratio gate.
     p.add_argument("--gate_mode", type=str, default=None,
-                   choices=["global", "banded", "static"])
+                   choices=["global", "banded", "static", "none", "softmax"])
     # DTK latent nonlinearity (2026-08-16): "none" = canonical (linear DTK,
     # which makes the multi-band block collapse to one filter).
     p.add_argument("--dtk_act", type=str, default=None,
@@ -526,12 +526,12 @@ def parse_args():
     # NB the control is much LARGER (Steel/H96 ~166 -> ~9.3k params), so read
     # its accuracy delta together with the parameter count.
     p.add_argument("--head_mode", type=str, default=None,
-                   choices=["spk", "linear", "mlp"])
+                   choices=["spk", "linear", "mlp", "conv"])
     # DTK presence (2026-08-24): "none" removes the shared temporal kernel
     # outright (bands pass through), vs --kernel_size 1 which only drops the
     # temporal mixing.
     p.add_argument("--dtk_mode", type=str, default=None,
-                   choices=["full", "none"])
+                   choices=["full", "none", "mlp"])
 
     # Training
     p.add_argument("--batch_size",  type=int,   default=32)
@@ -546,7 +546,7 @@ def parse_args():
     # optimizer recipe (AdamW + weight_decay 1e-4 + lr 1e-2).
     p.add_argument("--optimizer",    type=str,   default="adam", choices=["adam", "adamw"])
     p.add_argument("--weight_decay", type=float, default=0.0)
-    # Oracle probe (2026-08-09): min-over-epochs TEST MSE — the legacy FASTer
+    # Oracle probe (2026-08-09): min-over-epochs TEST MSE ??the legacy FASTer
     # selection. DIAGNOSTIC ceiling only (test peeking, never reportable).
     # Writes an extra "<exp_tag>_oracle" row. Use --patience == --num_epochs
     # to disable early stop for the full legacy-style epoch sweep.
@@ -562,7 +562,7 @@ def parse_args():
     p.add_argument("--exp_tag",    type=str, default="default")
     p.add_argument("--results_csv", type=str, default="results/fcst_results.csv")
 
-    # Generic per-(model, dataset) HP injection — orchestrator passes
+    # Generic per-(model, dataset) HP injection ??orchestrator passes
     # "key=val;key2=val2" pairs derived from get_dataset_overrides(); each
     # entry is parsed (int/float/bool/str) and set on `args` BEFORE the
     # model is constructed, so wrapper.py's getattr(args, "key", default)
@@ -571,7 +571,7 @@ def parse_args():
                    help='Semicolon-separated key=value HP overrides '
                         '(e.g. "patchtst_d_model=16;patchtst_n_heads=4").')
 
-    # Data slicing (legacy raw knobs — subsample the TRAIN split only)
+    # Data slicing (legacy raw knobs ??subsample the TRAIN split only)
     p.add_argument("--starting_percent", type=int, default=0)
     p.add_argument("--percent",          type=int, default=100)
     # Data-efficiency / cold-start convenience: use only `train_frac` of the
@@ -601,13 +601,13 @@ def parse_args():
 def _apply_overrides(args):
     """Parse --model_overrides string and assign each key=value to `args`.
 
-    Values are coerced to int → float → bool → str in that order.
+    Values are coerced to int ??float ??bool ??str in that order.
     """
     if not args.model_overrides:
         return
     # AUDIT-FIX (2026-07-19, #10): overrides carry per-(model,dataset) ARCH
     # hyperparameters only. The unified-protocol axes must never be set this
-    # way — a stray key in _DATASET_OVERRIDES would silently break cross-model
+    # way ??a stray key in _DATASET_OVERRIDES would silently break cross-model
     # fairness (different batch/epochs/seq_len). Refuse loudly instead.
     PROTOCOL_AXES = {"batch_size", "num_epochs", "patience", "seq_len",
                      "label_len"}

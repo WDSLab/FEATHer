@@ -258,24 +258,45 @@ class DenseTemporalKernel(nn.Module):
         return y
 
 
+class LatentMLP(nn.Module):
+    """DTK control: latent projection with a nonlinearity, no temporal conv.
+
+    in_proj(D -> S) -> GELU -> out_proj(S -> D), applied per time step. This is
+    the "MLP-only" row of the earlier DTK ablation table. It differs from
+    kernel_size=1 in both directions: no convolution at all, but a genuine
+    nonlinearity, so the pair separates "the DTK's temporal mixing matters"
+    from "the DTK's latent bottleneck matters".
+    """
+
+    def __init__(self, d_model: int, d_state: int):
+        super().__init__()
+        self.in_proj = nn.Linear(d_model, d_state, bias=False)
+        self.out_proj = nn.Linear(d_state, d_model, bias=False)
+
+    def forward(self, u: torch.Tensor) -> torch.Tensor:
+        return self.out_proj(F.gelu(self.in_proj(u)))
+
+
 class MLPHead(nn.Module):
     """Two-layer time-axis MLP — the nonlinear control head for the SPK ablation.
 
-    Linear(L -> hidden) -> GELU -> Linear(hidden -> pred_len), applied per
-    channel. Sits between DenseLinearHead (linear, dense) and SPK (linear,
+    Linear(L -> 2L) -> GELU -> Linear(2L -> pred_len), applied per channel.
+    Sits between DenseLinearHead (linear, dense) and SPK (linear,
     period-structured): if SPK loses to this one but ties DenseLinearHead, the
     gap is nonlinearity rather than the period structure.
 
-    Like DenseLinearHead this is far larger than SPK, so report parameters
-    next to the accuracy delta.
+    hidden_ratio 2 reproduces the "MLP Head" row of the earlier ablation table
+    so the comparison carries over. Like DenseLinearHead this is far larger
+    than SPK, so report parameters next to the accuracy delta.
     """
 
     def __init__(self, seq_len: int, pred_len: int, d_model: int,
-                 hidden: int = 64):
+                 hidden_ratio: int = 2):
         super().__init__()
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.d_model = d_model
+        hidden = seq_len * hidden_ratio
         self.fc1 = nn.Linear(seq_len, hidden)
         self.fc2 = nn.Linear(hidden, pred_len)
 
@@ -283,6 +304,33 @@ class MLPHead(nn.Module):
         z = h.permute(0, 2, 1)                 # (B, D, L)
         z = self.fc2(F.gelu(self.fc1(z)))      # (B, D, H)
         return z.permute(0, 2, 1)              # (B, H, D)
+
+
+class ConvHead(nn.Module):
+    """Depthwise-conv head — the local-context control for the SPK ablation.
+
+    Two depthwise Conv1d layers with a GELU between them, then a dense
+    Linear(L -> pred_len). Reproduces the "Conv Head" row of the earlier
+    ablation table: it keeps local temporal structure (like SPK's aggregation
+    conv) but drops the period-phase factorisation.
+    """
+
+    def __init__(self, seq_len: int, pred_len: int, d_model: int,
+                 kernel_size: int = 3):
+        super().__init__()
+        self.seq_len = seq_len
+        self.pred_len = pred_len
+        self.d_model = d_model
+        self.conv1 = nn.Conv1d(d_model, d_model, kernel_size=kernel_size,
+                               padding=kernel_size // 2, groups=d_model)
+        self.conv2 = nn.Conv1d(d_model, d_model, kernel_size=kernel_size,
+                               padding=kernel_size // 2, groups=d_model)
+        self.proj = nn.Linear(seq_len, pred_len)
+
+    def forward(self, h: torch.Tensor) -> torch.Tensor:
+        z = h.permute(0, 2, 1)                 # (B, D, L)
+        z = self.conv2(F.gelu(self.conv1(z)))
+        return self.proj(z).permute(0, 2, 1)   # (B, H, D)
 
 
 class DenseLinearHead(nn.Module):
@@ -570,10 +618,15 @@ class FEATHer(nn.Module):
         # earning its place?" control. (Setting kernel_size=1 only removes the
         # temporal mixing while keeping the latent projections, so it answers a
         # narrower question; both are worth running.)
-        assert dtk_mode in ("full", "none"), dtk_mode
+        assert dtk_mode in ("full", "none", "mlp"), dtk_mode
         self.dtk_mode = dtk_mode
         if dtk_mode == "none":
             self.dense_kernel = nn.Identity()
+        elif dtk_mode == "mlp":
+            # Latent projection with a nonlinearity but NO temporal conv, i.e.
+            # the "MLP-only" row of the earlier DTK table. Distinct from
+            # kernel_size=1, which keeps the conv and stays linear.
+            self.dense_kernel = LatentMLP(d_model=eff_d, d_state=d_state)
         else:
             self.dense_kernel = DenseTemporalKernel(
                 d_model=eff_d,
@@ -582,18 +635,32 @@ class FEATHer(nn.Module):
                 act=dtk_act,
             )
 
-        # FFT-based frequency gate
-        self.freq_gate = FFTFrequencyGate(
-            seq_len=seq_len,
-            num_bands=num_bands,
-            kernel_size=5,
-            gate_mode=gate_mode,
-        )
+        # Band synthesis. "global"/"banded"/"static" are FFT-gate flavours;
+        # "none" and "softmax" are the ablation controls from the earlier
+        # gating table and build no FFT gate at all:
+        #   none     unweighted SUM of the bands (no gate, and note this is
+        #            NOT the same as --gate_uniform, which averages)
+        #   softmax  time-pooled input -> Linear(D -> S) -> softmax, i.e. an
+        #            input-dependent gate that never looks at the spectrum
+        assert gate_mode in ("global", "banded", "static", "none", "softmax"), gate_mode
+        self.gate_mode = gate_mode
+        if gate_mode == "none":
+            self.freq_gate = None
+        elif gate_mode == "softmax":
+            self.freq_gate = None
+            self.softmax_gate = nn.Linear(eff_d, num_bands)
+        else:
+            self.freq_gate = FFTFrequencyGate(
+                seq_len=seq_len,
+                num_bands=num_bands,
+                kernel_size=5,
+                gate_mode=gate_mode,
+            )
 
         # Forecasting head. "spk" = canonical period-aware sparse kernel;
         # "linear" swaps in a dense time projection and is the ablation control
         # (see DenseLinearHead — it is deliberately not capacity-matched).
-        assert head_mode in ("spk", "linear", "mlp"), head_mode
+        assert head_mode in ("spk", "linear", "mlp", "conv"), head_mode
         self.head_mode = head_mode
         if head_mode == "linear":
             self.sparse_head = DenseLinearHead(
@@ -603,6 +670,12 @@ class FEATHer(nn.Module):
             )
         elif head_mode == "mlp":
             self.sparse_head = MLPHead(
+                seq_len=seq_len,
+                pred_len=pred_len,
+                d_model=eff_d,
+            )
+        elif head_mode == "conv":
+            self.sparse_head = ConvHead(
                 seq_len=seq_len,
                 pred_len=pred_len,
                 d_model=eff_d,
@@ -743,16 +816,25 @@ class FEATHer(nn.Module):
 
         bands = torch.stack(bands_list, dim=1)  # (B, num_bands, L, D)
 
-        # FFT-based gate (or fixed uniform weights when disabled — diagnostic)
-        if self.use_gate:
+        # Band synthesis. --gate_uniform (use_gate=False) fixes the weights at
+        # 1/S = an average; gate_mode "none" instead sums the bands unweighted,
+        # and "softmax" gates on the pooled input without touching the spectrum.
+        if not self.use_gate:
+            g = x_norm.new_full((x_norm.size(0), self.num_bands), 1.0 / self.num_bands)
+        elif self.gate_mode == "none":
+            g = None
+        elif self.gate_mode == "softmax":
+            g = torch.softmax(self.softmax_gate(x_norm.mean(dim=1)), dim=-1)
+        else:
             g = self.freq_gate(x_norm)  # (B, num_bands)
             if self.use_topk_gate:
                 g = sparse_topk_gate(g, k=self.topk)
-        else:
-            g = x_norm.new_full((x_norm.size(0), self.num_bands), 1.0 / self.num_bands)
 
-        g_expanded = g.view(-1, self.num_bands, 1, 1)
-        hidden = (g_expanded * bands).sum(dim=1)  # (B, L, D)
+        if g is None:
+            hidden = bands.sum(dim=1)  # (B, L, D)
+        else:
+            g_expanded = g.view(-1, self.num_bands, 1, 1)
+            hidden = (g_expanded * bands).sum(dim=1)  # (B, L, D)
 
         # Optional nonlinear residual refinement (channel-axis bottleneck),
         # OFF by default. nn.Linear acts on the last (channel) axis, shared

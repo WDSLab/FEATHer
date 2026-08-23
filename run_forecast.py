@@ -233,41 +233,53 @@ def load_done_set(csv_path):
 #              and is likely the largest effect in the table, so omitting it
 #              would leave a quarter of the model unexplained and would hide
 #              the one part that clearly works.
+# Axis coverage mirrors the four ablation tables of the earlier paper (scales /
+# DTK / gating / SPK head) so the structure carries over, extended where a
+# single point could not separate "this does nothing" from "the setting was
+# already past the knee". The earlier NUMBERS are not reusable — that code
+# selected on test (see project-old-faster-test-peeking-0809) — so every row
+# is re-measured here under the val-selected protocol.
 ABLATION_ARMS = {
-    # --- FFT gate -------------------------------------------------------
-    "gateuni":  ("design", "FFT gate -> uniform weights",  {"gate_uniform": True}),
+    # --- temporal scales (old Table 7: Single / Dual / Tri / FEATHer) ----
+    # num_bands=1 keeps only the POINT branch = no decomposition at all.
+    "band1":    ("design", "single-scale (1 band)",        {"num_bands": 1}),
+    "band2":    ("design", "dual-scale (2 bands)",         {"num_bands": 2}),
+    "band3":    ("design", "tri-scale (3 bands)",          {"num_bands": 3}),
 
-    # --- multi-band decomposition: sweep down to no decomposition -------
-    # A single point (4 -> 2) cannot separate "the bands do nothing" from
-    # "two is already enough", so walk the whole axis. num_bands=1 keeps only
-    # the POINT branch = no decomposition at all.
-    "band3":    ("design", "multi-band 4 -> 3",            {"num_bands": 3}),
-    "band2":    ("design", "multi-band 4 -> 2",            {"num_bands": 2}),
-    "band1":    ("design", "multi-band off (1 band)",      {"num_bands": 1}),
-
-    # --- spectral-separation loss: sweep lambda both ways ---------------
-    # Baseline is 0.01. Zero alone only shows "off"; going up an order of
-    # magnitude distinguishes "the term is inert" from "the weight is wrong".
-    "spec0":    ("design", "spectral loss off (l=0)",      {"lambda_spec": 0.0}),
-    "specLo":   ("design", "spectral loss l=0.001",        {"lambda_spec": 0.001}),
-    "specHi":   ("design", "spectral loss l=0.1",          {"lambda_spec": 0.1}),
-
-    # --- shared temporal kernel -----------------------------------------
-    # dtknone removes the DTK outright (bands pass through untouched) — the
-    # real "does it earn its place?" test. dtk1/dtk3 narrow the kernel
-    # instead, separating "the DTK matters" from "its receptive field does".
-    "dtknone":  ("design", "DTK removed entirely",         {"dtk_mode": "none"}),
+    # --- DTK (old Table 8: w/o DTK / MLP-only / Shallow / FEATHer) -------
+    # dtknone removes it outright; dtkmlp keeps the latent bottleneck with a
+    # nonlinearity but no conv; dtkshallow halves d_state (16 -> 8). dtk1/dtk3
+    # additionally sweep the receptive field, which the old table did not.
+    "dtknone":  ("design", "w/o DTK (identity)",           {"dtk_mode": "none"}),
+    "dtkmlp":   ("design", "MLP-only DTK (no conv)",       {"dtk_mode": "mlp"}),
+    "dtkshallow": ("design", "shallow DTK (d_state 16->8)", {"d_state": 8}),
     "dtk1":     ("design", "DTK kernel 7 -> 1 (pointwise)", {"kernel_size": 1}),
     "dtk3":     ("design", "DTK kernel 7 -> 3",            {"kernel_size": 3}),
 
-    # --- forecasting head ------------------------------------------------
+    # --- gating (old Table 9: w/o / Uniform / Softmax / FEATHer) ---------
+    # "w/o" sums the bands unweighted; "uniform" averages them; "softmax"
+    # gates on the pooled input without ever looking at the spectrum, which
+    # is the arm that isolates what the FFT itself contributes.
+    "gatenone": ("design", "w/o gating (unweighted sum)",  {"gate_mode": "none"}),
+    "gateuni":  ("design", "uniform gating (1/S)",         {"gate_uniform": True}),
+    "gatesm":   ("design", "softmax gating (no FFT)",      {"gate_mode": "softmax"}),
+
+    # --- SPK head (old Table 10: MLP / Conv / Linear / FEATHer) ----------
     # The head cannot be switched off — without one the model emits no
-    # forecast — so both controls REPLACE it, and both are far larger than
+    # forecast — so all three controls REPLACE it and all are far larger than
     # SPK. That asymmetry is the finding: SPK claims parameter efficiency, so
-    # a near-tie is the supporting result. mlp vs linear separates "SPK loses
-    # to nonlinearity" from "SPK loses to a dense projection".
-    "headlin":  ("design", "SPK -> dense linear head",     {"head_mode": "linear"}),
+    # a near-tie supports it. The three separate "loses to nonlinearity" from
+    # "loses to local context" from "loses to a dense map".
     "headmlp":  ("design", "SPK -> 2-layer MLP head",      {"head_mode": "mlp"}),
+    "headconv": ("design", "SPK -> depthwise conv head",   {"head_mode": "conv"}),
+    "headlin":  ("design", "SPK -> dense linear head",     {"head_mode": "linear"}),
+
+    # --- spectral-separation loss (no counterpart in the old tables) -----
+    # Baseline 0.01. Zero alone only shows "off"; an order up distinguishes an
+    # inert term from a mistuned weight.
+    "spec0":    ("design", "spectral loss off (l=0)",      {"lambda_spec": 0.0}),
+    "specLo":   ("design", "spectral loss l=0.001",        {"lambda_spec": 0.001}),
+    "specHi":   ("design", "spectral loss l=0.1",          {"lambda_spec": 0.1}),
 
     # --- borrowed capacity (not a contribution) --------------------------
     "noresid":  ("standard", "residual MLP off",           {"no_residual_mlp": True}),
@@ -576,16 +588,16 @@ def main():
     p.add_argument("--channel_mode", type=str, default=None,
                    choices=["mix", "ci_full"])
     p.add_argument("--gate_mode", type=str, default=None,
-                   choices=["global", "banded", "static"])
+                   choices=["global", "banded", "static", "none", "softmax"])
     # DTK latent nonlinearity (2026-08-16): "none" = canonical (linear DTK,
     # which makes the multi-band block collapse to one filter).
     p.add_argument("--head_mode", type=str, default=None,
-                   choices=["spk", "linear", "mlp"],
+                   choices=["spk", "linear", "mlp", "conv"],
                    help="Forecasting head: spk (canonical period-aware kernel) "
                         "or linear / mlp (dense controls for the SPK ablation; "
                         "NOT capacity-matched, both are far larger).")
     p.add_argument("--dtk_mode", type=str, default=None,
-                   choices=["full", "none"],
+                   choices=["full", "none", "mlp"],
                    help="none removes the shared temporal kernel entirely "
                         "(vs --kernel_size 1, which only drops its temporal "
                         "mixing).")
