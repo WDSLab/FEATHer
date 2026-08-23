@@ -296,8 +296,38 @@ def dispatch(missing, args):
             "lambda_spec": args.lambda_spec,
         }.items() if v is not None}
 
+        # AUDIT-FIX (2026-08-24, ABL-OVERRIDE-PRECEDENCE): the switches added
+        # after P2-4 (channel_mode / residual MLP / gate / RevIN modes) are
+        # forwarded by the dedicated blocks below, but they ALSO live in
+        # _DATASET_OVERRIDES (`_FEATHER_MFG_N` sets channel_mode=mix,
+        # use_residual_mlp=True, mlp_rank=16). Since the worker applies
+        # --model_overrides after parse_args, the override silently beat the
+        # CLI flag — an ablation like `--channel_mode ci_full` or
+        # `--no_residual_mlp` would train the UNMODIFIED model and report
+        # baseline numbers, reading as "this component contributes nothing".
+        # Drop every switch the caller set explicitly so the CLI wins.
+        cli_switches = set()
+        if args.channel_mode:
+            cli_switches.add("channel_mode")
+        if args.gate_mode:
+            cli_switches.add("gate_mode")
+        if args.dtk_act:
+            cli_switches.add("dtk_act")
+        if args.revin_mode:
+            cli_switches.add("revin_mode")
+        if args.mlp_rank is not None:
+            cli_switches.add("mlp_rank")
+        if args.no_revin:
+            cli_switches.add("use_norm")
+        if args.gate_uniform:
+            cli_switches.add("use_gate")
+        if args.no_residual_mlp:
+            cli_switches.update({"use_residual_mlp", "mlp_rank"})
+
         hp_overrides = {k: v for k, v in merged.items()
-                        if k not in ("lr", "loss") and k not in explicit_arch}
+                        if k not in ("lr", "loss")
+                        and k not in explicit_arch
+                        and k not in cli_switches}
         overrides_str = ";".join(f"{k}={v}" for k, v in sorted(hp_overrides.items()))
 
         label = (f"{m} | {d} | H={h} | seeds={seeds} | lr={lr_to_use} | "
@@ -430,6 +460,9 @@ def main():
     # Capacity A/B (2026-07-31): forwarded to the worker only when set, so the
     # canonical sweep is byte-identical when omitted.
     p.add_argument("--use_residual_mlp", action="store_true")
+    p.add_argument("--no_residual_mlp", action="store_true",
+                   help="Ablate the residual MLP OFF even when the dataset "
+                        "override enables it (FEATHer-N sets it by default).")
     p.add_argument("--mlp_rank",    type=int,   default=None)
     # Robustness diagnostics (2026-07-31): forwarded to worker only when set.
     p.add_argument("--no_revin",     action="store_true")
