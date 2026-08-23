@@ -234,21 +234,43 @@ def load_done_set(csv_path):
 #              would leave a quarter of the model unexplained and would hide
 #              the one part that clearly works.
 ABLATION_ARMS = {
-    "gateuni": ("design", "FFT gate -> uniform weights",   {"gate_uniform": True}),
-    # num_bands is asserted to be in {2,3,4}, so 2 is the floor — this halves
-    # the decomposition rather than removing it.
-    "band2":   ("design", "multi-band 4 -> 2",             {"num_bands": 2}),
-    "nospec":  ("design", "spectral-separation loss off",  {"lambda_spec": 0.0}),
-    # kernel_size=1 makes the DTK pointwise: the shared kernel still projects
-    # in and out of the latent space but mixes nothing across time, which is
-    # the component's whole purpose.
-    "dtk1":    ("design", "DTK temporal mixing off (k=1)", {"kernel_size": 1}),
-    # The head cannot simply be switched off — without one the model emits no
-    # forecast — so the control is a dense time projection. It is much LARGER
-    # than SPK, which is the point: SPK claims parameter efficiency, so a
-    # near-tie in accuracy is the supporting result. Report params alongside.
-    "nospk":   ("design", "SPK head -> dense linear",      {"head_mode": "linear"}),
-    "noresid": ("standard", "residual MLP off",            {"no_residual_mlp": True}),
+    # --- FFT gate -------------------------------------------------------
+    "gateuni":  ("design", "FFT gate -> uniform weights",  {"gate_uniform": True}),
+
+    # --- multi-band decomposition: sweep down to no decomposition -------
+    # A single point (4 -> 2) cannot separate "the bands do nothing" from
+    # "two is already enough", so walk the whole axis. num_bands=1 keeps only
+    # the POINT branch = no decomposition at all.
+    "band3":    ("design", "multi-band 4 -> 3",            {"num_bands": 3}),
+    "band2":    ("design", "multi-band 4 -> 2",            {"num_bands": 2}),
+    "band1":    ("design", "multi-band off (1 band)",      {"num_bands": 1}),
+
+    # --- spectral-separation loss: sweep lambda both ways ---------------
+    # Baseline is 0.01. Zero alone only shows "off"; going up an order of
+    # magnitude distinguishes "the term is inert" from "the weight is wrong".
+    "spec0":    ("design", "spectral loss off (l=0)",      {"lambda_spec": 0.0}),
+    "specLo":   ("design", "spectral loss l=0.001",        {"lambda_spec": 0.001}),
+    "specHi":   ("design", "spectral loss l=0.1",          {"lambda_spec": 0.1}),
+
+    # --- shared temporal kernel -----------------------------------------
+    # dtknone removes the DTK outright (bands pass through untouched) — the
+    # real "does it earn its place?" test. dtk1/dtk3 narrow the kernel
+    # instead, separating "the DTK matters" from "its receptive field does".
+    "dtknone":  ("design", "DTK removed entirely",         {"dtk_mode": "none"}),
+    "dtk1":     ("design", "DTK kernel 7 -> 1 (pointwise)", {"kernel_size": 1}),
+    "dtk3":     ("design", "DTK kernel 7 -> 3",            {"kernel_size": 3}),
+
+    # --- forecasting head ------------------------------------------------
+    # The head cannot be switched off — without one the model emits no
+    # forecast — so both controls REPLACE it, and both are far larger than
+    # SPK. That asymmetry is the finding: SPK claims parameter efficiency, so
+    # a near-tie is the supporting result. mlp vs linear separates "SPK loses
+    # to nonlinearity" from "SPK loses to a dense projection".
+    "headlin":  ("design", "SPK -> dense linear head",     {"head_mode": "linear"}),
+    "headmlp":  ("design", "SPK -> 2-layer MLP head",      {"head_mode": "mlp"}),
+
+    # --- borrowed capacity (not a contribution) --------------------------
+    "noresid":  ("standard", "residual MLP off",           {"no_residual_mlp": True}),
 }
 ABLATION_CSV = "results/ablation.csv"
 
@@ -380,6 +402,8 @@ def dispatch(missing, args):
             cli_switches.add("dtk_act")
         if args.head_mode:
             cli_switches.add("head_mode")
+        if args.dtk_mode:
+            cli_switches.add("dtk_mode")
         if args.revin_mode:
             cli_switches.add("revin_mode")
         if args.mlp_rank is not None:
@@ -455,6 +479,8 @@ def dispatch(missing, args):
             cmd += ["--dtk_act", args.dtk_act]
         if args.head_mode:
             cmd += ["--head_mode", args.head_mode]
+        if args.dtk_mode:
+            cmd += ["--dtk_mode", args.dtk_mode]
         jobs.append((label, cmd))
 
     failed = run_on_gpus(jobs, args.ngpu, base_gpu=args.gpu,
@@ -554,10 +580,15 @@ def main():
     # DTK latent nonlinearity (2026-08-16): "none" = canonical (linear DTK,
     # which makes the multi-band block collapse to one filter).
     p.add_argument("--head_mode", type=str, default=None,
-                   choices=["spk", "linear"],
+                   choices=["spk", "linear", "mlp"],
                    help="Forecasting head: spk (canonical period-aware kernel) "
-                        "or linear (dense projection = the SPK ablation "
-                        "control; NOT capacity-matched, it is far larger).")
+                        "or linear / mlp (dense controls for the SPK ablation; "
+                        "NOT capacity-matched, both are far larger).")
+    p.add_argument("--dtk_mode", type=str, default=None,
+                   choices=["full", "none"],
+                   help="none removes the shared temporal kernel entirely "
+                        "(vs --kernel_size 1, which only drops its temporal "
+                        "mixing).")
     p.add_argument("--dtk_act", type=str, default=None,
                    choices=["none", "gelu", "relu", "tanh"])
 

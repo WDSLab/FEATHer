@@ -46,6 +46,7 @@ def _build_feather(args, n_features, seq_len, pred_len):
         gate_mode=getattr(args, "gate_mode", None) or "global",
         dtk_act=getattr(args, "dtk_act", None) or "none",
         head_mode=getattr(args, "head_mode", None) or "spk",
+        dtk_mode=getattr(args, "dtk_mode", None) or "full",
     )
 
 

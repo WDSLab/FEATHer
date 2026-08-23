@@ -258,6 +258,33 @@ class DenseTemporalKernel(nn.Module):
         return y
 
 
+class MLPHead(nn.Module):
+    """Two-layer time-axis MLP — the nonlinear control head for the SPK ablation.
+
+    Linear(L -> hidden) -> GELU -> Linear(hidden -> pred_len), applied per
+    channel. Sits between DenseLinearHead (linear, dense) and SPK (linear,
+    period-structured): if SPK loses to this one but ties DenseLinearHead, the
+    gap is nonlinearity rather than the period structure.
+
+    Like DenseLinearHead this is far larger than SPK, so report parameters
+    next to the accuracy delta.
+    """
+
+    def __init__(self, seq_len: int, pred_len: int, d_model: int,
+                 hidden: int = 64):
+        super().__init__()
+        self.seq_len = seq_len
+        self.pred_len = pred_len
+        self.d_model = d_model
+        self.fc1 = nn.Linear(seq_len, hidden)
+        self.fc2 = nn.Linear(hidden, pred_len)
+
+    def forward(self, h: torch.Tensor) -> torch.Tensor:
+        z = h.permute(0, 2, 1)                 # (B, D, L)
+        z = self.fc2(F.gelu(self.fc1(z)))      # (B, D, H)
+        return z.permute(0, 2, 1)              # (B, H, D)
+
+
 class DenseLinearHead(nn.Module):
     """Plain time-axis projection — the control head for the SPK ablation.
 
@@ -398,10 +425,12 @@ class FEATHer(nn.Module):
         gate_mode: str = "global",
         dtk_act: str = "none",
         head_mode: str = "spk",
+        dtk_mode: str = "full",
     ):
         super().__init__()
 
-        assert num_bands in [2, 3, 4], "num_bands must be 2, 3, or 4"
+        # 1 = no decomposition (POINT branch only); the ablation floor.
+        assert num_bands in [1, 2, 3, 4], "num_bands must be 1, 2, 3, or 4"
 
         self.seq_len = seq_len
         self.pred_len = pred_len
@@ -536,13 +565,22 @@ class FEATHer(nn.Module):
         # LOW: avg pooling (L -> L/4) then upsample
         self.pool_low = nn.AvgPool1d(kernel_size=4, stride=4)
 
-        # Shared temporal kernel
-        self.dense_kernel = DenseTemporalKernel(
-            d_model=eff_d,
-            d_state=d_state,
-            kernel_size=kernel_size,
-            act=dtk_act,
-        )
+        # Shared temporal kernel. dtk_mode="none" removes it outright — each
+        # band passes through untouched — which is the real "is the DTK
+        # earning its place?" control. (Setting kernel_size=1 only removes the
+        # temporal mixing while keeping the latent projections, so it answers a
+        # narrower question; both are worth running.)
+        assert dtk_mode in ("full", "none"), dtk_mode
+        self.dtk_mode = dtk_mode
+        if dtk_mode == "none":
+            self.dense_kernel = nn.Identity()
+        else:
+            self.dense_kernel = DenseTemporalKernel(
+                d_model=eff_d,
+                d_state=d_state,
+                kernel_size=kernel_size,
+                act=dtk_act,
+            )
 
         # FFT-based frequency gate
         self.freq_gate = FFTFrequencyGate(
@@ -555,10 +593,16 @@ class FEATHer(nn.Module):
         # Forecasting head. "spk" = canonical period-aware sparse kernel;
         # "linear" swaps in a dense time projection and is the ablation control
         # (see DenseLinearHead — it is deliberately not capacity-matched).
-        assert head_mode in ("spk", "linear"), head_mode
+        assert head_mode in ("spk", "linear", "mlp"), head_mode
         self.head_mode = head_mode
         if head_mode == "linear":
             self.sparse_head = DenseLinearHead(
+                seq_len=seq_len,
+                pred_len=pred_len,
+                d_model=eff_d,
+            )
+        elif head_mode == "mlp":
+            self.sparse_head = MLPHead(
                 seq_len=seq_len,
                 pred_len=pred_len,
                 d_model=eff_d,
@@ -684,14 +728,18 @@ class FEATHer(nn.Module):
         oL = self.dense_kernel(fL)
 
         # Collect bands according to num_bands
-        if self.num_bands == 2:
+        if self.num_bands == 1:
+            # No decomposition at all — the POINT branch alone. This is the
+            # full multi-band ablation (2 still keeps a coarse/fine split).
+            bands_list = [oP]
+        elif self.num_bands == 2:
             bands_list = [oP, oL]
         elif self.num_bands == 3:
             bands_list = [oP, oM, oL]
         elif self.num_bands == 4:
             bands_list = [oP, oH, oM, oL]
         else:
-            raise ValueError("num_bands must be 2, 3, or 4")
+            raise ValueError("num_bands must be 1, 2, 3, or 4")
 
         bands = torch.stack(bands_list, dim=1)  # (B, num_bands, L, D)
 

@@ -526,7 +526,12 @@ def parse_args():
     # NB the control is much LARGER (Steel/H96 ~166 -> ~9.3k params), so read
     # its accuracy delta together with the parameter count.
     p.add_argument("--head_mode", type=str, default=None,
-                   choices=["spk", "linear"])
+                   choices=["spk", "linear", "mlp"])
+    # DTK presence (2026-08-24): "none" removes the shared temporal kernel
+    # outright (bands pass through), vs --kernel_size 1 which only drops the
+    # temporal mixing.
+    p.add_argument("--dtk_mode", type=str, default=None,
+                   choices=["full", "none"])
 
     # Training
     p.add_argument("--batch_size",  type=int,   default=32)
