@@ -250,11 +250,17 @@ ABLATION_ARMS = {
     # dtknone removes it outright; dtkmlp keeps the latent bottleneck with a
     # nonlinearity but no conv; dtkshallow halves d_state (16 -> 8). dtk1/dtk3
     # additionally sweep the receptive field, which the old table did not.
+    # The old table's "Shallow-DTK" was d_state halved, and a narrower kernel
+    # is the same kind of change: both are capacity knobs, not components, and
+    # tools/search/ already swept d_state {4,8,16} x kernel {3,5,7}. They are
+    # deliberately absent for the same reason d_state itself is — otherwise the
+    # table would mix "does this component earn its place" with "is this
+    # hyperparameter tuned", which the grid already answers. kernel_size=1 IS
+    # here: the grid excluded it, and it removes the temporal mixing outright
+    # rather than narrowing it.
     "dtknone":  ("design", "w/o DTK (identity)",           {"dtk_mode": "none"}),
     "dtkmlp":   ("design", "MLP-only DTK (no conv)",       {"dtk_mode": "mlp"}),
-    "dtkshallow": ("design", "shallow DTK (d_state 16->8)", {"d_state": 8}),
     "dtk1":     ("design", "DTK kernel 7 -> 1 (pointwise)", {"kernel_size": 1}),
-    "dtk3":     ("design", "DTK kernel 7 -> 3",            {"kernel_size": 3}),
 
     # --- gating (old Table 9: w/o / Uniform / Softmax / FEATHer) ---------
     # "w/o" sums the bands unweighted; "uniform" averages them; "softmax"
@@ -278,7 +284,6 @@ ABLATION_ARMS = {
     # Baseline 0.01. Zero alone only shows "off"; an order up distinguishes an
     # inert term from a mistuned weight.
     "spec0":    ("design", "spectral loss off (l=0)",      {"lambda_spec": 0.0}),
-    "specLo":   ("design", "spectral loss l=0.001",        {"lambda_spec": 0.001}),
     "specHi":   ("design", "spectral loss l=0.1",          {"lambda_spec": 0.1}),
 
     # --- borrowed capacity (not a contribution) --------------------------
@@ -300,7 +305,7 @@ def enumerate_combos(args):
         models = DEFAULT_MODELS
 
     if args.data:
-        datasets = [args.data]
+        datasets = [s.strip() for s in args.data.split(",") if s.strip()]
     elif args.group == "ltsf":
         datasets = LTSF_DATASETS      # generalization section
     elif args.group == "cmapss":
@@ -523,7 +528,10 @@ def main():
     p.add_argument("--exclude", type=str, default=None,
                    help="Comma-separated models to skip.")
     p.add_argument("--data",    type=str, default=None,
-                   help="Single dataset; omit to sweep a --group.")
+                   help="Dataset, or a comma-separated list; omit to sweep a "
+                        "--group. Useful for screening on the cheap datasets "
+                        "first — MetroPT3 alone runs ~2 h/cell vs ~3 min for "
+                        "BlastFurnace.")
     p.add_argument("--group",   type=str, default="mfg",
                    choices=["mfg", "ltsf", "cmapss", "all"],
                    help="Dataset group when --data is omitted: mfg (6 "
