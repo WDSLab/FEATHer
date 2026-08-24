@@ -11,8 +11,12 @@
  *   ML_COS4/ML_SIN4[4]   cos/sin(2*pi*i/4)
  */
 #include "mixlinear_infer.h"
-#include "../golden/mixlinear_weights.h"
-#include "../golden/mixlinear_twiddle.h"
+/* Plain names, not "../golden/...": the x86 build passes -Igolden, and the
+ * CubeIDE project flattens every header into Core/Inc, where a relative path
+ * out of Core/Src does not resolve. Every other model's port already does it
+ * this way. */
+#include "mixlinear_weights.h"
+#include "mixlinear_twiddle.h"
 
 #define ML_ALPHA 0.5f
 #define ML_PAD (ML_P / 2)             /* conv padding = 12 */
