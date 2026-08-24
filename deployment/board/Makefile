@@ -29,6 +29,14 @@ $(BUILD)/test_stsf_mlp: src/stsf_mlp_infer.c test/test_stsf_mlp.c \
 	$(CC) $(CFLAGS) src/fea_kernels.c src/stsf_mlp_infer.c \
 	      test/test_stsf_mlp.c -o $@ $(LDLIBS)
 
+$(BUILD)/test_mixlinear: src/mixlinear_infer.c test/test_mixlinear.c \
+                    src/mixlinear_infer.h $(KERN) \
+                    golden/mixlinear_weights.h golden/mixlinear_vectors.h \
+                    golden/mixlinear_twiddle.h
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) src/fea_kernels.c src/mixlinear_infer.c \
+	      test/test_mixlinear.c -o $@ $(LDLIBS)
+
 $(BUILD)/test_dipe: src/dipe_infer.c test/test_dipe.c \
                     src/dipe_infer.h $(KERN) \
                     golden/dipe_weights.h golden/dipe_vectors.h \
@@ -60,11 +68,12 @@ $(BUILD)/test_batch: test/test_batch.c $(KERN) \
 
 .PHONY: test clean
 test: $(BUILD)/test_golden $(BUILD)/test_stsf $(BUILD)/test_stsf_mlp \
-      $(BUILD)/test_dipe $(BUILD)/test_pers $(BUILD)/test_fits \
-      $(BUILD)/test_batch
+      $(BUILD)/test_mixlinear $(BUILD)/test_dipe $(BUILD)/test_pers \
+      $(BUILD)/test_fits $(BUILD)/test_batch
 	./$(BUILD)/test_golden
 	./$(BUILD)/test_stsf
 	./$(BUILD)/test_stsf_mlp
+	./$(BUILD)/test_mixlinear
 	./$(BUILD)/test_dipe
 	./$(BUILD)/test_pers
 	./$(BUILD)/test_fits
