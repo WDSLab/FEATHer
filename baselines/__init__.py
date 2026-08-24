@@ -76,6 +76,28 @@ def _build_sparsetsf(args, n_features, seq_len, pred_len):
     return build(args, n_features, seq_len, pred_len)
 
 
+def _build_sparsetsf_mlp(args, n_features, seq_len, pred_len):
+    """SparseTSF's MLP variant — the same-size rival, benchmarked separately.
+
+    SparseTSF ships two heads. `linear` is the paper's headline "1K-parameter"
+    model (41 params at D=7/H=96) and is what the main entry runs. `mlp` adds a
+    d_model=128 hidden layer, which costs ~30x more (4,535 params worst case
+    across the manufacturing sets) and lands almost exactly on FEATHer's own
+    footprint (4,522) while still fitting the MCU budget.
+
+    That makes it the one baseline that meets us at our size rather than below
+    it, so comparing only against `linear` would leave the obvious question —
+    "is FEATHer better than SparseTSF, or just bigger?" — unanswered. Kept as a
+    separate registry entry rather than a flag so both variants appear in the
+    same table with their own parameter counts.
+    """
+    from baselines.SparseTSF.wrapper import build
+    import copy
+    a = copy.copy(args)
+    a.sparsetsf_model_type = "mlp"
+    return build(a, n_features, seq_len, pred_len)
+
+
 def _build_timemixer(args, n_features, seq_len, pred_len):
     from baselines.TimeMixer.wrapper import build
     return build(args, n_features, seq_len, pred_len)
@@ -132,6 +154,7 @@ _BUILDERS: Dict[str, Callable] = {
     "iTransformer": _build_itransformer,
     "FITS":         _build_fits,
     "SparseTSF":    _build_sparsetsf,
+    "SparseTSF_MLP": _build_sparsetsf_mlp,  # same-size rival (~4.5K, MCU-fitting)
     "TimeMixer":    _build_timemixer,
     "TimesNet":     _build_timesnet,
     "TQNet":        _build_tqnet,
@@ -194,6 +217,7 @@ _METHOD_DEFAULTS: Dict[str, Dict] = {
     "iTransformer": {"lr": 1e-4, "loss": "mse"},
     "FITS":         {"lr": 5e-4, "loss": "mse"},
     "SparseTSF":    {"lr": 2e-2, "loss": "mse"},
+    "SparseTSF_MLP": {"lr": 2e-2, "loss": "mse"},  # same recipe, mlp head
     "TimeMixer":    {"lr": 1e-2, "loss": "mse"},
     "TimesNet":     {"lr": 1e-4, "loss": "mse"},
     "TQNet":        {"lr": 1e-3, "loss": "mse"},
@@ -519,17 +543,26 @@ _DATASET_OVERRIDES: Dict = {
 }
 
 
+# Variants that must inherit another model's per-dataset overrides. SparseTSF's
+# two heads share every dataset-level choice — the FFT-detected period_len and
+# the published lr — and only differ in the head itself, so the MLP entry reads
+# the linear entry's rows. Duplicating the 14 cells would let them drift apart,
+# and a silent drift here means the two variants are no longer the controlled
+# comparison the table claims.
+_OVERRIDE_ALIASES = {"SparseTSF_MLP": "SparseTSF"}
+
+
 def get_dataset_overrides(name, data):
     """Per-dataset architecture/lr overrides for (name, data).
 
     Returns an empty dict when the (model, dataset) cell has no entry —
     the caller should layer this on top of `get_method_defaults(name)`.
-    FEATHer ablation variants share FEATHer's single-config protocol, so
-    they have no per-dataset overrides by design.
     """
+    if (name, data) not in _DATASET_OVERRIDES and name in _OVERRIDE_ALIASES:
+        name = _OVERRIDE_ALIASES[name]
     return dict(_DATASET_OVERRIDES.get((name, data), {}))
 
 
 def list_models():
-    """Main benchmark lineup — 12 models (FEATHer + 11 baselines)."""
+    """Main benchmark lineup — FEATHer + the reproduced baselines."""
     return sorted(_BUILDERS.keys())
