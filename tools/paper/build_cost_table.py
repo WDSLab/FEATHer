@@ -81,11 +81,24 @@ def main() -> int:
     args = ap.parse_args()
 
     df = pd.read_csv(args.csv)
-    cx = pd.read_csv(args.complexity).set_index(["model", "data", "pred_len"])
+    cx_raw = pd.read_csv(args.complexity)
+    # complexity.csv spans LTSF too, where Electricity (D=321) and Traffic
+    # (D=862) inflate the channel-dependent models. Restrict to the datasets
+    # this table is about, or the worst-case flash column silently reports an
+    # LTSF configuration (SparseTSF read 16.9 KB instead of 0.6 KB).
+    mfg_sets = sorted(df.data.unique())
+    cx_raw = cx_raw[cx_raw.data.isin(mfg_sets)]
+    cx = cx_raw.set_index(["model", "data", "pred_len"])
 
-    # params actually constructed, per (model, data, horizon)
+    # Parameters per (model, data, horizon). Prefer the trained runs — that is
+    # what the accuracy table reports — but fall back to complexity.csv, which
+    # constructs the same models without training them. Otherwise a model whose
+    # accuracy sweep is still running (SparseTSF_MLP) would be missing from a
+    # cost table that does not depend on training at all.
     P = df.groupby(["model", "data", "pred_len"]).num_params.max()
-    worst = df.groupby("model").num_params.max()
+    P_cx = cx_raw.groupby(["model", "data", "pred_len"]).params.max()
+    P = P.combine_first(P_cx)
+    worst = P.groupby("model").max()
     deployable = {m: bool(v <= MAX_PARAMS) for m, v in worst.items()}
     order = worst.sort_values().index.tolist()
 
