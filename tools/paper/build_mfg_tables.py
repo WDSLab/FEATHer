@@ -36,6 +36,19 @@ FIRMWARE_KB = 15
 TABLES_KB = 1.5
 MAX_PARAMS = int((FLASH_KB - FIRMWARE_KB - TABLES_KB) * 1024 / 4)
 
+# Registry key -> printed name. "SparseTSF" alone is ambiguous once both of its
+# heads are in the lineup — the linear one is the paper's 41-parameter headline
+# model, the MLP one lands at FEATHer's own size — and conflating them would
+# make "FEATHer beats SparseTSF" mean two different things.
+DISPLAY = {
+    "SparseTSF": "SparseTSF-Linear",
+    "SparseTSF_MLP": "SparseTSF-MLP",
+    "DiPE_Linear": "DiPE-Linear",
+    "LMS_AutoTSF": "LMS-AutoTSF",
+    "MDMLP_EIA": "MDMLP-EIA",
+    "FEATHer": "FEATHer (ours)",
+}
+
 BEST = PatternFill("solid", fgColor="C6EFCE")
 SECOND = PatternFill("solid", fgColor="FFEB9C")
 HDR = PatternFill("solid", fgColor="DDDDDD")
@@ -109,7 +122,7 @@ def build_accuracy(df: pd.DataFrame, deployable: dict, out: str) -> None:
             c = ws.cell(row=r, column=5 + len(MFG), value=round(ov, 4))
             c.alignment, c.border, c.font = CT, THIN, BOLD
             if k == 0:
-                ws.cell(row=r, column=1, value=m).border = THIN
+                ws.cell(row=r, column=1, value=DISPLAY.get(m, m)).border = THIN
                 ws.cell(row=r, column=3,
                         value=f"{pmin:,}" if pmin == pmax else f"{pmin:,}–{pmax:,}")
                 ws.cell(row=r, column=4, value="yes" if deployable[m] else "no")
@@ -157,7 +170,7 @@ def build_accuracy(df: pd.DataFrame, deployable: dict, out: str) -> None:
     for m in order:
         sub = df[df.model == m]
         for metric in ["MSE", "MAE"]:
-            ws2.cell(row=r, column=1, value=m).border = THIN
+            ws2.cell(row=r, column=1, value=DISPLAY.get(m, m)).border = THIN
             ws2.cell(row=r, column=2, value=metric).border = THIN
             g = sub.groupby(["data", "pred_len"])[metric].mean()
             col = 3

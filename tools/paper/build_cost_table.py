@@ -43,6 +43,20 @@ BOARD_MS = {"SparseTSF": 47, "FEATHer": 349, "FITS": 796, "DiPE_Linear": 1312}
 BOARD_MJ = {"SparseTSF": 4.8, "FEATHer": 35, "FITS": 80, "DiPE_Linear": 132}
 BOARD_NOTE = {"FEATHer": "453p"}
 
+# Registry key -> printed name. "SparseTSF" alone is ambiguous: the paper ships
+# a linear head (41 params, the headline "1K-parameter" model) and an MLP head
+# (up to 4,535, essentially FEATHer's size), and the board latency below was
+# measured on the linear one. Writing the bare name would let a reader carry
+# 47 ms over to the variant that was never ported.
+DISPLAY = {
+    "SparseTSF": "SparseTSF-Linear",
+    "SparseTSF_MLP": "SparseTSF-MLP",
+    "DiPE_Linear": "DiPE-Linear",
+    "LMS_AutoTSF": "LMS-AutoTSF",
+    "MDMLP_EIA": "MDMLP-EIA",
+    "FEATHer": "FEATHer (ours)",
+}
+
 HDR = PatternFill("solid", fgColor="DDDDDD")
 OURS = PatternFill("solid", fgColor="FFF2CC")
 NOFIT = PatternFill("solid", fgColor="F2F2F2")
@@ -147,7 +161,7 @@ def main() -> int:
                     cell.alignment, cell.border = CT, THIN
                     c += 1
             if metric == "Parameters":
-                ws.cell(row=r, column=1, value=m).border = THIN
+                ws.cell(row=r, column=1, value=DISPLAY.get(m, m)).border = THIN
                 w = int(worst[m])
                 ws.cell(row=r, column=c, value=round(w * 4 / 1024, 1))
                 ws.cell(row=r, column=c + 1, value="yes" if deployable[m] else "no")
@@ -179,8 +193,12 @@ def main() -> int:
         "(ceiling models are outside the deployable set).",
         "Board latency and energy: NUCLEO-F103RB, Cortex-M3 @72 MHz, no FPU, -O2 "
         "soft-float, measured 2026-07-27 (deployment/EDGE_EXPERIMENT.md). "
-        "Parameter order does NOT predict latency: DiPE runs 339 parameters and is "
-        "the slowest of the ported five.",
+        "Parameter order does NOT predict latency: DiPE-Linear runs 339 parameters "
+        "and is the slowest of the ported five.",
+        "SparseTSF ships two heads and both are reported: Linear is the paper's "
+        "headline 1K-parameter model, MLP adds a 128-unit hidden layer. Only the "
+        "Linear head was ported to the board, so the 47 ms figure belongs to that "
+        "row alone.",
         "FEATHer's board figures are from the pre-08 453-parameter configuration and "
         "are pending re-measurement at the shipping 822-4,522 configuration.",
     ]:

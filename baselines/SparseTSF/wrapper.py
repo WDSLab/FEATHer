@@ -10,9 +10,14 @@ Reference:
 Defaults from `SparseTSF-main/scripts/SparseTSF/linear/etth1.sh`
 (period_len=24, model_type=linear) plus paper §3.2.
 
-Note: SparseTSF claims robustness as an *implicit* property of the sparse
-design but reports no explicit noise-robustness experiments. Our Phase 3
-sweep evaluates this empirically alongside FEATHer.
+⚠ TWO HEADS, TWO REGISTRY ENTRIES. This wrapper defaults to `linear`, which is
+the paper's headline model — 41 parameters at ETTh1/H=96, the basis of the "1k
+parameters" title, and the only variant ported to the board (47 ms). The `mlp`
+head adds a d_model=128 hidden layer and costs ~30x more (up to 4,535 params,
+essentially FEATHer's own footprint); it is registered separately as
+`SparseTSF_MLP` and is NOT covered by the board measurement. Tables print them
+as SparseTSF-Linear / SparseTSF-MLP — never as a bare "SparseTSF", since the
+two differ by more than an order of magnitude in both size and cost.
 """
 
 import argparse
