@@ -57,10 +57,12 @@ int main(void)
     check("xnorm",   fea_st_xnorm,   G_XNORM,   FEA_L * FEA_D);
     check("xproj",   fea_st_xproj,   G_XPROJ,   FEA_L * FEA_D);
     check("fP",      fea_st_fP,      G_FP,      FEA_L * FEA_D);
+    check("fH",      fea_st_fH,      G_FH,      FEA_L * FEA_D);
     check("fM",      fea_st_fM,      G_FM,      FEA_L * FEA_D);
     check("fLds",    fea_st_fLds,    G_FLDS,    FEA_LP * FEA_D);
     check("fL",      fea_st_fL,      G_FL,      FEA_L * FEA_D);   /* trap#1 */
     check("oP",      fea_st_oP,      G_OP,      FEA_L * FEA_D);   /* trap#2 */
+    check("oH",      fea_st_oH,      G_OH,      FEA_L * FEA_D);
     check("oM",      fea_st_oM,      G_OM,      FEA_L * FEA_D);
     check("oL",      fea_st_oL,      G_OL,      FEA_L * FEA_D);
     check("rfft_re", fea_st_rfft_re, G_RFFT_RE, FEA_NF);          /* trap#4 */
@@ -69,6 +71,7 @@ int main(void)
     check("gate_z",  fea_st_gate_z,  G_GATE_Z,  FEA_NB);
     check("gate",    fea_st_gate,    G_GATE,    FEA_NB);
     check("hidden",  fea_st_hidden,  G_HIDDEN,  FEA_L * FEA_D);
+    check("mlp",     fea_st_mlp,     G_MLP,     FEA_L * FEA_D);
     check("hagg",    fea_st_hagg,    G_HAGG,    FEA_D * FEA_L);
     check("yspk",    fea_st_yspk,    G_YSPK,    FEA_H * FEA_D);
     check("y",       y,              G_Y,       FEA_H * FEA_D);

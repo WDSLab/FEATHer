@@ -33,12 +33,15 @@ float fea_st_mean[FEA_D];
 float fea_st_stdev[FEA_D];
 float fea_st_xproj[FEA_L * FEA_D];
 float fea_st_fP[FEA_L * FEA_D];
+float fea_st_fH[FEA_L * FEA_D];
 float fea_st_fM[FEA_L * FEA_D];
 float fea_st_fLds[FEA_LP * FEA_D];
 float fea_st_fL[FEA_L * FEA_D];
 float fea_st_oP[FEA_L * FEA_D];
+float fea_st_oH[FEA_L * FEA_D];
 float fea_st_oM[FEA_L * FEA_D];
 float fea_st_oL[FEA_L * FEA_D];
+float fea_st_mlp[FEA_L * FEA_D];
 float fea_st_rfft_re[FEA_NF];
 float fea_st_rfft_im[FEA_NF];
 float fea_st_magmean[FEA_NF];
@@ -56,8 +59,8 @@ float fea_st_yspk[FEA_H * FEA_D];
 static float s_B[FEA_L * FEA_D];      /* xproj -> SPK h/h_agg      */
 static float s_C[FEA_L * FEA_D];      /* hidden accumulator        */
 static float s_D[FEA_L * FEA_D];      /* band scratch -> yspk -> y */
-static float s_lat[FEA_L * FEA_S];    /* DTK latent / gate / pool /
-                                         SPK agg out               */
+static float s_lat[FEA_LAT_N];        /* DTK latent / gate / pool /
+                                         SPK agg out / MLP bottleneck */
 static float s_mean[FEA_D], s_stdev[FEA_D];
 static float s_gz[FEA_NB], s_g[FEA_NB];
 
@@ -158,7 +161,10 @@ float *feather_forward_ip(float *x)
     fea_linear_t(x, s_B, W_INPROJ, B_INPROJ, FEA_L, FEA_D, FEA_D);
     CAP(fea_st_xproj, s_B, FEA_L * FEA_D);
 
-    /* POINT band */
+    /* Bands fold into s_C in the order PyTorch stacks them, which fixes the
+     * gate index: bands_list = [oP, oH, oM, oL] at num_bands=4. */
+
+    /* POINT band (kernel 1) */
     fea_dwconv_same(s_B, s_D, W_CONVP, B_CONVP, FEA_L, FEA_D, 1);
     CAP(fea_st_fP, s_D, FEA_L * FEA_D);
     dtk(s_D, s_D);
@@ -166,13 +172,21 @@ float *feather_forward_ip(float *x)
     for (int i = 0; i < FEA_L * FEA_D; ++i)
         s_C[i] = s_g[0] * s_D[i];
 
-    /* MID band */
+    /* HIGH band (kernel 3) — only built at num_bands == 4 */
+    fea_dwconv_same(s_B, s_D, W_CONVH, B_CONVH, FEA_L, FEA_D, 3);
+    CAP(fea_st_fH, s_D, FEA_L * FEA_D);
+    dtk(s_D, s_D);
+    CAP(fea_st_oH, s_D, FEA_L * FEA_D);
+    for (int i = 0; i < FEA_L * FEA_D; ++i)
+        s_C[i] += s_g[1] * s_D[i];
+
+    /* MID band (kernel 5) */
     fea_dwconv_same(s_B, s_D, W_CONVM, B_CONVM, FEA_L, FEA_D, 5);
     CAP(fea_st_fM, s_D, FEA_L * FEA_D);
     dtk(s_D, s_D);
     CAP(fea_st_oM, s_D, FEA_L * FEA_D);
     for (int i = 0; i < FEA_L * FEA_D; ++i)
-        s_C[i] += s_g[1] * s_D[i];
+        s_C[i] += s_g[2] * s_D[i];
 
     /* LOW band (pooled seq parked in s_lat - free between DTKs) */
     fea_avgpool4(s_B, s_lat, FEA_L, FEA_D);
@@ -182,8 +196,27 @@ float *feather_forward_ip(float *x)
     dtk(s_D, s_D);
     CAP(fea_st_oL, s_D, FEA_L * FEA_D);
     for (int i = 0; i < FEA_L * FEA_D; ++i)
-        s_C[i] += s_g[2] * s_D[i];
+        s_C[i] += s_g[FEA_NB - 1] * s_D[i];
     CAP(fea_st_hidden, s_C, FEA_L * FEA_D);
+
+    /* Residual MLP over the channel axis: h += W_up(GELU(W_down(h))).
+     * FEATHer's only nonlinearity, and the one component the ablation shows
+     * clearly earns its parameters. Bottleneck parks in s_lat, free here.
+     * GELU is the exact erf form, matching torch.nn.functional.gelu's default
+     * (approximate='none'); the tanh approximation differs by ~1e-3 and would
+     * break the golden-vector tolerance. */
+    fea_linear_t(s_C, s_lat, W_NLDOWN, B_NLDOWN, FEA_L, FEA_D, FEA_MLP_R);
+    for (int i = 0; i < FEA_L * FEA_MLP_R; ++i)
+        s_lat[i] = fea_gelu(s_lat[i]);
+    for (int t = 0; t < FEA_L; ++t) {
+        for (int d = 0; d < FEA_D; ++d) {
+            float acc = B_NLUP[d];
+            for (int r = 0; r < FEA_MLP_R; ++r)
+                acc += W_NLUP[d * FEA_MLP_R + r] * s_lat[t * FEA_MLP_R + r];
+            s_C[t * FEA_D + d] += acc;
+        }
+    }
+    CAP(fea_st_mlp, s_C, FEA_L * FEA_D);
 
     /* SPK head: channel-major copy into s_B (free after LOW pool) */
     for (int d = 0; d < FEA_D; ++d)

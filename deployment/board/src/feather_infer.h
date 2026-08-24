@@ -13,22 +13,37 @@
 
 #include "fea_kernels.h"
 
-#define FEA_L 96            /* seq_len                     */
-#define FEA_H 96            /* pred_len                    */
-#define FEA_D 7             /* input channels (MetroPT3)   */
-#define FEA_S 8             /* DTK latent d_state          */
-#define FEA_K 7             /* DTK kernel_size             */
-#define FEA_PERIOD 12       /* SPK period                  */
-#define FEA_NB 3            /* num_bands (POINT/MID/LOW)   */
+/* Shipping FEATHer-N as frozen in baselines/__init__.py:_FEATHER_MFG_N —
+ * d_state 16, kernel 7, num_bands 4, residual MLP rank 16, channel_mode mix —
+ * on the MetroPT3 deployment cell (D=7, period 24, H=96) = 938 parameters.
+ *
+ * The 07-27 port predates two model changes and measured a different network:
+ * the residual MLP landed 07-31 and num_bands=4 / d_state=16 came out of the
+ * 08-11 grid search, so the board was running a 453-parameter 3-band model
+ * with no nonlinearity while the paper reported this one.
+ */
+#define FEA_L 96            /* seq_len                          */
+#define FEA_H 96            /* pred_len                         */
+#define FEA_D 7             /* input channels (MetroPT3)        */
+#define FEA_S 16            /* DTK latent d_state               */
+#define FEA_K 7             /* DTK kernel_size                  */
+#define FEA_PERIOD 24       /* SPK period (MetroPT3 FFT-detected) */
+#define FEA_NB 4            /* num_bands (POINT/HIGH/MID/LOW)   */
+#define FEA_MLP_R 16        /* residual MLP bottleneck rank     */
 #define FEA_NF (FEA_L / 2 + 1)      /* rfft bins = 49      */
 #define FEA_LP (FEA_L / 4)          /* pooled LOW len = 24 */
-#define FEA_N (FEA_L / FEA_PERIOD)  /* input periods = 8   */
-#define FEA_M (FEA_H / FEA_PERIOD)  /* output periods = 8  */
-#define FEA_AGG_K (2 * (FEA_PERIOD / 2) + 1)  /* = 13      */
+#define FEA_N (FEA_L / FEA_PERIOD)  /* input periods = 4   */
+#define FEA_M (FEA_H / FEA_PERIOD)  /* output periods = 4  */
+#define FEA_AGG_K (2 * (FEA_PERIOD / 2) + 1)  /* = 25      */
 
-/* static arena footprint (B + C + D + LAT + stats + gate), bytes */
+/* Static arena (B + C + D + LAT + stats + gate), bytes. LAT is sized by the
+ * largest transient that parks there: the DTK latent (L*S), the residual-MLP
+ * bottleneck (L*R), the SPK aggregation output (D*L) and the gate spectra
+ * (3*NF) never overlap, so one buffer at the max serves all four. */
+#define FEA_LAT_N ((FEA_L * FEA_S) > (FEA_L * FEA_MLP_R) \
+                   ? (FEA_L * FEA_S) : (FEA_L * FEA_MLP_R))
 #define FEA_ARENA_BYTES \
-    ((3 * FEA_L * FEA_D + FEA_L * FEA_S + 2 * FEA_D + 2 * FEA_NB) \
+    ((3 * FEA_L * FEA_D + FEA_LAT_N + 2 * FEA_D + 2 * FEA_NB) \
      * (int)sizeof(float))
 
 /* primitives live in fea_kernels.h (shared with SparseTSF & co.) */
@@ -52,12 +67,15 @@ extern float fea_st_mean[FEA_D];
 extern float fea_st_stdev[FEA_D];
 extern float fea_st_xproj[FEA_L * FEA_D];
 extern float fea_st_fP[FEA_L * FEA_D];
+extern float fea_st_fH[FEA_L * FEA_D];
 extern float fea_st_fM[FEA_L * FEA_D];
 extern float fea_st_fLds[FEA_LP * FEA_D];
 extern float fea_st_fL[FEA_L * FEA_D];
 extern float fea_st_oP[FEA_L * FEA_D];
+extern float fea_st_oH[FEA_L * FEA_D];
 extern float fea_st_oM[FEA_L * FEA_D];
 extern float fea_st_oL[FEA_L * FEA_D];
+extern float fea_st_mlp[FEA_L * FEA_D];   /* hidden after residual MLP */
 extern float fea_st_rfft_re[FEA_NF];   /* channel 0, for trap#4 test */
 extern float fea_st_rfft_im[FEA_NF];
 extern float fea_st_magmean[FEA_NF];

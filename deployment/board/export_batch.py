@@ -51,9 +51,13 @@ def main() -> None:
     refs = {}
     with torch.no_grad():
         torch.manual_seed(WEIGHT_SEED)
+        # Must mirror export_golden.py and src/feather_infer.h exactly: the
+        # shipping FEATHer-N on the MetroPT3 deployment cell.
         m = FEATHer(seq_len=SEQ_LEN, pred_len=PRED_LEN, d_model=D_MODEL,
-                    d_state=8, kernel_size=7, use_norm=True,
-                    period=12, num_bands=3).eval()
+                    d_state=16, kernel_size=7, use_norm=True,
+                    period=24, num_bands=4,
+                    use_residual_mlp=True, mlp_rank=16,
+                    channel_mode="mix").eval()
         refs["FEATHER"] = mse64(m(X), T)
 
         torch.manual_seed(WEIGHT_SEED)

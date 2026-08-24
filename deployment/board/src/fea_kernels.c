@@ -158,6 +158,14 @@ void fea_softmax(const float *x, float *y, int n)
         y[i] /= sum;
 }
 
+float fea_gelu(float x)
+{
+    /* 0.5*x*(1+erf(x/sqrt(2))) — torch's default (approximate='none').
+     * 1/sqrt(2) written out so the constant folds identically on both
+     * toolchains under -fno-fast-math. */
+    return 0.5f * x * (1.0f + erff(x * 0.70710678118654752f));
+}
+
 void fea_instnorm_stats(const float *x, int len, int nch,
                         float *mean, float *stdev)
 {

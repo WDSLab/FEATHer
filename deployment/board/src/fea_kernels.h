@@ -49,6 +49,13 @@ void fea_idft_half(const float *re, const float *im, int n,
 /* softmax over n elements (max-subtracted, matches torch.softmax)   */
 void fea_softmax(const float *x, float *y, int n);
 
+/* GELU, exact erf form: 0.5*x*(1+erf(x/sqrt(2))). This is what
+ * torch.nn.functional.gelu computes by default (approximate='none') — the
+ * cheaper tanh approximation is off by ~1e-3 near |x|~1 and would blow the
+ * golden-vector tolerance (atol 1e-5). erff() is a libm call and costs
+ * accordingly on soft-float, which is why the op counter charges it 15x. */
+float fea_gelu(float x);
+
 /* per-channel mean + stdev over time; biased var, eps inside sqrt:
  * stdev = sqrt(var + 1e-5). stdev may be NULL (mean-only models)    */
 void fea_instnorm_stats(const float *x, int len, int nch,
