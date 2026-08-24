@@ -1,0 +1,409 @@
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2026 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include <stdio.h>
+#include <math.h>
+#include "stsf_infer.h"
+#include "stsf_vectors.h"   /* SG_X / SG_Y */
+#include "dipe_infer.h"
+#include "dipe_vectors.h"   /* DG_X / DG_Y */
+#include "fits_infer.h"
+#include "fits_vectors.h"   /* FG_X / FG_Y */
+#include "pers_infer.h"
+#include "feather_infer.h"
+#include "feather_vectors.h"   /* G_X / G_Y */
+#include "stsf_mlp_infer.h"
+#include "stsf_mlp_vectors.h"  /* SM_X / SM_Y */
+#include "mixlinear_infer.h"
+#include "mixlinear_vectors.h" /* MG_X / MG_Y */
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+/* pick exactly ONE model per build (each model's scratch alone fits 20KB;
+ * all four together overflow). change this line, rebuild, flash, record. */
+/* #define RUN_STSF */      /* SparseTSF-Linear   41 p */
+/* #define RUN_STSF_MLP */  /* SparseTSF-MLP   1,181 p — same budget as ours */
+/* #define RUN_MIXLINEAR */ /* MixLinear          49 p */
+/* #define RUN_DIPE */      /* DiPE-Linear       339 p */
+/* #define RUN_FITS */      /* FITS            1,200 p */
+/* #define RUN_PERS */      /* persistence         0 p */
+#define RUN_FEATHER   /* FEATHer-N  938 p (needs feather_infer.c UN-excluded) */
+
+/* power-measurement mode (leave BOTH off for the normal timed/golden loop):
+ *   POWER_ACTIVE = run the selected model back-to-back (steady active current)
+ *   POWER_IDLE   = CPU sleeps via WFI (idle/sleep current)                    */
+/* #define POWER_ACTIVE */
+/* #define POWER_IDLE */
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+UART_HandleTypeDef huart2;
+
+/* USER CODE BEGIN PV */
+
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+static void MX_USART2_UART_Init(void);
+/* USER CODE BEGIN PFP */
+
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+extern uint32_t _estack;   /* top of RAM  (stack start, high address) */
+extern uint32_t _end;      /* end of .bss / heap base (low address)   */
+
+#define STACK_FILL 0xAAAAAAAAu
+
+/* paint the currently-free stack region with 0xAA */
+__attribute__((noinline)) static void stack_paint(void)
+{
+  register uint32_t *sp asm("sp");
+  uint32_t *p = &_end;
+  while (p < sp) { *p++ = STACK_FILL; }
+}
+
+/* peak stack used so far = total region - bytes still holding 0xAA */
+static uint32_t stack_peak_used(void)
+{
+  uint32_t *p = &_end;
+  uint32_t untouched = 0;
+  while (p < &_estack && *p == STACK_FILL) { untouched++; p++; }
+  uint32_t total = (uint32_t)((uint8_t *)&_estack - (uint8_t *)&_end);
+  return total - untouched * 4u;
+}
+
+/* shared output + persistence reference (all models are 96x7) */
+#define OUT_N (96 * 7)
+static float g_yout[OUT_N];
+static float g_pref[OUT_N];
+
+/* time one inference, compare to golden, print one table row */
+static void measure(const char *name,
+                    void (*fwd)(const float *, float *),
+                    const float *x, const float *gy)
+{
+  uint32_t t0, t1;
+  __disable_irq();
+  t0 = DWT->CYCCNT;
+  fwd(x, g_yout);
+  t1 = DWT->CYCCNT;
+  __enable_irq();
+  uint32_t cyc = t1 - t0;
+
+  int bad = 0;
+  float maxabs = 0.0f;
+  for (int i = 0; i < OUT_N; i++) {
+    float ad = fabsf(g_yout[i] - gy[i]);
+    if (ad > maxabs) maxabs = ad;
+    if (ad > 1e-5f + 1e-4f * fabsf(gy[i])) bad++;
+  }
+  printf("%-10s %s bad=%d maxabs(x1e6)=%lu cycles=%lu latency_us=%lu stack=%lu B\r\n",
+         name, bad ? "FAIL" : "PASS", bad,
+         (unsigned long)(maxabs * 1e6f),
+         (unsigned long)cyc, (unsigned long)(cyc / 72u),
+         (unsigned long)stack_peak_used());
+}
+
+/* persistence has an extra-arg signature -> wrap to the uniform type */
+static void pers_fwd_wrap(const float *x, float *y)
+{
+  pers_forward(x, y, 96, 96, 7);
+}
+/* USER CODE END 0 */
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_USART2_UART_Init();
+  /* USER CODE BEGIN 2 */
+  setvbuf(stdout, NULL, _IONBF, 0);
+  printf("hello from F103RB\r\n");
+
+  /* --- DWT cycle counter enable (latency measurement tool) --- */
+  CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+  DWT->CYCCNT = 0;
+  DWT->CTRL  |= DWT_CTRL_CYCCNTENA_Msk;
+
+#ifdef RUN_PERS
+  /* persistence reference = last timestep of SG_X repeated H times */
+  for (int t = 0; t < 96; t++)
+    for (int d = 0; d < 7; d++)
+      g_pref[t * 7 + d] = SG_X[(96 - 1) * 7 + d];
+#endif
+
+  /* --- stack painting: fill free stack with 0xAA before any work --- */
+  stack_paint();
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+    HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+
+#if defined(POWER_IDLE)
+    /* CPU sleeps -> DMM reads idle/sleep current (model-independent) */
+    __WFI();
+#elif defined(POWER_ACTIVE)
+    /* back-to-back inference, no UART/LED/delay -> steady active current */
+  #if defined(RUN_FEATHER)
+    feather_forward(G_X, g_yout);
+  #elif defined(RUN_STSF)
+    stsf_forward(SG_X, g_yout);
+  #elif defined(RUN_STSF_MLP)
+    stsf_mlp_forward(SM_X, g_yout);
+  #elif defined(RUN_MIXLINEAR)
+    mixlinear_forward(MG_X, g_yout);
+  #elif defined(RUN_DIPE)
+    dipe_forward(DG_X, g_yout);
+  #elif defined(RUN_FITS)
+    fits_forward(FG_X, g_yout);
+  #elif defined(RUN_PERS)
+    pers_fwd_wrap(SG_X, g_yout);
+  #endif
+#else
+    /* normal: timed + golden-checked, one row per 2 s */
+    HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+  #if defined(RUN_FEATHER)
+    measure("FEATHer",   feather_forward, G_X, G_Y);
+  #elif defined(RUN_STSF)
+    measure("SparseTSF", stsf_forward,  SG_X, SG_Y);
+  #elif defined(RUN_STSF_MLP)
+    measure("STSF-MLP",  stsf_mlp_forward, SM_X, SM_Y);
+  #elif defined(RUN_MIXLINEAR)
+    measure("MixLinear", mixlinear_forward, MG_X, MG_Y);
+  #elif defined(RUN_DIPE)
+    measure("DiPE",      dipe_forward,  DG_X, DG_Y);
+  #elif defined(RUN_FITS)
+    measure("FITS",      fits_forward,  FG_X, FG_Y);
+  #elif defined(RUN_PERS)
+    measure("persist",   pers_fwd_wrap, SG_X, g_pref);
+  #endif
+    /* visible heartbeat: 5 quick green (LD2) blinks so you can SEE it alive */
+    for (int k = 0; k < 10; k++) {
+      HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+      HAL_Delay(120);
+    }
+    HAL_Delay(400);
+#endif
+  }
+  /* USER CODE END 3 */
+}
+
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
+  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_GPIO_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  /* USER CODE BEGIN MX_GPIO_Init_1 */
+
+  /* USER CODE END MX_GPIO_Init_1 */
+
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : B1_Pin */
+  GPIO_InitStruct.Pin = B1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : LD2_Pin */
+  GPIO_InitStruct.Pin = LD2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+
+  /* USER CODE BEGIN MX_GPIO_Init_2 */
+
+  /* USER CODE END MX_GPIO_Init_2 */
+}
+
+/* USER CODE BEGIN 4 */
+int __io_putchar(int ch)
+{
+  HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
+  return ch;
+}
+/* USER CODE END 4 */
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
+  __disable_irq();
+  while (1)
+  {
+  }
+  /* USER CODE END Error_Handler_Debug */
+}
+#ifdef USE_FULL_ASSERT
+/**
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+  /* USER CODE BEGIN 6 */
+  /* User can add his own implementation to report the file name and line number,
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */

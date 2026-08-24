@@ -51,12 +51,12 @@ static void check(const char *name, const float *got,
 int main(void)
 {
     static float y[SMLP_H * SMLP_D];
-    stsf_mlp_forward(MG_X, y);
+    stsf_mlp_forward(SM_X, y);
 
-    check("mean", smlp_st_mean, MG_MEAN, SMLP_D);
-    check("xagg", smlp_st_xagg, MG_XAGG, SMLP_D * SMLP_L);
-    check("hid",  smlp_st_hid,  MG_HID,  SMLP_D * SMLP_P * SMLP_DM);
-    check("y",    y,            MG_Y,    SMLP_H * SMLP_D);
+    check("mean", smlp_st_mean, SM_MEAN, SMLP_D);
+    check("xagg", smlp_st_xagg, SM_XAGG, SMLP_D * SMLP_L);
+    check("hid",  smlp_st_hid,  SM_HID,  SMLP_D * SMLP_P * SMLP_DM);
+    check("y",    y,            SM_Y,    SMLP_H * SMLP_D);
 
     if (g_fail) {
         printf("\n%d stage(s) FAILED\n", g_fail);
