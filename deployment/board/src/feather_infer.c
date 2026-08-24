@@ -255,11 +255,21 @@ float *feather_forward_ip(float *x)
     return s_D;
 }
 
-/* const-input convenience wrapper (tests, batch eval) */
+/* const-input convenience wrapper (tests, batch eval).
+ *
+ * Stages the input through s_D rather than a private buffer. s_D is not
+ * touched until the POINT band, which runs after in_proj has consumed x, so
+ * the aliasing is safe — and it is the same slot the forecast ends up in, so
+ * feather_forward_ip's return value is still correct.
+ *
+ * This is not a micro-optimisation: at d_state 16 the arena reaches 14.0 KB,
+ * and a separate 2.7 KB input copy pushed the F103RB's 20 KB SRAM over by
+ * 1,239 bytes. Dropping it leaves ~1.4 KB of headroom. Keep the ordering in
+ * mind before moving anything above the POINT band.
+ */
 void feather_forward(const float *x, float *y)
 {
-    static float xbuf[FEA_L * FEA_D];
-    memcpy(xbuf, x, sizeof(xbuf));
-    const float *out = feather_forward_ip(xbuf);
+    memcpy(s_D, x, FEA_L * FEA_D * sizeof(float));
+    const float *out = feather_forward_ip(s_D);
     memcpy(y, out, FEA_H * FEA_D * sizeof(float));
 }

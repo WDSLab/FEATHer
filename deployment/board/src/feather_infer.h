@@ -52,11 +52,17 @@
  * Board entry point: x (FEA_L * FEA_D time-major) lives in the caller's
  * arena slot, is normalized IN PLACE and consumed; returns a pointer to
  * the forecast (FEA_H * FEA_D) in an internal buffer, valid until the
- * next call. Static arena = 2,804 floats (10.96 KB); +input = 13.6 KB.
+ * next call.
+ *
+ * Static arena at d_state 16 / num_bands 4 = 3,574 floats (14.0 KB), of
+ * which s_lat is 6 KB. Against the F103RB's 20 KB that leaves room for
+ * main.c's output buffer and the stack, but not for a separate input copy —
+ * see feather_forward.
  */
 float *feather_forward_ip(float *x);
 
-/* const-input convenience wrapper (adds one 672-float copy buffer) */
+/* const-input convenience wrapper. Stages through the arena rather than a
+ * private buffer, which is what keeps the board build inside 20 KB. */
 void feather_forward(const float *x, float *y);
 
 /* stage buffers for golden-vector comparison - ONLY defined when the

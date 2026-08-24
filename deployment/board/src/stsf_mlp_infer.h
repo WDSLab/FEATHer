@@ -34,6 +34,12 @@ void stsf_mlp_forward(const float *x, float *y);
 /* stage buffers for golden comparison */
 extern float smlp_st_mean[SMLP_D];
 extern float smlp_st_xagg[SMLP_D * SMLP_L];   /* channel-major, conv+residual */
-extern float smlp_st_hid[SMLP_D * SMLP_P * SMLP_DM];  /* post-ReLU hidden */
+
+/* The full post-ReLU hidden tensor is 86 KB — the board has 20 KB of SRAM in
+ * total — so it exists ONLY under -DSMLP_CAPTURE_STAGES (the x86 golden test).
+ * The board build runs the same arithmetic and keeps one 128-float row. */
+#ifdef SMLP_CAPTURE_STAGES
+extern float smlp_st_hid[SMLP_D * SMLP_P * SMLP_DM];
+#endif
 
 #endif /* STSF_MLP_INFER_H */

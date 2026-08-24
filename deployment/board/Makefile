@@ -26,8 +26,8 @@ $(BUILD)/test_stsf_mlp: src/stsf_mlp_infer.c test/test_stsf_mlp.c \
                     src/stsf_mlp_infer.h $(KERN) \
                     golden/stsf_mlp_weights.h golden/stsf_mlp_vectors.h
 	@mkdir -p $(BUILD)
-	$(CC) $(CFLAGS) src/fea_kernels.c src/stsf_mlp_infer.c \
-	      test/test_stsf_mlp.c -o $@ $(LDLIBS)
+	$(CC) $(CFLAGS) -DSMLP_CAPTURE_STAGES src/fea_kernels.c \
+	      src/stsf_mlp_infer.c test/test_stsf_mlp.c -o $@ $(LDLIBS)
 
 $(BUILD)/test_mixlinear: src/mixlinear_infer.c test/test_mixlinear.c \
                     src/mixlinear_infer.h $(KERN) \

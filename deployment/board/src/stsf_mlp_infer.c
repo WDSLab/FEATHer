@@ -9,12 +9,27 @@
  * Only the head differs from stsf_infer.c; the front end is byte-identical,
  * which is what makes the two a controlled pair on the board.
  */
+#include <string.h>
+
 #include "stsf_mlp_infer.h"
 #include "stsf_mlp_weights.h"   /* generated: golden/stsf_mlp_weights.h */
 
 float smlp_st_mean[SMLP_D];
 float smlp_st_xagg[SMLP_D * SMLP_L];
+
+/* The full hidden tensor is D*period*128 floats = 86 KB — four times the
+ * board's entire SRAM. It exists only so the x86 golden test can check every
+ * unit of the MLP, so it is compiled in exclusively for that build, the same
+ * way feather_infer.c gates its stage buffers. The board build computes the
+ * identical arithmetic and keeps just the 128-float working row. */
+#ifdef SMLP_CAPTURE_STAGES
 float smlp_st_hid[SMLP_D * SMLP_P * SMLP_DM];
+#define SMLP_CAP(d, ph, src) \
+    memcpy(smlp_st_hid + ((d) * SMLP_P + (ph)) * SMLP_DM, (src), \
+           SMLP_DM * sizeof(float))
+#else
+#define SMLP_CAP(d, ph, src) ((void)0)
+#endif
 
 static float s_xc[SMLP_D * SMLP_L];    /* centered, channel-major */
 static float s_cv[SMLP_L];             /* conv scratch, one channel */
@@ -50,8 +65,7 @@ void stsf_mlp_forward(const float *x, float *y)
                     acc += SMLP_W_FC1[h * SMLP_N + in] * v[in];
                 s_h[h] = acc > 0.0f ? acc : 0.0f;         /* ReLU */
             }
-            for (int hh = 0; hh < SMLP_DM; ++hh)
-                smlp_st_hid[(d * SMLP_P + ph) * SMLP_DM + hh] = s_h[hh];
+            SMLP_CAP(d, ph, s_h);
 
             for (int om = 0; om < SMLP_M; ++om) {
                 float acc = SMLP_B_FC2[om];
