@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Export float32 golden vectors + weights for the on-board C port.
 
-Builds the SHIPPING FEATHer-N — the model the accuracy tables report — in its
+Builds the SHIPPING FEATHer-N ??the model the accuracy tables report ??in its
 MetroPT3 deployment cell (mix + residual MLP r16, d_state 16, kernel 7,
 num_bands 4, period 24, D=7, L=H=96 -> 938 params), runs one forward pass
 step-by-step (mirroring FEATHer.forward exactly), and dumps
@@ -90,8 +90,9 @@ def main() -> None:
         fP = model.conv_point(h_t).permute(0, 2, 1)
         oP = model.dense_kernel(fP)
 
-        fH = model.conv_high(h_t).permute(0, 2, 1)
-        oH = model.dense_kernel(fH)
+        if NUM_BANDS == 4:
+            fH = model.conv_high(h_t).permute(0, 2, 1)
+            oH = model.dense_kernel(fH)
 
         fM = model.conv_mid(h_t).permute(0, 2, 1)
         oM = model.dense_kernel(fM)
@@ -111,7 +112,10 @@ def main() -> None:
         z = model.freq_gate.pool(z).squeeze(-1)       # (1, 3)
         gate = torch.softmax(z, dim=-1)
 
-        bands = torch.stack([oP, oH, oM, oL], dim=1)
+        # Band order must match FEATHer.forward's bands_list exactly, since the
+        # gate weights are indexed positionally.
+        bands = torch.stack([oP, oH, oM, oL] if NUM_BANDS == 4 else [oP, oM, oL],
+                            dim=1)
         bands_sum = (gate.view(1, NUM_BANDS, 1, 1) * bands).sum(dim=1)
 
         # residual MLP (FEATHer's only nonlinearity)
@@ -142,8 +146,9 @@ def main() -> None:
         emit_array(f, "B_INPROJ", model.in_proj.bias)          # (7,)
         emit_array(f, "W_CONVP", model.conv_point.weight)      # (7,1,1)
         emit_array(f, "B_CONVP", model.conv_point.bias)        # (7,)
-        emit_array(f, "W_CONVH", model.conv_high.weight)       # (7,1,3)
-        emit_array(f, "B_CONVH", model.conv_high.bias)         # (7,)
+        if NUM_BANDS == 4:
+            emit_array(f, "W_CONVH", model.conv_high.weight)   # (7,1,3)
+            emit_array(f, "B_CONVH", model.conv_high.bias)     # (7,)
         emit_array(f, "W_CONVM", model.conv_mid.weight)        # (7,1,5)
         emit_array(f, "B_CONVM", model.conv_mid.bias)          # (7,)
         emit_array(f, "W_DTK_IN", model.dense_kernel.in_proj.weight)   # (8,7)
@@ -171,12 +176,14 @@ def main() -> None:
         emit_array(f, "G_XNORM", x_norm[0])        # (96,7)  trap#3 eps-in-var
         emit_array(f, "G_XPROJ", x_proj[0])        # (96,7)
         emit_array(f, "G_FP", fP[0])               # (96,7)
-        emit_array(f, "G_FH", fH[0])               # (96,7)
+        if NUM_BANDS == 4:
+            emit_array(f, "G_FH", fH[0])           # (96,7)
         emit_array(f, "G_FM", fM[0])               # (96,7)
         emit_array(f, "G_FLDS", fL_ds[0])          # (24,7)
         emit_array(f, "G_FL", fL[0])               # (96,7)  trap#1 interp
         emit_array(f, "G_OP", oP[0])               # (96,7)  trap#2 causal DTK
-        emit_array(f, "G_OH", oH[0])
+        if NUM_BANDS == 4:
+            emit_array(f, "G_OH", oH[0])
         emit_array(f, "G_OM", oM[0])
         emit_array(f, "G_OL", oL[0])
         emit_array(f, "G_RFFT_RE", Freq[0, :, 0].real)  # (49,) trap#4 rfft ch0

@@ -57,12 +57,16 @@ int main(void)
     check("xnorm",   fea_st_xnorm,   G_XNORM,   FEA_L * FEA_D);
     check("xproj",   fea_st_xproj,   G_XPROJ,   FEA_L * FEA_D);
     check("fP",      fea_st_fP,      G_FP,      FEA_L * FEA_D);
+#if FEA_NB == 4
     check("fH",      fea_st_fH,      G_FH,      FEA_L * FEA_D);
+#endif
     check("fM",      fea_st_fM,      G_FM,      FEA_L * FEA_D);
     check("fLds",    fea_st_fLds,    G_FLDS,    FEA_LP * FEA_D);
     check("fL",      fea_st_fL,      G_FL,      FEA_L * FEA_D);   /* trap#1 */
     check("oP",      fea_st_oP,      G_OP,      FEA_L * FEA_D);   /* trap#2 */
+#if FEA_NB == 4
     check("oH",      fea_st_oH,      G_OH,      FEA_L * FEA_D);
+#endif
     check("oM",      fea_st_oM,      G_OM,      FEA_L * FEA_D);
     check("oL",      fea_st_oL,      G_OL,      FEA_L * FEA_D);
     check("rfft_re", fea_st_rfft_re, G_RFFT_RE, FEA_NF);          /* trap#4 */

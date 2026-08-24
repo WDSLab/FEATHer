@@ -28,7 +28,7 @@
 #define FEA_S 16            /* DTK latent d_state               */
 #define FEA_K 7             /* DTK kernel_size                  */
 #define FEA_PERIOD 24       /* SPK period (MetroPT3 FFT-detected) */
-#define FEA_NB 4            /* num_bands (POINT/HIGH/MID/LOW)   */
+#define FEA_NB 4            /* num_bands: 4 = POINT/HIGH/MID/LOW, 3 drops HIGH */
 #define FEA_MLP_R 16        /* residual MLP bottleneck rank     */
 #define FEA_NF (FEA_L / 2 + 1)      /* rfft bins = 49      */
 #define FEA_LP (FEA_L / 4)          /* pooled LOW len = 24 */
@@ -73,12 +73,14 @@ extern float fea_st_mean[FEA_D];
 extern float fea_st_stdev[FEA_D];
 extern float fea_st_xproj[FEA_L * FEA_D];
 extern float fea_st_fP[FEA_L * FEA_D];
-extern float fea_st_fH[FEA_L * FEA_D];
+#if FEA_NB == 4
+extern float fea_st_fH[FEA_L * FEA_D];   /* HIGH band exists only at 4 bands */
+extern float fea_st_oH[FEA_L * FEA_D];
+#endif
 extern float fea_st_fM[FEA_L * FEA_D];
 extern float fea_st_fLds[FEA_LP * FEA_D];
 extern float fea_st_fL[FEA_L * FEA_D];
 extern float fea_st_oP[FEA_L * FEA_D];
-extern float fea_st_oH[FEA_L * FEA_D];
 extern float fea_st_oM[FEA_L * FEA_D];
 extern float fea_st_oL[FEA_L * FEA_D];
 extern float fea_st_mlp[FEA_L * FEA_D];   /* hidden after residual MLP */

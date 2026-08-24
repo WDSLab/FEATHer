@@ -33,12 +33,16 @@ float fea_st_mean[FEA_D];
 float fea_st_stdev[FEA_D];
 float fea_st_xproj[FEA_L * FEA_D];
 float fea_st_fP[FEA_L * FEA_D];
+#if FEA_NB == 4
 float fea_st_fH[FEA_L * FEA_D];
+#endif
 float fea_st_fM[FEA_L * FEA_D];
 float fea_st_fLds[FEA_LP * FEA_D];
 float fea_st_fL[FEA_L * FEA_D];
 float fea_st_oP[FEA_L * FEA_D];
+#if FEA_NB == 4
 float fea_st_oH[FEA_L * FEA_D];
+#endif
 float fea_st_oM[FEA_L * FEA_D];
 float fea_st_oL[FEA_L * FEA_D];
 float fea_st_mlp[FEA_L * FEA_D];
@@ -172,21 +176,26 @@ float *feather_forward_ip(float *x)
     for (int i = 0; i < FEA_L * FEA_D; ++i)
         s_C[i] = s_g[0] * s_D[i];
 
-    /* HIGH band (kernel 3) — only built at num_bands == 4 */
+    /* HIGH band (kernel 3) — exists only at num_bands == 4. PyTorch builds
+     * conv_high solely in that case, so at 3 bands the weight array is absent
+     * and the gate returns 3 weights, not 4. */
+#if FEA_NB == 4
     fea_dwconv_same(s_B, s_D, W_CONVH, B_CONVH, FEA_L, FEA_D, 3);
     CAP(fea_st_fH, s_D, FEA_L * FEA_D);
     dtk(s_D, s_D);
     CAP(fea_st_oH, s_D, FEA_L * FEA_D);
     for (int i = 0; i < FEA_L * FEA_D; ++i)
         s_C[i] += s_g[1] * s_D[i];
+#endif
 
-    /* MID band (kernel 5) */
+    /* MID band (kernel 5). Gate index is 2 with a HIGH band, 1 without —
+     * bands_list is [oP, oH, oM, oL] at 4 and [oP, oM, oL] at 3. */
     fea_dwconv_same(s_B, s_D, W_CONVM, B_CONVM, FEA_L, FEA_D, 5);
     CAP(fea_st_fM, s_D, FEA_L * FEA_D);
     dtk(s_D, s_D);
     CAP(fea_st_oM, s_D, FEA_L * FEA_D);
     for (int i = 0; i < FEA_L * FEA_D; ++i)
-        s_C[i] += s_g[2] * s_D[i];
+        s_C[i] += s_g[FEA_NB - 2] * s_D[i];
 
     /* LOW band (pooled seq parked in s_lat - free between DTKs) */
     fea_avgpool4(s_B, s_lat, FEA_L, FEA_D);
