@@ -22,6 +22,13 @@ $(BUILD)/test_stsf: src/stsf_infer.c test/test_stsf.c \
 	$(CC) $(CFLAGS) src/fea_kernels.c src/stsf_infer.c \
 	      test/test_stsf.c -o $@ $(LDLIBS)
 
+$(BUILD)/test_stsf_mlp: src/stsf_mlp_infer.c test/test_stsf_mlp.c \
+                    src/stsf_mlp_infer.h $(KERN) \
+                    golden/stsf_mlp_weights.h golden/stsf_mlp_vectors.h
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) src/fea_kernels.c src/stsf_mlp_infer.c \
+	      test/test_stsf_mlp.c -o $@ $(LDLIBS)
+
 $(BUILD)/test_dipe: src/dipe_infer.c test/test_dipe.c \
                     src/dipe_infer.h $(KERN) \
                     golden/dipe_weights.h golden/dipe_vectors.h \
@@ -52,10 +59,12 @@ $(BUILD)/test_batch: test/test_batch.c $(KERN) \
 	      test/test_batch.c -o $@ $(LDLIBS)
 
 .PHONY: test clean
-test: $(BUILD)/test_golden $(BUILD)/test_stsf $(BUILD)/test_dipe \
-      $(BUILD)/test_pers $(BUILD)/test_fits $(BUILD)/test_batch
+test: $(BUILD)/test_golden $(BUILD)/test_stsf $(BUILD)/test_stsf_mlp \
+      $(BUILD)/test_dipe $(BUILD)/test_pers $(BUILD)/test_fits \
+      $(BUILD)/test_batch
 	./$(BUILD)/test_golden
 	./$(BUILD)/test_stsf
+	./$(BUILD)/test_stsf_mlp
 	./$(BUILD)/test_dipe
 	./$(BUILD)/test_pers
 	./$(BUILD)/test_fits

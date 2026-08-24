@@ -10,8 +10,9 @@ cd "$(dirname "$0")"
 # bare `make` leaves the other binaries stale — which silently passed a
 # FEATHer architecture change once, because test_batch was never relinked.
 echo "=== build ==="
-make -s build/test_golden build/test_stsf build/test_dipe build/test_pers \
-        build/test_fits build/test_batch "$@" 2>&1 | tail -20 || true
+make -s build/test_golden build/test_stsf build/test_stsf_mlp \
+        build/test_dipe build/test_pers build/test_fits build/test_batch \
+        "$@" 2>&1 | tail -20 || true
 
 echo
 echo "=== run ==="
