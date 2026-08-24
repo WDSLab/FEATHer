@@ -431,8 +431,18 @@ _DATASET_OVERRIDES: Dict = {
     ("FEATHer", "ETTm2"):    {**_FEATHER_LTSF_CI, "d_state": 8,  "kernel_size": 3, "num_bands": 2, "period": 6},   # 0.2849
     ("FEATHer", "Weather"):  {**_FEATHER_LTSF_CI, "d_state": 16, "kernel_size": 7, "num_bands": 3, "period": 6},   # 0.2669
     ("FEATHer", "Exchange"): {**_FEATHER_LTSF_CI, "d_state": 16, "kernel_size": 7, "num_bands": 2, "period": 8},   # 0.3648
-    ("FEATHer", "Electricity"): {"d_state": 16, "kernel_size": 9, "period": 24, "num_bands": 4, "lambda_spec": 0.0,   "lr": 0.005},
-    ("FEATHer", "Traffic"):     {"d_state": 8,  "kernel_size": 7, "period": 12, "num_bands": 3, "lambda_spec": 0.01,  "lr": 0.005},
+    # Electricity / Traffic keep their OFAT-era arch (they were never in the
+    # CIN grid — 321 and 862 channels made the mix-mode search prohibitive),
+    # but the CIN cell is merged in so they run the same shipping variant as
+    # the other six. Without this they silently trained the old mix-mode
+    # FEATHer-L while every other LTSF row was CIN. Parameter counts confirm
+    # the pairing reproduces results/probes/probe_ltsf_highD.csv exactly
+    # (Electricity 304/320/344/408, Traffic 226/290/386/642 at H=96..720).
+    # Channel-independence is what keeps them sub-1K at D=862 at all.
+    ("FEATHer", "Electricity"): {**_FEATHER_LTSF_CI, "d_state": 16, "kernel_size": 9,
+                                 "period": 24, "num_bands": 4, "lambda_spec": 0.0, "lr": 0.005},
+    ("FEATHer", "Traffic"):     {**_FEATHER_LTSF_CI, "d_state": 8, "kernel_size": 7,
+                                 "period": 12, "num_bands": 3, "lambda_spec": 0.01, "lr": 0.005},
 
     # ---- Manufacturing freq-tied period/cycle (data-driven, 2026-07-13) ------
     # FFT-detected dominant period on each train split (detrended). Applied by
