@@ -474,6 +474,8 @@ class FEATHer(nn.Module):
         dtk_act: str = "none",
         head_mode: str = "spk",
         dtk_mode: str = "full",
+        point_kernel: int = 1,
+        use_in_proj: bool = True,
     ):
         super().__init__()
 
@@ -574,8 +576,13 @@ class FEATHer(nn.Module):
         eff_d = 1 if channel_mode == "ci_full" else d_model
         self.eff_d = eff_d
 
-        # Input projection
-        self.in_proj = nn.Linear(eff_d, eff_d)
+        # Input projection = the LINEAR channel mixer. The residual MLP below is
+        # a second, NONLINEAR channel mixer, so the two are potentially
+        # redundant; use_in_proj=False drops this one while keeping eff_d=D, to
+        # ask that question directly. (channel_mode="ci_full" cannot: it sets
+        # eff_d=1 and so removes BOTH mixers at once.) True = canonical.
+        self.use_in_proj = use_in_proj
+        self.in_proj = nn.Linear(eff_d, eff_d) if use_in_proj else nn.Identity()
 
         # Optional nonlinear residual MLP (channel-axis low-rank bottleneck),
         # applied to the gated representation just before the forecasting head:
@@ -590,8 +597,18 @@ class FEATHer(nn.Module):
 
         # Multi-band 1D Conv decomposition
         # POINT: kernel=1, captures high-frequency details
+        # point_kernel=1 (default) is the canonical POINT branch and keeps every
+        # frozen checkpoint byte-identical. It is a per-channel SCALAR, not a
+        # filter, which is why num_bands=1 + dtk_mode=none leaves the model with
+        # no temporal mixing at all before the head (measured: +2.2% MSE). Widen
+        # it to run the "one real filter is enough" configuration, where the
+        # single branch replaces both the band bank and the DTK convolution.
+        assert point_kernel >= 1 and point_kernel % 2 == 1, \
+            "point_kernel must be a positive odd integer, got %r" % (point_kernel,)
+        self.point_kernel = point_kernel
         self.conv_point = nn.Conv1d(
-            eff_d, eff_d, kernel_size=1, padding=0, groups=eff_d
+            eff_d, eff_d, kernel_size=point_kernel,
+            padding=point_kernel // 2, groups=eff_d
         )
 
         # HIGH: kernel=3 (only when num_bands == 4)

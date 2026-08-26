@@ -79,6 +79,9 @@ class Dataset_ETT_hour(Dataset):
             data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=self.freq)
             data_stamp = data_stamp.transpose(1, 0)
 
+        # Needed to map a window index back to its wall-clock timestamp
+        # (--dump_preds): window w spans raw rows border1+w+seq_len ...
+        self.border1 = border1
         self.data_x = data[border1:border2]
         self.data_y = data[border1:border2]
         self.data_stamp = data_stamp
@@ -176,6 +179,9 @@ class Dataset_ETT_minute(Dataset):
             data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=self.freq)
             data_stamp = data_stamp.transpose(1, 0)
 
+        # Needed to map a window index back to its wall-clock timestamp
+        # (--dump_preds): window w spans raw rows border1+w+seq_len ...
+        self.border1 = border1
         self.data_x = data[border1:border2]
         self.data_y = data[border1:border2]
         self.data_stamp = data_stamp
@@ -297,6 +303,9 @@ class Dataset_Custom(Dataset):
             data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=self.freq)
             data_stamp = data_stamp.transpose(1, 0)
 
+        # Needed to map a window index back to its wall-clock timestamp
+        # (--dump_preds): window w spans raw rows border1+w+seq_len ...
+        self.border1 = border1
         self.data_x = data[border1:border2]
         self.data_y = data[border1:border2]
         self.data_stamp = data_stamp

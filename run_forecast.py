@@ -431,6 +431,10 @@ def dispatch(missing, args):
             cli_switches.add("use_gate")
         if args.no_residual_mlp:
             cli_switches.update({"use_residual_mlp", "mlp_rank"})
+        if args.point_kernel is not None:
+            cli_switches.add("point_kernel")
+        if args.no_in_proj:
+            cli_switches.add("use_in_proj")
 
         hp_overrides = {k: v for k, v in merged.items()
                         if k not in ("lr", "loss")
@@ -464,6 +468,9 @@ def dispatch(missing, args):
         no_save = {x.strip() for x in (args.no_save_data or "").split(",") if x.strip()}
         if args.save_model and d not in no_save:
             cmd += ["--save_model"]
+        if args.dump_preds:
+            cmd += ["--dump_preds", args.dump_preds,
+                    "--dump_stride", str(args.dump_stride)]
         if overrides_str:
             cmd += ["--model_overrides", overrides_str]
         # FEATHer arch flags: forward ONLY the explicitly-set ones (P2-4).
@@ -498,6 +505,10 @@ def dispatch(missing, args):
             cmd += ["--head_mode", args.head_mode]
         if args.dtk_mode:
             cmd += ["--dtk_mode", args.dtk_mode]
+        if args.point_kernel is not None:
+            cmd += ["--point_kernel", str(args.point_kernel)]
+        if args.no_in_proj:
+            cmd += ["--no_in_proj"]
         jobs.append((label, cmd))
 
     failed = run_on_gpus(jobs, args.ngpu, base_gpu=args.gpu,
@@ -604,6 +615,15 @@ def main():
                    help="Forecasting head: spk (canonical period-aware kernel) "
                         "or linear / mlp (dense controls for the SPK ablation; "
                         "NOT capacity-matched, both are far larger).")
+    p.add_argument("--point_kernel", type=int, default=None,
+                   help="Width of the POINT branch conv (odd; default 1 = a "
+                        "per-channel scalar). Widen it to make a single band "
+                        "carry real temporal filtering, replacing both the "
+                        "band bank and the DTK convolution.")
+    p.add_argument("--no_in_proj", action="store_true",
+                   help="Drop the LINEAR channel mixer, keeping the nonlinear "
+                        "residual MLP — tests whether the two are redundant "
+                        "(--channel_mode ci_full removes both at once).")
     p.add_argument("--dtk_mode", type=str, default=None,
                    choices=["full", "none", "mlp"],
                    help="none removes the shared temporal kernel entirely "
@@ -623,6 +643,12 @@ def main():
                    help="Concurrent workers per GPU (oversubscription for "
                         "tiny host-bound models; OMP threads auto-pinned "
                         "to cpu_count/total_workers)")
+    p.add_argument("--dump_preds", type=str, default=None,
+                   help="Forward to the worker: write test predictions (.npz) "
+                        "to this directory for downstream-KPI analysis.")
+    p.add_argument("--dump_stride", type=int, default=1,
+                   help="Keep every Nth test window in --dump_preds "
+                        "(96 = one non-overlapping day on a 15-min grid).")
     p.add_argument("--save_model",  action="store_true",
                    help="Save checkpoints (forwarded to worker).")
     p.add_argument("--no_save_data", type=str, default="",

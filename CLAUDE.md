@@ -10,6 +10,59 @@ parameter / edge-MCU constraints. It combines multi-scale frequency
 decomposition with a shared temporal kernel and a period-aware sparse
 forecasting head.
 
+## Current status (2026-08-26)
+
+**⚡⚡⚡⚡⚡⚡⚡⚡⚡ 2026-08-25/26 (부품 해체 + 주기 설정 오류 + 호라이즌 발견;
+상세 = `memory/project_component_teardown_0825.md`). ⚠ 사용자 판단 = "이 방향으론
+아무것도 안 될 것 같다" → 새 세션에서 원점 재검토. 아래는 방향과 무관한 사실:**
+- **① ★★★ 시그니처 부품 전부 무용 확정**: `--num_bands 1 --point_kernel 7
+  --dtk_mode none`(밴드4+게이트+DTK → **conv 하나**)이 mfg **+1.38%**, LTSF **+1.92%**
+  = 둘 다 노이즈 안 동률, **파라미터 −30%**. **채널모드가 다른 두 도메인에서 같은 결론**.
+  Steel은 −2.67%로 개선. 1시드라 3시드 재확인 필요.
+- **② ★★★ 단일 부품 ablation이 이 구조에선 무의미**: 축마다 부품이 **중복**
+  (시간축 밴드conv↔DTKconv / 채널축 in_proj↔잔차MLP). `dtknone` −0.98%·`band1` −0.75%로
+  각각은 괜찮은데 **둘 다 빼면 +2.2%**(conv_point가 k=1이라 시간축 필터가 0이 됨).
+  **옛 ablation 표와 현 ablation이 정반대인 이유도 이것** — 둘 다 단일부품 방식.
+- **③ ★★★ 주기 설정 오류(신규)**: detrend 후 acf 봉우리 = Steel/EWELD **96**(0.71/0.72)인데
+  설정은 **24**(acf **음수**). WindSCADA 설정48 acf **−0.271**. BlastFurnace는 **봉우리 없음**.
+  **구조적 강제**: period가 seq_len·pred_len을 나눠야 해 gcd(96,336)=48 → **P≤48**,
+  P=96이면 n=1이라 SPK 무의미. **→ SPK는 주기 인수분해가 아니라 근거 없는 스트라이드였음.**
+  일반화 = **주기모델(룩백≫주기) × MCU예산(짧은 룩백) × 산업샘플링(주기가 룩백만큼)
+  = 3제약 양립불가.** SparseTSF/CycleNet도 동일 규칙이라 같은 핸디캡(공정성 유지).
+- **④ ★★★★ 호라이즌별 배포가능 1위 — 가장 강한 결과**: flash 128KB 기준 H=96은 DLinear
+  0.5662 > FEATHer 0.5849(2위)인데, **H=192 FEATHer 1위(+3.5%)·H=336 1위(+6.0%)·
+  H=720 1위(+5.8%)** — DLinear(H192서 167KB)·CycleNet(H336서 165KB) 탈락. 이유는 정확도가
+  아니라 **파라미터 호라이즌 불변**(4496→4522=1.006배 vs DLinear 7.5배). **정확도 데이터는
+  이미 전부 있음. 막힌 건 RAM뿐.**
+- **⑤ ★★ RAM이 병목·파라미터는 예측 못 함**: params↔flash rho **+0.94(유의)** vs
+  RAM **+0.54(무의)**·latency +0.60(무의)·정확도 **−0.83(유의)**. **잘 예측하는 축(flash)은
+  여유(25.7/128KB), 못 예측하는 축(RAM)이 벽(18.6/20KB)**. FEATHer가 RAM 7모델 중 **꼴찌**.
+  **밀집 선형헤드가 H=192까지 flash 통과**(62/99KB)하고 **SPK보다 3.6% 정확** →
+  **H=96에선 SPK 쓸 이유 없음**, 압축은 H≥336부터 의미.
+- **⑥ ★★ 출력 스트리밍 수치검증**: SPK backbone이 위상 독립 → **출력주기 단위로 루프를 뒤집으면**
+  24스텝씩 연속 방출, **max|diff| 2.68e-07 = 동일**(순수 루프 재정렬, **PyTorch 수정 불요**).
+  출력버퍼 19.7KB→0.66KB, **총 6.8KB로 H 무관**. ⚠ **SparseTSF도 같은 구조 = 차별점 아님**.
+- **⑦ ★★ 다운스트림 KPI 실패(Steel)**: 전날 피크 회피 → **climatology가 학습모델 전부를 이김**,
+  최고가 달성가능분의 11%. 원인 = **원리적 불가**(실제 피크가 하루 3.9h 이동, 모델 시각오차
+  3.5~4.2h = 찍기 수준). Spearman(MSE, relief) −0.09~−0.49. ⚠ **KPI 갈아끼우기 = p-해킹**.
+  웹검색: decision-focused learning으로 **이미 확립된 방법론** → **노벨티 아님, JMS 입장권**.
+- **⑧ 계열 전체 선형(소스 검증)**: SparseTSF-Linear/MixLinear/FITS/DLinear 비선형 0,
+  **DiPE는 softmax가 `nn.Parameter`에 걸려 추론 시 상수**(`StaticTimeWeight`, temperature=NaN).
+  유일한 예외 = SparseTSF-MLP의 ReLU 헤드. **비선형은 넣을 때마다 이득**(잔차 +2~9%,
+  headmlp −4.64%, STSF-MLP가 Linear보다 3%↑), **선형 구조는 무엇을 해도 0**.
+- **⑨ LTSF 고채널(24런 완주)**: **Traffic 862ch에서 FEATHer 0.6190 = 경량 1위**(226 파라미터).
+  Electricity 0.2237 = SparseTSF와 동률·중하위.
+- **⑩ ⚠ 옛 ablation 표(TABLE 7~11) 사용 금지**: 현 측정과 **8개 항목 전부 반대**이고
+  (MLP헤드: 옛표 최악 vs 현재 최고), 그 표의 ETTh1 0.373 = **test-peeking 수치**(08-09 확정).
+- **▶ 커밋(전부 기본값 byte-identical 검증)**: `--dump_preds`/`--dump_stride`(+`self.border1`,
+  역변환 2.9e-06 재현·타임스탬프 정렬 확인) · `--point_kernel`/`--no_in_proj` ·
+  `tools/paper/kpi_steel_peak.py`.
+- **▶ 미완**: mfg 실험 B/C(채널축 중복, 중지됨) · A 3시드 · **정합 주파수밴드 대조군(미구현,
+  없으면 "구현을 잘못한 것" 반박 못 막음)** · SPK 내부 비선형(`spk_hidden` 50~150p) ·
+  스트리밍 C구현→골든→H192/336/720 빌드·실측 · 배포가능성 행렬 · DLinear 포팅 ·
+  MetroPT3 타당성(라벨 없음) · ablation specHi 3칸(서버 221/240 정체).
+  [[project-component-teardown-0825]]
+
 ## Current status (2026-08-24)
 
 **⚡⚡⚡⚡⚡⚡⚡⚡ 2026-08-24 (보드 7모델 전수실측 + ablation 부품기여 0 + JMS 리뷰어

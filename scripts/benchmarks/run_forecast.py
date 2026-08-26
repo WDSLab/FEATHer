@@ -332,6 +332,11 @@ def train_single(args, data_name, pred_len, device, seed):
     n_obs = 0
     cr_sum = np.zeros(2, dtype=np.float64)   # [CORR, R2]
     cr_cnt = np.zeros(2, dtype=np.float64)
+    # Downstream-KPI dump. The test loader is shuffle=False / drop_last=False
+    # (data_factory), so a running counter IS the window index within the test
+    # split, which is what maps a window back to its wall-clock timestamp.
+    dump_pred, dump_true, dump_widx = [], [], []
+    win0 = 0
     with torch.no_grad():
         for batch_x, batch_y, _, _ in test_loader:
             batch_x = batch_x.float().to(device)
@@ -361,6 +366,17 @@ def train_single(args, data_name, pred_len, device, seed):
                 if np.isfinite(val):
                     cr_sum[i] += val * bs
                     cr_cnt[i] += bs
+            if args.dump_preds:
+                # Select strided windows by their GLOBAL index so the choice is
+                # independent of batch_size (a batch boundary must not shift
+                # which days get kept).
+                gidx = np.arange(win0, win0 + bs)
+                keep = np.nonzero(gidx % max(1, args.dump_stride) == 0)[0]
+                if len(keep):
+                    dump_pred.append(y_pred[keep].astype(np.float32))
+                    dump_true.append(y_true[keep].astype(np.float32))
+                    dump_widx.append(gidx[keep])
+            win0 += bs
     # AUDIT-FIX (2026-07-19, MASK-NAN-GRAD #1): no observed cell across all
     # batches (fully diverged / fully masked) must NOT become `0/max(1,0)==0`
     # ??a fake perfect score that slips past the P2-5 guard (the val loop was
@@ -376,6 +392,36 @@ def train_single(args, data_name, pred_len, device, seed):
         cr_sum[0] / max(cr_cnt[0], 1.0),
         cr_sum[1] / max(cr_cnt[1], 1.0),
     ], dtype=np.float64)
+
+    # ---------- Dump test predictions for downstream-KPI analysis ----------
+    if args.dump_preds and dump_pred:
+        os.makedirs(args.dump_preds, exist_ok=True)
+        yp = np.concatenate(dump_pred, axis=0)
+        yt = np.concatenate(dump_true, axis=0)
+        widx = np.concatenate(dump_widx, axis=0)
+        # Physical units require the train-fit StandardScaler. Store its
+        # parameters rather than inverting here, so the archive keeps the same
+        # normalized values that produced the reported MSE and the inversion
+        # stays auditable. Column order is data_x's, i.e. df_raw minus 'date'.
+        sc = getattr(test_data, "scaler", None)
+        mean = np.asarray(getattr(sc, "mean_", np.zeros(n_features)), dtype=np.float64)
+        scale = np.asarray(getattr(sc, "scale_", np.ones(n_features)), dtype=np.float64)
+        # Window w covers raw rows [border1+w+seq_len, border1+w+seq_len+pred_len).
+        border1 = int(getattr(test_data, "border1", 0))
+        stamps = test_data.df_raw["date"].to_numpy()[
+            border1 + args.seq_len + widx][:len(widx)]
+        out = os.path.join(
+            args.dump_preds,
+            "%s__%s__H%d__s%d.npz" % (args.model, data_name, pred_len, seed))
+        np.savez_compressed(
+            out, y_pred=yp, y_true=yt, window_index=widx,
+            start_time=stamps.astype("datetime64[s]").astype(np.int64),
+            scaler_mean=mean[:n_features], scaler_scale=scale[:n_features],
+            columns=np.array([c for c in test_data.df_raw.columns if c != "date"],
+                             dtype=object)[:n_features],
+            seq_len=args.seq_len, pred_len=pred_len, stride=args.dump_stride,
+            border1=border1, MSE=mse, MAE=mae)
+        print("[dump_preds] %s  windows=%d  shape=%s" % (out, len(widx), yp.shape))
 
     # ---------- Persist ----------
     timestamp = now.strftime("%Y%m%d_%H%M%S")
@@ -532,6 +578,16 @@ def parse_args():
     # temporal mixing.
     p.add_argument("--dtk_mode", type=str, default=None,
                    choices=["full", "none", "mlp"])
+    # Redundancy controls (2026-08-25). The architecture carries two mechanisms
+    # on each axis — time: band convs vs the DTK conv; channel: in_proj vs the
+    # residual MLP — so removing either one alone leaves the other to cover for
+    # it and reads as "no contribution". These two flags make it possible to
+    # keep exactly ONE mechanism per axis.
+    p.add_argument("--point_kernel", type=int, default=None,
+                   help="Width of the POINT branch conv (odd; default 1 = a "
+                        "per-channel scalar, i.e. no temporal mixing).")
+    p.add_argument("--no_in_proj", action="store_true",
+                   help="Drop the linear channel mixer, keep the residual MLP.")
 
     # Training
     p.add_argument("--batch_size",  type=int,   default=32)
@@ -589,6 +645,20 @@ def parse_args():
     p.add_argument("--save_model", action="store_true",
                    help="Save state dict to results/checkpoints/<exp_tag>/...pth "
                         "for downstream robustness evaluation.")
+    # Downstream-KPI support: the test loop scores predictions and then throws
+    # them away, so any decision-level metric (peak capture, alarm lead time)
+    # is impossible after the fact. Dump the test predictions alongside the
+    # scaler so post-processing can invert back to physical units.
+    p.add_argument("--dump_preds", type=str, default=None,
+                   help="Directory to write test predictions (.npz) for "
+                        "downstream KPI analysis. Predictions are stored in "
+                        "NORMALIZED space exactly as scored, with the "
+                        "StandardScaler mean/scale needed to invert them.")
+    p.add_argument("--dump_stride", type=int, default=1,
+                   help="Keep every Nth test window in --dump_preds. Test "
+                        "windows are stride-1 and thus ~99%% overlapping; a "
+                        "day-ahead decision needs only non-overlapping ones "
+                        "(e.g. 96 for EWELD's 15-min grid = one per day).")
 
     args = p.parse_args()
     if args.train_frac is not None:

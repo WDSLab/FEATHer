@@ -47,6 +47,8 @@ def _build_feather(args, n_features, seq_len, pred_len):
         dtk_act=getattr(args, "dtk_act", None) or "none",
         head_mode=getattr(args, "head_mode", None) or "spk",
         dtk_mode=getattr(args, "dtk_mode", None) or "full",
+        point_kernel=getattr(args, "point_kernel", None) or 1,
+        use_in_proj=not getattr(args, "no_in_proj", False),
     )
 
 
