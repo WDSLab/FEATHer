@@ -18,11 +18,12 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
 
 ## Current status (2026-10-01) — 원고 글쓰기 단계
 
-**표 T1–T9 + Fig.1 사용자 확정(T6 는 10-01 v3 로 수정). 남은 실험 = 입력 길이 L192·336 (서버, 아래 "진행 중"). 그 외엔 본문.**
-상세 = 메모리 `project_session_0930.md`(표 최종안) · `project_session_0929.md`(보드·빠른 FFT).
+**표 구성 확정(v4): T1–T6 + Fig.1 · ablation T7–T11(부품별) · LTSF T12. 남은 것 = 서버 실험(입력 길이 + ablation 빈칸)
+→ 표 채우기 → 글쓰기. 사용자 방침(10-01): 컴퓨터로 실험 가능해지면 그때 실험 돌리고, 결과 보충 + 글을 같이 마무리.**
+상세 = 메모리 `project_session_1001.md`(오늘 전체) · `project_session_0930.md`(T1–T6 최종안) · `project_session_0929.md`(보드).
 
-- **원고 파일**: `FEATHer_JMS_v1.docx`·`v2.docx` = 사용자가 검토한 사본 (**덮어쓰기 금지**).
-  현재 빌드 대상 = `manuscript/version/FEATHer_JMS_v3.docx` ← `python manuscript/version/_build/make.py` 한 줄
+- **원고 파일**: `FEATHer_JMS_v1/v2/v3.docx` = 사용자가 검토한 사본 (**덮어쓰기 금지**).
+  현재 빌드 대상 = `manuscript/version/FEATHer_JMS_v4.docx` ← `python manuscript/version/_build/make.py` 한 줄
   (사용자가 새 버전을 원하면 `make.py` 의 DEFAULT_OUT 을 올림)
   (`_build/template_merged.docx` → `build_docx.py` + `tables_cf.py`). 서식 = 사용자 CF-JEPA KBS R2 논문.
   1·2·3·5장 본문과 참고문헌은 노란 자리표시. 노란 표시 = CRediT 역할, 코드 공개 주소, AI 선언, 연구비.
@@ -32,9 +33,12 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
   T3/T4 제조 정확도(순수 정확도, 9모델 전체 굵게, 숫자 비우지 않음) · T5 칩 비용(flash 4H, 넘치는 가중치도 숫자로)
   · Fig.1(`tools/paper/fig_pareto_board.py`, 오른쪽 위 = 좋음) · **T6 칩 안 종합 비교(10-01 v3: 24칸 전부 칩에
   들어가는 7모델만 — DLinear·CycleNet 열 제외, 주석에 두 모델 사실 + DLinear flash 4.6~30배; FEATHer-mix MSE 순위
-  1.50·1등 18/24, MAE 2.17·17/24 = 둘 다 1등)** · T7 부품 ablation · T8 채널 섞기 분석 · T9 LTSF.
-- **▶ 다음**: 4장 결과 본문(표 순서대로) 또는 3장 구조 그림 → 3장 방법 → 1장 서론 → 2장 관련연구 → 초록 →
-  노란 표시 확인 → CF-JEPA 잔재 정리 → 커밋(요청 시, personal 만; 미커밋 다수).
+  1.50·1등 18/24, MAE 2.17·17/24 = 둘 다 1등)** · **T7 잔차 MLP·섞기 / T8 예측 헤드 / T9 게이트 / T10 밴드 /
+  T11 RevIN·손실** (v4, 서버 실험 칸 = 노란 `?`) · **T12 LTSF**(맨 아래 채널 수 + 섞기 끔 변화 두 줄). LTSF 표는 일단 본문에 둠.
+- **▶ 다음 (순서)**: ① 서버: 입력 길이(아래 "진행 중") → ablation 빈칸(아래 계획) ② 결과로 v4 `?` 채우기 + 입력 길이 표 +
+  밴드·게이트/스펙트럼 손실 처리 결정 ③ 글: 3장 방법(구조 그림, SPK 귀속) → 4장 → **5장(아래 "JMS 글쓰기 방향")** →
+  한계점 → 서론 → 관련연구 → 초록 ④ 노란 표시(CRediT·코드 주소·AI 선언·연구비·참고문헌) + CF-JEPA 잔재 정리.
+  커밋은 요청 시, personal 만.
 
 ### ▶ 진행 중 (10-01): 입력 길이(룩백) 확인 — 서버에서 실행, 로컬은 코드만
 - **왜**: 베이스라인 룩백(`results/_archive/baselines/fcst_results_baselines.csv`, exp_tag `lookback`, 경량 6개 ×
@@ -44,7 +48,7 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
   LTSF 룩백은 안 함.
 - **0단계 완료**: 데이터별 주기(24/48)가 192·336 을 나눔 · 시험 구간 예측 목표 시점은 L 무관(border1 = 시작 − L) ·
   FEATHer·STSF-MLP 를 L96/192/336 × H96/720 × 6데이터로 CPU 생성·순전파 OK, L96 파라미터 24칸이 정식 CSV 와 일치.
-  `tools/dev/run_dev.py` 에 arm `L96`/`L192`/`L336` 추가 (미커밋 → 서버 반영 필요).
+  `tools/dev/run_dev.py` 에 arm `L96`/`L192`/`L336` 추가 (커밋 `cad1572`, personal 에 push 됨 → 서버는 `git pull personal main`).
 - **서버 명령** (윈도우면 `PYTHONUTF8=1`, 공유 박스면 `FORCE_OMP`):
   ```bash
   # 1단계 dev (216런): 판단 = 베이스라인만큼(−5~6% / −9~11%) 좋아지나
@@ -62,7 +66,11 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
   C 포트는 96점 FFT 고정이라 L≠96 실측은 필요할 때만.
 
 ### ▶ Ablation 마무리 계획 (10-01, 사용자 합의 · 실험은 서버에서, 아직 실행 안 함)
-- **지금 T7(부품 한 표) + T8(섞기 a/b/c) → 부품별 별도 번호 표 5개**로 교체. 열은 단순하게(파라미터 · MSE · 변화%[데이터별
+- **(10-01 v4 에 반영 완료: 표 틀 + 있는 숫자, 서버 실험 칸은 노란 `?`)** 옛 T7·T8 → **Table 7 MLP·섞기 / 8 헤드 / 9 게이트 /
+  10 밴드 / 11 RevIN·손실**, LTSF = **Table 12** (옛 T8c 는 Table 12 맨 아래 두 줄, 옛 T8a 는 Table 7 주석 한 문장).
+  계획 파라미터는 모델만 만들어 셈(R2 270 · R8 348 · 밴드2 254 · 선형 헤드 9,442→69,970 = H720 가중치 273 KB ✗).
+  빌더 변수 이름 주의: Table 3/4 가 `table`/`table_b` 를 씀 → 새 표는 `tab_*`/`cap_*`/`nt_*`.
+- 원래 계획: 지금 T7(부품 한 표) + T8(섞기 a/b/c) → 부품별 별도 번호 표 5개로 교체. 열은 단순하게(파라미터 · MSE · 변화%[데이터별
   변화의 평균, + = 나빠짐] · 필요 시 칩당 채널/flash). H96 · mfg-6 · 3시드 기준.
   - **A 잔차 MLP·채널 섞기**: 지금(R4) / R2 / R8 / R16(−0.4%, 31채널) / 섞기 끔(= FEATHer-CI, +4.8%, 48채널) /
     MLP 없음(+3.8%). 섞기는 MLP 안에서 일어남(`nl_down` 이 채널 축 D→R) — CI 도 1→R→1 MLP 있음. CI 의 R 변화는 안 함(표 단순화).
@@ -83,11 +91,17 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
 ### 확정 숫자 (원고에 쓰는 값)
 - **mfg (3시드, 6데이터 × 4H)**: FEATHer-mix OVERALL **0.6990** · FEATHer-CI 0.7361 (섞기 끄면 +5.3%).
   옛 R16(452p) 0.6943 → R4로 +0.66% 손해 대신 칩당 31 → **43채널**.
-- **LTSF (8데이터)**: FEATHer-CI 0.3753 / mix 0.3806. 평균은 최저지만 **MSE 1등 0칸**, FITS와 p 0.25.
-- **T7 ablation (H96, 6데이터)**: 섞기 끄기 +4.8% · 잔차 MLP 끄기 +3.8% · 게이트 제거 +0.8 · 균등 0.0 ·
-  고정 학습 비율(FFT 없음) +0.1 · 밴드 1개 −0.1. **값을 하는 부품 = 섞기와 잔차 MLP 뿐.**
-- **T8 섞기**: H별 +4.8/+5.6/+6.8/+6.2 (단조 아님 → "긴 H에서 더 크다"), WindSCADA +0.6 → +12.3.
-  LTSF는 채널 수로 갈림: ETT −1.7~−4.9, Exchange −10.9 vs Weather +6.7, Electricity +5.3, Traffic +2.6.
+- **LTSF (8데이터 × 4H = 32칸, 경량 9개)**: FEATHer-CI 평균 MSE **0.3753** / MAE **0.3662** = 둘 다 최저, 그러나
+  **MSE 1등 0칸**(MAE 2칸) — **평균만 좋음**. FITS 0.3759 와 0.16% 차. MSE 평균순위 3.81(1위 STSF-MLP 3.56), MAE 3.50(1위).
+  **32칸 모두 6위 이내 = 하위 3위에 한 번도 안 든 유일한 모델**(칸별 1등과의 평균 차 5.2% vs FITS 5.3%; DLinear 는 1등 11칸이지만
+  최악 45%, STSF-MLP 52%). 1:1 MSE: SparseTSF 29–3 · MixLinear 27–5 · DiPE 19–13 · CycleNet 21–11 · FITS 22–10(p 0.13 보정 전;
+  09-30 Holm 0.25) · DLinear 18–14(p 0.12) · **STSF-MLP 11–21 짐**. mix 는 LTSF 에서 CI 보다 나쁨.
+- **Ablation (H96, 6데이터, 변화 = 데이터별 % 변화의 평균)**: 섞기 끄기 +4.8% · 잔차 MLP 끄기 +3.8% · R16 −0.4%(31채널) ·
+  게이트 제거 +0.8 · 균등 0.0 · 고정 학습 비율(FFT 없음) +0.1 · 밴드 1개 −0.1. **값을 하는 부품 = 섞기와 잔차 MLP 뿐.**
+  (평균끼리 나눈 4.3/3.4% 는 다른 규칙 — 쓰지 말 것.)
+- **섞기 효과**: H별 +4.8/+5.6/+6.8/+6.2 (단조 아님 → "긴 H에서 더 크다"; T7 주석), WindSCADA +0.6 → +12.3.
+  LTSF(T12 마지막 줄): ETT −1.7~−4.9, Exchange −10.9 vs Weather +6.7, Electricity +5.3, Traffic +2.6. ⚠ 채널 수만으로는 설명 안 됨
+  (Steel 6채널은 +13%) → "공정으로 묶인 제조 센서에서 이득"이 더 맞지만 사후 설명. 두 변종을 모두 싣는 것이 방어.
 - **보드 (`results/board_latency_20260929.csv`, 27칸 PASS)**, 7채널 H96/H720 ms: SparseTSF 47/90 · MixLinear
   87/901 · CycleNet 157/✗ · **FEATHer-mix 161/208** · FEATHer-CI 202/250 · FITS 274/5,896 · DLinear 315/✗ ·
   STSF-MLP 434/1,445 · DiPE 727/12,735. 전류 8모델 29.6~30.0 mA (CycleNet 미측정) → 에너지 = 3.3 V × 30 mA × 지연.
@@ -101,7 +115,9 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
 - "DLinear를 이긴다" — MSE 11–13. DLinear는 모든 H에서 더 정확, H≥192에서 칩에 못 들어갈 뿐.
 - "H가 길수록 (DLinear 대비) 격차가 커진다" — 틀림. DLinear 의 MSE 우위가 오히려 커짐(3.4→6.2%); 커지는 건 비용 차이.
 - int8/행렬 합치기 실험 다시 제안 금지 (09-29 결정: 베이스라인 재최적화 안 함, 한계점 한 문장).
-- "LTSF 1위" → "on par with the best lightweight models".
+- "LTSF 1위" / "LTSF 에서 가장 정확" → "on par with the best lightweight models" (+ 쓸 수 있음: "32칸 모두 하위 3위 밖인 유일한 모델").
+- "현장 의사결정(정비·에너지)이 개선된다" — 평가 안 함(Steel 피크·MetroPT3 조기경보 둘 다 기각됨; 지표 바꿔 재시도 = p-해킹) →
+  "어디에 쓰이는지"는 글로 설명, "나아졌다"는 한계점/향후 과제.
 - "FFT 게이트가 도움이 된다" → "고정 비율과 같거나 1% 미만으로 약간 낫다". 게이트는 정체성 이유로 유지(사용자 결정).
 - 모양 지표(CORR 등) 주장 — 사전 규칙으로 기각, MSE/MAE 만.
 - 순위를 말할 땐 항상 **어느 풀인지** 명시 (9모델 전체면 DLinear MSE 1등 13 > 우리 10).
@@ -110,7 +126,20 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
 ### 한계점에 넣을 문장
 DLinear 행렬 합치기/int8 (베이스라인 재최적화 안 함, 규칙 ①) · CycleNet 위상 인덱스 0 고정 · H 길이 변환은 전
 모델 직접식 · CycleNet 전류 미측정 · 재계산 허용(정규화+밴드)은 FEATHer-mix 포트의 예외 · L=96 고정(긴 룩백
-네이티브 모델에 불리 — Traffic/Electricity 격차 +56~73%) · Steel 학습 불안정(원인 미규명).
+네이티브 모델에 불리 — Traffic/Electricity 격차 +56~73%) · Steel 학습 불안정(원인 미규명) · 입력 길이 ≤ 336
+(L720 은 7채널 입력 버퍼만으로 SRAM 초과, 모든 모델 제외) · SPK 주기 P 는 L·H 를 나눠야 해서 ≤ 48 (Steel/EWELD 실제 96) ·
+현장 의사결정 지표 미평가(향후 실설비 적용) · mfg=mix / LTSF=CI 변종 선택(두 변종 모두 보고).
+
+### JMS 글쓰기 방향 (10-01)
+- **JMS 가 좋아할 것(우리 근거)**: ① 기계 옆 실제 칩 실측 + 보고 정확도 = 배포 C 코드 ② 실무자용 선택 가이드(센서 수·H →
+  이 칩에서 고를 모델, 칩당 43채널) ③ 제조 공정 센서는 묶여 있어 섞기가 이득인데 경량 모델은 전부 안 섞음 ④ 실제 산업 데이터 6종
+  ⑤ 긴 H = 현장 판단 시간(H720 = MetroPT3 12시간 ~ BlastFurnace 30일) ⑥ 클라우드 없이 현장 독립 동작(OT 격리, 인용 필요)
+  ⑦ "파라미터로 칩 비용을 고르면 틀린다". 비용은 돈 아니라 칩 등급·칩당 센서 수까지만.
+- **약점**: 현장 판단 개선 증거 없음 · 실설비 설치 없음 · 방법 새로움 약함(밴드·게이트 효과 0) · DLinear 더 정확(int8 질문).
+- **5장 쓸 때**: 데이터별 "H720 = 실제 몇 시간/며칠 → 어떤 현장 판단" 표(측정 간격으로 계산) · 배포 가이드(결정표 데이터로) ·
+  서론에서 섞기를 공정 센서 결합과 연결. LTSF 는 방어용("손해 안 봄") + 변종 선택 문단을 먼저 씀.
+- **억셉 판단(10-01, 데이터 아닌 판단)**: 지금(원고 잘 마무리 전제) 리젝 40~50%, 나머지 대부분 메이저. 최대 변수 = 입력 길이 실험
+  (FEATHer 도 비슷하게 좋아지면 30%대, 베이스라인이 앞지르면 크게 악화). 바로 억셉은 기대 안 함; 목표 = 메이저 리비전.
 
 ### 용어
 **channel** (feature 금지). 제목·키워드의 "multi-sensor" 는 유지. SPK 헤드는 **SparseTSF에 귀속** 명시(방법 절).
