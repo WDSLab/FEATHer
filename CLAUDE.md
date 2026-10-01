@@ -31,7 +31,7 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
 - **표 순서(확정)**: T1 경량 모델 설계(Domain/Nonlinear/Mixes channels — FEATHer 행만 Yes) · T2 데이터셋 ·
   T3/T4 제조 정확도(순수 정확도, 9모델 전체 굵게, 숫자 비우지 않음) · T5 칩 비용(flash 4H, 넘치는 가중치도 숫자로)
   · Fig.1(`tools/paper/fig_pareto_board.py`, 오른쪽 위 = 좋음) · **T6 칩 안 종합 비교(10-01 v3: 24칸 전부 칩에
-  들어가는 7모델만 — DLinear·CycleNet 열 제외, 주석에 두 모델 사실 + DLinear flash 4.4~28배; FEATHer-mix MSE 순위
+  들어가는 7모델만 — DLinear·CycleNet 열 제외, 주석에 두 모델 사실 + DLinear flash 4.6~30배; FEATHer-mix MSE 순위
   1.50·1등 18/24, MAE 2.17·17/24 = 둘 다 1등)** · T7 부품 ablation · T8 채널 섞기 분석 · T9 LTSF.
 - **▶ 다음**: 4장 결과 본문(표 순서대로) 또는 3장 구조 그림 → 3장 방법 → 1장 서론 → 2장 관련연구 → 초록 →
   노란 표시 확인 → CF-JEPA 잔재 정리 → 커밋(요청 시, personal 만; 미커밋 다수).
@@ -76,7 +76,7 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
   CycleNet 135/281 KB (H336/720).
 - **H=720 칩 안**: FEATHer-mix 가장 정확(0.808), 더 빠른 건 SparseTSF 뿐(7% 덜 정확).
 - **필터 없이(경량 8개, 24칸)**: MSE 순위 DLinear 1.83 > 우리 2.21 · MAE CycleNet 2.04 > 우리 2.96(1등 칸은 우리 9로 최다)
-  → 두 지표 모두 2위 안은 우리뿐. MSE 로 우리를 이기는 가장 작은 모델 = DLinear (flash 4.4배 H96 ~ 28배 H720).
+  → 두 지표 모두 2위 안은 우리뿐. MSE 로 우리를 이기는 가장 작은 모델 = DLinear (flash 4.6배 H96 ~ 30배 H720; T5 값 83.5/18.1, 546/18.5 KB).
 
 ### 주장 금지 (반복 확인됨)
 - "DLinear를 이긴다" — MSE 11–13. DLinear는 모든 H에서 더 정확, H≥192에서 칩에 못 들어갈 뿐.
