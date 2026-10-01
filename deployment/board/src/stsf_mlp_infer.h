@@ -17,11 +17,26 @@
 #ifndef STSF_MLP_INFER_H
 #define STSF_MLP_INFER_H
 
+/* Board builds: deployment/board/board_prep.py writes board_cfg.h into the
+ * CubeIDE project (never into this repo), carrying the geometry of the model
+ * under test.  x86 tests and measure_footprint.py do not see it. */
+#if defined(__has_include)
+#if __has_include("board_cfg.h")
+#include "board_cfg.h"
+#endif
+#endif
+
 #include "fea_kernels.h"
 
+#ifndef SMLP_L
 #define SMLP_L 96
+#endif
+#ifndef SMLP_H
 #define SMLP_H 96
+#endif
+#ifndef SMLP_D
 #define SMLP_D 7
+#endif
 #define SMLP_P 24                       /* period_len                 */
 #define SMLP_N (SMLP_L / SMLP_P)        /* input segments  = 4        */
 #define SMLP_M (SMLP_H / SMLP_P)        /* output segments = 4        */
@@ -31,14 +46,13 @@
 /* x: (SMLP_L, SMLP_D) time-major -> y: (SMLP_H, SMLP_D) time-major */
 void stsf_mlp_forward(const float *x, float *y);
 
-/* stage buffers for golden comparison */
+/* Stage buffers for golden comparison exist ONLY under -DSMLP_CAPTURE_STAGES
+ * (the x86 golden test).  The board build works one channel at a time and
+ * keeps one 128-float hidden row; the full post-ReLU hidden tensor alone is
+ * 86 KB against 20 KB of SRAM. */
+#ifdef SMLP_CAPTURE_STAGES
 extern float smlp_st_mean[SMLP_D];
 extern float smlp_st_xagg[SMLP_D * SMLP_L];   /* channel-major, conv+residual */
-
-/* The full post-ReLU hidden tensor is 86 KB — the board has 20 KB of SRAM in
- * total — so it exists ONLY under -DSMLP_CAPTURE_STAGES (the x86 golden test).
- * The board build runs the same arithmetic and keeps one 128-float row. */
-#ifdef SMLP_CAPTURE_STAGES
 extern float smlp_st_hid[SMLP_D * SMLP_P * SMLP_DM];
 #endif
 

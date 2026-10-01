@@ -28,6 +28,11 @@ from baselines.FEATHer.FEATHer import FEATHer          # noqa: E402
 from baselines.SparseTSF.wrapper import build as build_stsf   # noqa: E402
 from baselines.DiPE_Linear.wrapper import build as build_dipe  # noqa: E402
 from baselines.FITS.wrapper import build as build_fits  # noqa: E402
+# The DiPE / FITS golden exports overwrite the upstream init with randomized
+# weights (the init left whole code paths untested); the batch reference must
+# be computed on the very same weights, so reuse their function.
+from export_golden_dipe import randomize_golden_weights as randomize_dipe  # noqa: E402
+from export_golden_fits import randomize_golden_weights as randomize_fits  # noqa: E402
 
 N = 100
 SEQ_LEN = 96
@@ -69,10 +74,12 @@ def main() -> None:
 
         torch.manual_seed(WEIGHT_SEED)
         m = build_dipe(argparse.Namespace(), D_MODEL, SEQ_LEN, PRED_LEN).eval()
+        randomize_dipe(m)
         refs["DIPE"] = mse64(m(X), T)
 
         torch.manual_seed(WEIGHT_SEED)
         m = build_fits(argparse.Namespace(), D_MODEL, SEQ_LEN, PRED_LEN).eval()
+        randomize_fits(m)
         refs["FITS"] = mse64(m(X), T)
 
         pers = X[:, -1:, :].repeat(1, PRED_LEN, 1)

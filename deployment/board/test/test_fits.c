@@ -8,6 +8,11 @@
 #include "fits_infer.h"
 #include "fits_vectors.h"
 
+/* Golden vectors are captured per (horizon, width).  The horizon is
+ * already guarded in the port; this covers the width. */
+_Static_assert(FITS_D == FITS_D_GEN,
+               "FITS_D does not match the width the golden vectors were exported at - re-run export_golden_fits.py --d_model");
+
 #define ATOL 1e-5f
 #define RTOL 1e-4f
 

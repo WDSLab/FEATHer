@@ -24,7 +24,8 @@ import os
 import numpy as np
 import pandas as pd
 
-EDGE = ["SparseTSF", "MixLinear", "DiPE_Linear", "FEATHer", "FITS", "CycleNet", "DLinear"]
+EDGE = ["SparseTSF", "MixLinear", "DiPE_Linear", "SparseTSF_MLP", "FEATHer_mix",
+        "FEATHer_CI", "FITS", "CycleNet", "DLinear"]
 CEILING = ["PatchTST", "TimeMixer", "TQNet", "LMS_AutoTSF", "TimesNet",
            "iTransformer", "MDMLP_EIA"]
 MFG = ["Steel", "WindSCADA", "BlastFurnace", "N2O", "MetroPT3", "EWELD"]
@@ -44,7 +45,7 @@ def frontier(points):
 
 def main():
     p = argparse.ArgumentParser(description="Accuracy-vs-params Pareto plot")
-    p.add_argument("--csv", default="results/fcst_results.csv")
+    p.add_argument("--csv", default="results/mfg_raw.csv")
     p.add_argument("--exp_tag", default="main")
     p.add_argument("--metric", default="MSE", choices=["MSE", "MAE", "RMSE"])
     p.add_argument("--data", default=",".join(MFG),
@@ -90,8 +91,9 @@ def main():
     for r in agg.itertuples():
         is_edge = r.model in EDGE
         colour = "#1f77b4" if is_edge else "#bbbbbb"
-        marker = "*" if r.model == "FEATHer" else ("o" if is_edge else "s")
-        size = 320 if r.model == "FEATHer" else (90 if is_edge else 60)
+        ours = r.model.startswith("FEATHer")
+        marker = "*" if ours else ("o" if is_edge else "s")
+        size = 320 if ours else (90 if is_edge else 60)
         ax.scatter(r.params, r.metric, c=colour, marker=marker, s=size,
                    edgecolors="k" if r.model in fr_names else "none",
                    linewidths=1.2, zorder=3)

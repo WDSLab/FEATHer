@@ -144,6 +144,176 @@ void fea_idft_half(const float *re, const float *im, int n,
     }
 }
 
+void fea_dft_bins(const float *x, int len, int offset, int n, int nbins,
+                  const float *cos_tab, const float *sin_tab,
+                  float *re, float *im)
+{
+    /* The first nbins bins of the n-point DFT of a signal that is zero
+     * everywhere except x[0..len), which sits at sample `offset`.  Same
+     * per-term arithmetic as fea_dft_half / fea_rfft96; the zero samples are
+     * simply not visited, so no padded copy is built and nothing is computed
+     * for them. */
+    for (int f = 0; f < nbins; ++f) {
+        float ar = 0.0f, ai = 0.0f;
+        for (int i = 0; i < len; ++i) {
+            int idx = (int)(((long)f * (offset + i)) % n);
+            float v = x[i];
+            ar += v * cos_tab[idx];
+            ai -= v * sin_tab[idx];
+        }
+        re[f] = ar;
+        im[f] = ai;
+    }
+}
+
+float fea_idft_half_at(const float *re, const float *im, int n, int nbins,
+                       const float *cos_tab, const float *sin_tab, int t)
+{
+    /* Sample t of fea_idft_half, for a spectrum whose bins >= nbins are all
+     * zero (nbins = n/2+1 for a full spectrum).  Same terms in the same order
+     * as fea_idft_half; the zero bins are skipped instead of summed, and only
+     * the requested sample is evaluated. */
+    int bins = n / 2 + 1;
+    int even = (n % 2 == 0);
+    int last = even ? bins - 1 : bins;       /* exclusive of Nyquist */
+    int stop = nbins < last ? nbins : last;
+    float inv_n = 1.0f / (float)n;
+    float acc = re[0];
+    for (int f = 1; f < stop; ++f) {
+        int idx = (int)(((long)f * t) % n);
+        acc += 2.0f * (re[f] * cos_tab[idx] - im[f] * sin_tab[idx]);
+    }
+    if (even && nbins >= bins)
+        acc += re[bins - 1] * ((t & 1) ? -1.0f : 1.0f);
+    return acc * inv_n;
+}
+
+void fea_rfft96_bins(const float *x, int nbins, float *re, float *im)
+{
+    /* fea_dft_bins over the exact 96-point grid, using this file's twiddle
+     * table.  A model that referenced FEA_COS96 / FEA_SIN96 itself carried a
+     * second 768 B copy of them in its own object (found 2026-09-14). */
+    fea_dft_bins(x, FEA_DFT_N, 0, FEA_DFT_N, nbins,
+                 FEA_COS96, FEA_SIN96, re, im);
+}
+
+void fea_irfft96(const float *re, const float *im, float *out)
+{
+    /* fea_idft_half at n = 96 with this file's twiddle table (see above) */
+    fea_idft_half(re, im, FEA_DFT_N, FEA_COS96, FEA_SIN96, out);
+}
+
+/* ---- fast 96-point transforms: 96 = 3 x 32 (see fea_kernels.h) ---- */
+
+/* in-place radix-2 32-point complex FFT; inverse = conjugate twiddles, no
+ * 1/N.  Twiddles W32^j = W96^(3j) come from the same flash table. */
+static void fea_fft32(float *zr, float *zi, int inverse)
+{
+    for (int i = 1, j = 0; i < 32; ++i) {          /* bit reversal */
+        int bit = 16;
+        for (; j & bit; bit >>= 1)
+            j ^= bit;
+        j |= bit;
+        if (i < j) {
+            float t = zr[i]; zr[i] = zr[j]; zr[j] = t;
+            t = zi[i]; zi[i] = zi[j]; zi[j] = t;
+        }
+    }
+    for (int len = 2; len <= 32; len <<= 1) {
+        const int half = len >> 1;
+        const int step = FEA_DFT_N / len;          /* W_len^j = W96^(j*96/len) */
+        for (int i = 0; i < 32; i += len) {
+            for (int j = 0; j < half; ++j) {
+                const float c = FEA_COS96[j * step];
+                const float s = inverse ? FEA_SIN96[j * step] : -FEA_SIN96[j * step];
+                const int a = i + j, b = a + half;
+                const float tr = zr[b] * c - zi[b] * s;
+                const float ti = zr[b] * s + zi[b] * c;
+                zr[b] = zr[a] - tr;
+                zi[b] = zi[a] - ti;
+                zr[a] += tr;
+                zi[a] += ti;
+            }
+        }
+    }
+}
+
+void fea_rfft96_fast(const float *x, int stride, int nbins,
+                     float *re, float *im, float *wr, float *wi)
+{
+#ifdef FEA_DFT_DIRECT
+    (void)wr; (void)wi;
+    for (int f = 0; f < nbins; ++f) {               /* = fea_rfft96, nbins bins */
+        float ar = 0.0f, ai = 0.0f;
+        for (int t = 0; t < FEA_DFT_N; ++t) {
+            int idx = (f * t) % FEA_DFT_N;
+            float v = x[t * stride];
+            ar += v * FEA_COS96[idx];
+            ai -= v * FEA_SIN96[idx];
+        }
+        re[f] = ar;
+        im[f] = ai;
+    }
+#else
+    /* X[k] = sum_r W96^(r k) Z_r[k mod 32],  Z_r = FFT32(x[3m + r]) */
+    for (int k = 0; k < nbins; ++k)
+        re[k] = im[k] = 0.0f;
+    for (int r = 0; r < 3; ++r) {
+        for (int m = 0; m < 32; ++m) {
+            wr[m] = x[(3 * m + r) * stride];
+            wi[m] = 0.0f;
+        }
+        fea_fft32(wr, wi, 0);
+        for (int k = 0; k < nbins; ++k) {
+            const int q = k & 31;
+            const int idx = (r * k) % FEA_DFT_N;
+            const float c = FEA_COS96[idx], s = FEA_SIN96[idx];   /* W = c - i s */
+            re[k] += wr[q] * c + wi[q] * s;
+            im[k] += wi[q] * c - wr[q] * s;
+        }
+    }
+#endif
+}
+
+void fea_irfft96_fast(const float *re, const float *im, float *out,
+                      float *wr, float *wi)
+{
+#ifdef FEA_DFT_DIRECT
+    (void)wr; (void)wi;
+    fea_irfft96(re, im, out);
+#else
+    /* torch.fft.irfft semantics: Hermitian half-spectrum, imag of DC and of
+     * the Nyquist bin ignored.  x[t] = (1/96) sum_r Re(e^(+i 2pi r t/96)
+     * U_r[t mod 32]),  U_r = IFFT32(X[3m + r]) over the full spectrum. */
+    for (int t = 0; t < FEA_DFT_N; ++t)
+        out[t] = 0.0f;
+    for (int r = 0; r < 3; ++r) {
+        for (int m = 0; m < 32; ++m) {
+            const int k = 3 * m + r;
+            if (k == 0 || k == FEA_DFT_N / 2) {
+                wr[m] = re[k];
+                wi[m] = 0.0f;
+            } else if (k < FEA_DFT_N / 2) {
+                wr[m] = re[k];
+                wi[m] = im[k];
+            } else {
+                wr[m] = re[FEA_DFT_N - k];
+                wi[m] = -im[FEA_DFT_N - k];
+            }
+        }
+        fea_fft32(wr, wi, 1);
+        for (int t = 0; t < FEA_DFT_N; ++t) {
+            const int q = t & 31;
+            const int idx = (r * t) % FEA_DFT_N;
+            out[t] += wr[q] * FEA_COS96[idx] - wi[q] * FEA_SIN96[idx];
+        }
+    }
+    const float inv_n = 1.0f / (float)FEA_DFT_N;
+    for (int t = 0; t < FEA_DFT_N; ++t)
+        out[t] *= inv_n;
+#endif
+}
+
 void fea_softmax(const float *x, float *y, int n)
 {
     float mx = x[0];

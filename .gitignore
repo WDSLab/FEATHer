@@ -240,3 +240,5 @@ data/
 
 # Edge benchmark results (generated)
 edge/results_*.csv
+# Obsidian literature vault (personal notes + third-party paper PDFs) - local only
+analysis/lit_review/

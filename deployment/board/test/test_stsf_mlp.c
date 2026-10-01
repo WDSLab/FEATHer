@@ -15,6 +15,11 @@
 #include "stsf_mlp_infer.h"
 #include "stsf_mlp_vectors.h"
 
+/* Golden vectors are captured per (horizon, width).  The horizon is
+ * already guarded in the port; this covers the width. */
+_Static_assert(SMLP_D == SMLP_D_GEN,
+               "SMLP_D does not match the width the golden vectors were exported at - re-run export_golden_stsf_mlp.py --d_model");
+
 #define ATOL 1e-5f
 #define RTOL 1e-4f
 

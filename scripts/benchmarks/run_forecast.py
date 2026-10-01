@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Forecasting worker.
 
@@ -84,6 +84,44 @@ def checkpoint_path(exp_tag, model_name, data_name, pred_len, seq_len, seed):
     )
 
 
+def resolve_gate_bounds(args, train_data, n_features):
+    """--gate_bounds tercile -> explicit slice edges, from the TRAIN split only.
+
+    (2026-09-15) Equal-width gate slices put 80-95% of the energy in the lowest
+    slice on every mfg dataset, so the gate's input barely varies. Tercile edges
+    put ~1/S of the mean TRAIN spectrum in each slice. Computed on
+    non-overlapping, instance-normalized train windows (the normalization the
+    model applies), so val/test never influence it, and deterministic, so a
+    checkpoint is rebuilt with the same edges (tools/dev/gate_swap.py calls it).
+    """
+    mode = getattr(args, "gate_bounds", None)
+    if mode not in ("tercile", "tercile_sensor"):
+        return
+    L, S = args.seq_len, args.num_bands
+    X = np.asarray(train_data.data_x, dtype=np.float64)[:, :n_features]
+    n = (len(X) // L) * L
+    W = X[:n].reshape(-1, L, X.shape[1])
+    W = W[np.isfinite(W).all(axis=(1, 2))]
+    W = (W - W.mean(1, keepdims=True)) / np.sqrt(W.var(1, keepdims=True) + 1e-5)
+    P = (np.abs(np.fft.rfft(W, axis=1)) ** 2).mean(axis=0)      # (nf, D)
+    nf = L // 2 + 1
+
+    def edges_of(spectrum):
+        c = np.cumsum(spectrum) / spectrum.sum()
+        out = []
+        for k in range(1, S):
+            e = int(np.searchsorted(c, k / S)) + 1
+            lo = out[-1] + 1 if out else 1
+            out.append(min(max(e, lo), nf - (S - k)))
+        return ",".join(str(e) for e in out)
+
+    if mode == "tercile_sensor":
+        args.gate_bounds = ";".join(edges_of(P[:, d]) for d in range(P.shape[1]))
+    else:
+        args.gate_bounds = edges_of(P.mean(1))
+    print(f"[gate_bounds] {mode} edges from the train split: {args.gate_bounds}")
+
+
 # =============================================================================
 # Per-run training
 # =============================================================================
@@ -152,6 +190,8 @@ def train_single(args, data_name, pred_len, device, seed):
         args.seq_len, args.label_len, pred_len, "test",
         starting_percent=args.starting_percent, percent=args.percent,
     )
+
+    resolve_gate_bounds(args, train_data, n_features)
 
     model = get_model(
         args.model, args,
@@ -521,7 +561,7 @@ def train(args):
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Forecasting worker (one model × dataset × pred_len)")
+    p = argparse.ArgumentParser(description="Forecasting worker (one model 횞 dataset 횞 pred_len)")
 
     # Data
     p.add_argument("--root_path", type=str, default="data/")
@@ -546,6 +586,27 @@ def parse_args():
     # bottleneck) before the head. OFF by default -> canonical byte-identical.
     p.add_argument("--use_residual_mlp", action="store_true")
     p.add_argument("--mlp_rank",      type=int, default=16)
+    # SPK head nonlinearity (2026-08-26): 0 = canonical linear cross-period
+    # backbone; >0 inserts one GELU hidden layer of that width.
+    p.add_argument("--spk_hidden",    type=int, default=0)
+
+    # Per-band nonlinearity (2026-08-27): breaks the band-bank collapse.
+
+    p.add_argument("--gate_zero_init", action="store_true",
+
+
+                   help="Zero-init the global gate conv so all bands start at 1/S.")
+
+
+    p.add_argument("--band_mode", type=str, default=None,
+
+
+                   choices=["conv", "diff", "fft", "fftoct"])
+
+
+    p.add_argument("--band_act", type=str, default=None,
+
+                   choices=["none", "gelu", "se"])
     # Robustness diagnostics (2026-07-31): isolate the fragility source.
     p.add_argument("--no_revin",    dest="use_norm", action="store_false", default=True)
     p.add_argument("--gate_uniform", dest="use_gate", action="store_false", default=True)
@@ -562,7 +623,12 @@ def parse_args():
     # FFT-gate variant (2026-08-14): "global" = canonical (shape-blind, see
     # FFTFrequencyGate docstring); "banded" = per-band energy-ratio gate.
     p.add_argument("--gate_mode", type=str, default=None,
-                   choices=["global", "banded", "static", "none", "softmax"])
+                   choices=["global", "banded", "banded_sensor", "static", "static_rng", "none", "none_rng", "softmax"])
+    p.add_argument("--gate_bounds", type=str, default=None,
+                   help="banded gate slice edges: linear = equal width (canonical), "
+                        "octave = LOW slice matched to the AvgPool4 branch, then doubling; "
+                        "tercile = equal-energy edges from the TRAIN split, tercile_sensor = "
+                        "one edge pair per sensor; or explicit 'e1,e2' / 'e1,e2;e1,e2;...'.")
     # DTK latent nonlinearity (2026-08-16): "none" = canonical (linear DTK,
     # which makes the multi-band block collapse to one filter).
     p.add_argument("--dtk_act", type=str, default=None,
@@ -579,15 +645,36 @@ def parse_args():
     p.add_argument("--dtk_mode", type=str, default=None,
                    choices=["full", "none", "mlp"])
     # Redundancy controls (2026-08-25). The architecture carries two mechanisms
-    # on each axis — time: band convs vs the DTK conv; channel: in_proj vs the
-    # residual MLP — so removing either one alone leaves the other to cover for
+    # on each axis ??time: band convs vs the DTK conv; channel: in_proj vs the
+    # residual MLP ??so removing either one alone leaves the other to cover for
     # it and reads as "no contribution". These two flags make it possible to
     # keep exactly ONE mechanism per axis.
     p.add_argument("--point_kernel", type=int, default=None,
                    help="Width of the POINT branch conv (odd; default 1 = a "
                         "per-channel scalar, i.e. no temporal mixing).")
+    p.add_argument("--band_kernels", type=str, default=None,
+                   help="밴드 conv 커널 사다리 (num_bands-1 개). 예: '3,7,15'")
+    p.add_argument("--band_dilations", type=str, default=None,
+                   help="밴드 conv 팽창률 (num_bands-1 개). 예: '1,4,15'")
     p.add_argument("--no_in_proj", action="store_true",
                    help="Drop the linear channel mixer, keep the residual MLP.")
+    # Mixer cost-reduction screen (2026-09-14). Unset = shipping model.
+    p.add_argument("--mix_mode", type=str, default=None, choices=["hidden", "input", "input_raw"],
+                   help="hidden = residual MLP on the gated bands (canonical); "
+                        "input = on the time-pooled normalized input.")
+    p.add_argument("--mix_pool", type=int, default=None,
+                   help="Time pooling factor for --mix_mode input (divides seq_len).")
+    p.add_argument("--mlp_tie", action="store_true",
+                   help="Tie the residual MLP: W_up = W_down^T (own bias).")
+    p.add_argument("--band_zero_sum", action="store_true",
+                   help="POINT/MID conv taps forced to sum to 0 (DC gain 0).")
+    p.add_argument("--gate_mix", type=str, default=None, choices=["none", "fft", "static"],
+                   help="G2: spectrum sets the per-sensor strength of the mixer correction.")
+    p.add_argument("--head2", type=str, default=None, choices=["none", "fft", "static"],
+                   help="G4-lite: second SPK readout at 2x/0.5x period, blended by the spectrum.")
+    p.add_argument("--mix_listen", action="store_true", help="A: per-sensor scale on the mixer correction.")
+    p.add_argument("--mix_lag", type=str, default=None, help="B: 'k,dil' temporal conv on the mixer summary.")
+    p.add_argument("--mix_zero_init", action="store_true", help="C: zero-init the mixer up-projection.")
 
     # Training
     p.add_argument("--batch_size",  type=int,   default=32)
@@ -710,3 +797,7 @@ if __name__ == "__main__":
     args = parse_args()
     _apply_overrides(args)
     train(args)
+
+
+
+

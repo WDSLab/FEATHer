@@ -38,6 +38,15 @@ OUT_DIR = Path(__file__).resolve().parent / "golden"
 
 
 def main() -> None:
+    global PRED_LEN
+    global D_MODEL
+    _cli = argparse.ArgumentParser()
+    _cli.add_argument("--pred_len", type=int, default=PRED_LEN,
+                      help="board horizon; the C header takes -D<PFX>_H to match")
+    _cli.add_argument("--d_model", type=int, default=D_MODEL,
+                      help="channel count; the C header takes -D<PFX>_D to match")
+    _a = _cli.parse_args()
+    PRED_LEN, D_MODEL = _a.pred_len, _a.d_model
     torch.manual_seed(WEIGHT_SEED)
     args = argparse.Namespace(
         sparsetsf_period_len=PERIOD,
@@ -48,7 +57,12 @@ def main() -> None:
 
     n_params = sum(p.numel() for p in model.parameters())
     print(f"params = {n_params}")
-    assert n_params == 41, f"expected the 41-param linear variant, got {n_params}"
+    # geometry guard: these constants describe the FROZEN H=96 cell
+    # (the reference the 08-24 board numbers were taken at).  At other
+    # horizons the geometry legitimately changes - print it instead, and
+    # the C header must be given matching -D overrides.
+    if PRED_LEN == 96:
+        assert n_params == 41, f"expected the 41-param linear variant, got {n_params}"
 
     g = torch.Generator().manual_seed(INPUT_SEED)
     x = torch.randn(1, SEQ_LEN, D_MODEL, generator=g)
@@ -74,6 +88,11 @@ def main() -> None:
                 " - do not edit. */\n")
         f.write(f"/* seed={WEIGHT_SEED}, params={n_params} */\n")
         f.write("#ifndef STSF_WEIGHTS_H\n#define STSF_WEIGHTS_H\n\n")
+        # Stamp the horizon the weights were generated at.  The port
+        # static-asserts against it, so a stale golden header (weights
+        # from one H, code built for another) fails to COMPILE instead of
+        # silently producing a plausible wrong forecast.
+        f.write(f"#define STSF_H_GEN {PRED_LEN}\n\n")
         emit_array(f, "STSF_W_CONV", model.conv1d.weight)   # (1,1,25)
         emit_array(f, "STSF_W_LIN", model.linear.weight)    # (4,4) out,in
         f.write("#endif /* STSF_WEIGHTS_H */\n")
@@ -83,6 +102,10 @@ def main() -> None:
                 " - do not edit. */\n")
         f.write(f"/* weight_seed={WEIGHT_SEED}, input_seed={INPUT_SEED} */\n")
         f.write("#ifndef STSF_VECTORS_H\n#define STSF_VECTORS_H\n\n")
+        # Width the golden vectors were captured at; the test
+        # _Static_asserts against it (a port built at another width
+        # compiles fine and fails numerically, which reads as a code bug).
+        f.write(f"#define STSF_D_GEN {D_MODEL}\n\n")
         emit_array(f, "SG_X", x[0])            # (96,7) time-major
         emit_array(f, "SG_MEAN", seq_mean[0, 0])   # (7,)
         emit_array(f, "SG_XAGG", xa[0])        # (7,96) channel-major

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Baseline registry.
 
@@ -6,10 +6,10 @@ Single entry point for instantiating any model in the benchmark, including
 FEATHer itself. Each baseline subdirectory contains:
 
   baselines/<Name>/
-  ├── __init__.py      — exports the model class (optional convenience)
-  ├── wrapper.py       — adapter from official Model(configs) → unified
-  │                       (seq_len, pred_len, d_model, ...) interface
-  └── <Name>-main/     — cloned upstream repo (gitignored, fetched by
+  ?쒋?? __init__.py      ??exports the model class (optional convenience)
+  ?쒋?? wrapper.py       ??adapter from official Model(configs) ??unified
+  ??                      (seq_len, pred_len, d_model, ...) interface
+  ?붴?? <Name>-main/     ??cloned upstream repo (gitignored, fetched by
                           setup_baselines.sh)
 
 To add a new baseline:
@@ -49,10 +49,26 @@ def _build_feather(args, n_features, seq_len, pred_len):
         dtk_mode=getattr(args, "dtk_mode", None) or "full",
         point_kernel=getattr(args, "point_kernel", None) or 1,
         use_in_proj=not getattr(args, "no_in_proj", False),
+        spk_hidden=getattr(args, "spk_hidden", None) or 0,
+        band_act=getattr(args, "band_act", None) or "none",
+        band_mode=getattr(args, "band_mode", None) or "conv",
+        gate_zero_init=getattr(args, "gate_zero_init", False),
+        band_kernels=getattr(args, "band_kernels", None) or "",
+        band_dilations=getattr(args, "band_dilations", None) or "",
+        mix_mode=getattr(args, "mix_mode", None) or "hidden",
+        mix_pool=getattr(args, "mix_pool", None) or 1,
+        mlp_tie=getattr(args, "mlp_tie", False),
+        gate_bounds=getattr(args, "gate_bounds", None) or "linear",
+        band_zero_sum=getattr(args, "band_zero_sum", False),
+        gate_mix=getattr(args, "gate_mix", None) or "none",
+        head2=getattr(args, "head2", None) or "none",
+        mix_listen=getattr(args, "mix_listen", False),
+        mix_lag=getattr(args, "mix_lag", None) or "",
+        mix_zero_init=getattr(args, "mix_zero_init", False),
     )
 
 
-# Stubs — each becomes active once baselines/<Name>/wrapper.py is in place.
+# Stubs ??each becomes active once baselines/<Name>/wrapper.py is in place.
 def _build_dlinear(args, n_features, seq_len, pred_len):
     from baselines.DLinear.wrapper import build
     return build(args, n_features, seq_len, pred_len)
@@ -79,7 +95,7 @@ def _build_sparsetsf(args, n_features, seq_len, pred_len):
 
 
 def _build_sparsetsf_mlp(args, n_features, seq_len, pred_len):
-    """SparseTSF's MLP variant — the same-size rival, benchmarked separately.
+    """SparseTSF's MLP variant ??the same-size rival, benchmarked separately.
 
     SparseTSF ships two heads. `linear` is the paper's headline "1K-parameter"
     model (41 params at D=7/H=96) and is what the main entry runs. `mlp` adds a
@@ -88,8 +104,8 @@ def _build_sparsetsf_mlp(args, n_features, seq_len, pred_len):
     footprint (4,522) while still fitting the MCU budget.
 
     That makes it the one baseline that meets us at our size rather than below
-    it, so comparing only against `linear` would leave the obvious question —
-    "is FEATHer better than SparseTSF, or just bigger?" — unanswered. Kept as a
+    it, so comparing only against `linear` would leave the obvious question ??
+    "is FEATHer better than SparseTSF, or just bigger?" ??unanswered. Kept as a
     separate registry entry rather than a flag so both variants appear in the
     same table with their own parameter counts.
     """
@@ -130,7 +146,7 @@ def _build_mdmlp_eia(args, n_features, seq_len, pred_len):
     return build(args, n_features, seq_len, pred_len)
 
 
-# Edge-tier additions (2026-07-31) — sub-1K / small-deployable competitors.
+# Edge-tier additions (2026-07-31) ??sub-1K / small-deployable competitors.
 # (Classic practitioner baselines LSTM/GRU/TCN + XGBoost were archived to
 # _archive/classic_baselines/ on 2026-07-31 and deferred to a revision;
 # restore from there or git history e22236f if a reviewer asks for them.)
@@ -144,7 +160,7 @@ def _build_cyclenet(args, n_features, seq_len, pred_len):
     return build(args, n_features, seq_len, pred_len)
 
 
-# NOTE — deliberately excluded from the benchmark (cite in Related Work only):
+# NOTE ??deliberately excluded from the benchmark (cite in Related Work only):
 #   S-Mamba: selective-scan CUDA kernels have no Cortex-M / STM32 port.
 #   TimeCMA: frozen GPT-2 features blow past the sub-1K parameter budget by
 #            5 orders of magnitude; LLM-augmented forecasters are out of
@@ -161,10 +177,10 @@ _BUILDERS: Dict[str, Callable] = {
     "TimesNet":     _build_timesnet,
     "TQNet":        _build_tqnet,
     "LMS_AutoTSF":  _build_lms_autotsf,
-    # R4-requested 2025-2026 SOTA — addresses "outdated baselines" critique
+    # R4-requested 2025-2026 SOTA ??addresses "outdated baselines" critique
     "DiPE_Linear":  _build_dipe_linear,    # DASFAA 2026
     "MDMLP_EIA":    _build_mdmlp_eia,      # AAAI 2026
-    # Edge-tier additions (2026-07-31) — sub-1K / small-deployable competitors
+    # Edge-tier additions (2026-07-31) ??sub-1K / small-deployable competitors
     "MixLinear":    _build_mixlinear,      # ICLR 2026, ~0.1K params (sub-1K rival)
     "CycleNet":     _build_cyclenet,       # NeurIPS 2024, learnable cycle
 }
@@ -186,16 +202,16 @@ _BUILDERS: Dict[str, Callable] = {
 # Ablation now runs as `run_forecast.py --ablation_arm <arm>`: one switch off
 # per arm on the shipping model, using the flags the worker already exposes.
 # See ABLATION_ARMS there. Head/DTK-variant ablations are the one thing that
-# did not survive the move — they need the archived modules updated to accept
+# did not survive the move ??they need the archived modules updated to accept
 # channel_mode / use_residual_mlp before they would be comparable.
 
 
-# Per-method training defaults — sourced from each paper's official ETTh1
+# Per-method training defaults ??sourced from each paper's official ETTh1
 # script (or run.py default when the script does not override). Following
 # TFB (Hu et al., PVLDB 2024) and CF-JEPA (sibling project), we keep each
 # method's paper-recommended LR and loss instead of forcing a single value
-# across the lineup — paper LRs span two orders of magnitude (1e-4 → 2e-2)
-# so a unified LR would disadvantage some models by 10-20× the optimum.
+# across the lineup ??paper LRs span two orders of magnitude (1e-4 ??2e-2)
+# so a unified LR would disadvantage some models by 10-20횞 the optimum.
 #
 #   ref scripts:
 #     PatchTST    baselines/PatchTST/PatchTST-main/.../scripts/PatchTST/*.sh
@@ -211,7 +227,7 @@ _BUILDERS: Dict[str, Callable] = {
 # Override at the CLI with `--lr`/`--loss` for ablations.
 _METHOD_DEFAULTS: Dict[str, Dict] = {
     # loss=mse (was l1): match train loss to the eval metric so all 14 models
-    # are consistent (train=mse, eval=mse) — l1-trained FEATHer was penalized on
+    # are consistent (train=mse, eval=mse) ??l1-trained FEATHer was penalized on
     # the MSE table (2026-07-30 finding). An l1 variant is a supplementary MAE run.
     "FEATHer":      {"lr": 1e-3, "loss": "mse"},
     "DLinear":      {"lr": 5e-3, "loss": "mse"},
@@ -228,7 +244,7 @@ _METHOD_DEFAULTS: Dict[str, Dict] = {
     "DiPE_Linear":  {"lr": 1e-3, "loss": "mse"},
     # MDMLP-EIA: run.py default lr=1e-4
     "MDMLP_EIA":    {"lr": 1e-4, "loss": "mse"},
-    # Edge-tier additions (2026-07-31) — published script lr (the argparse
+    # Edge-tier additions (2026-07-31) ??published script lr (the argparse
     # default 1e-4 is a fallback every author script overrides): MixLinear
     # scripts use 0.03, CycleNet scripts use 0.005.
     "MixLinear":    {"lr": 3e-2, "loss": "mse"},
@@ -283,7 +299,7 @@ def get_method_defaults(name):
 # (ETTh1 canonical config); the orchestrator then layers any CLI `--lr` /
 # `--loss` on top.
 #
-# Fair-comparison framing (revised 2026-06-17 — per-dataset for ALL):
+# Fair-comparison framing (revised 2026-06-17 ??per-dataset for ALL):
 #   "Every method, including FEATHer, uses per-dataset hyperparameters
 #    selected on the validation split (FEATHer's via run_hp_search.py),
 #    ensuring an apples-to-apples comparison at each method's best
@@ -298,33 +314,52 @@ def get_method_defaults(name):
 # default architecture; only lr is dataset-selected via run_lr_search.py.
 # -----------------------------------------------------------------------------
 
-# FEATHer FINAL canonical mfg config ("N" cell) — shared across all 6 mfg
+# FEATHer FINAL canonical mfg config ("N" cell) ??shared across all 6 mfg
 # datasets (one-config protocol); merged with a per-dataset `period` below.
-_FEATHER_MFG_N: Dict = {
-    "channel_mode": "mix",
+# FROZEN 2026-09-04 (MODEL_FINAL.md).  Until now these dicts still held the
+# pre-freeze 938p config, so `run_forecast.py --model FEATHer` silently built
+# the OLD model -- the shipping sweeps only got the frozen one because they
+# were launched with explicit CLI flags.  The two variants differ in exactly
+# one key (channel_mode); everything else is shared, and only `period` is
+# per-dataset.  d_state / kernel_size are GONE: they fed the DTK, which is
+# removed (the constructor still takes them, from the worker defaults).
+# RE-FROZEN 2026-09-23: mlp_rank 16 -> 4 (mixing summary 16 -> 4 slots).
+# Steel H96 452p -> 296p; chip 24 -> 43 sensors (recompute port feather2r).
+# Freeze rule passed on the 72-run: mfg 0.6990 vs 0.6943 (+0.66 %), worst
+# dataset WindSCADA +2.42 %.  Shipping sweeps: results/feather_{mfg,ltsf}_
+# candR4*.csv (launched with explicit --mlp_rank 4, so they did not depend on
+# this dict; it is updated so that `--model FEATHer` alone builds the same).
+_FEATHER_FROZEN: Dict = {
+    "no_in_proj": True,          # linear channel mixer removed
+    "num_bands": 3,              # {conv k=3, conv k=5, AvgPool4+interp}
+    "point_kernel": 3,           # keep THIS form, not --band_kernels (RNG stream)
+    "dtk_mode": "none",          # shared temporal kernel removed
+    "gate_mode": "banded",       # per-band spectral energy gate
     "use_residual_mlp": True,
-    "mlp_rank": 16,
-    "d_state": 16,
-    "kernel_size": 7,
-    "num_bands": 4,
+    "mlp_rank": 4,               # was 16 until 2026-09-23
     "lambda_spec": 0.01,
 }
 
-# FEATHer FINAL canonical LTSF config ("CI" cell) — channel-INDEPENDENT +
+_FEATHER_MFG_N: Dict = {**_FEATHER_FROZEN, "channel_mode": "mix"}
+
+# FEATHer FINAL canonical LTSF config ("CI" cell) ??channel-INDEPENDENT +
 # residual; per-dataset d_state/kernel/num_bands/period merged in below.
-_FEATHER_LTSF_CI: Dict = {
-    "channel_mode": "ci_full",
-    "use_residual_mlp": True,
-    "mlp_rank": 16,
-    "lambda_spec": 0.01,
-}
+_FEATHER_LTSF_CI: Dict = {**_FEATHER_FROZEN, "channel_mode": "ci_full"}
 
 _DATASET_OVERRIDES: Dict = {
 
     # ---- DLinear (cure-lab/LTSF-Linear) -----------------------------------
     # scripts/EXP-LongForecasting/Linear/{dataset}.sh
     ("DLinear", "ETTh1"):       {"lr": 5e-3},
-    ("DLinear", "ETTh2"):       {"lr": 5e-2},
+    # DIVERGENCE-FIX (2026-08-31): the official script value is 5e-2, but it is
+    # paired with lradj=type1 (lr halved EVERY epoch) and train_epochs=10, so
+    # 5e-2 is a one-epoch kick that is below 3e-3 by epoch 5. Under our unified
+    # CosineAnnealingLR(T_max=50) the same number stays at ~5e-2 for ten epochs
+    # and the run diverges (best_epoch 0/0/2, MSE 1.47-1.65x the cross-model
+    # median at H96/336/720). Re-selected on VALIDATION loss only, from the grid
+    # {5e-4, 1e-3, 5e-3, 1e-2, 5e-2}: 5e-3 wins at every horizon (val mean
+    # 0.3700 vs 0.4365 for 5e-2). Probe: results/probes/probe_dlinear_etth2.csv.
+    ("DLinear", "ETTh2"):       {"lr": 5e-3},
     ("DLinear", "ETTm1"):       {"lr": 1e-4},
     ("DLinear", "ETTm2"):       {"lr": 1e-3},
     ("DLinear", "Electricity"): {"lr": 1e-3},
@@ -365,12 +400,12 @@ _DATASET_OVERRIDES: Dict = {
     ("iTransformer", "Weather"):     {"itrans_d_model": 512, "itrans_d_ff": 512, "itrans_e_layers": 3, "lr": 1e-4},
 
     # ---- FITS (VEWOXIC/FITS) ---------------------------------------------
-    # scripts/FITS/{dataset}.sh — uniform lr=5e-4; cut_freq derived per
+    # scripts/FITS/{dataset}.sh ??uniform lr=5e-4; cut_freq derived per
     # (seq_len, pred_len) via H_order which we approximate with seq_len/4
     # in the wrapper. No per-dataset overrides needed.
 
     # ---- SparseTSF (lss-1138/SparseTSF) ----------------------------------
-    # scripts/SparseTSF/linear/{dataset}.sh — period_len follows native
+    # scripts/SparseTSF/linear/{dataset}.sh ??period_len follows native
     # sampling: 24 for hourly (ETTh*, Electricity, Traffic), 4 for 15-min
     # / 10-min (ETTm*, Weather, Solar)
     ("SparseTSF", "ETTh1"):       {"sparsetsf_period_len": 24, "lr": 2e-2},
@@ -394,7 +429,7 @@ _DATASET_OVERRIDES: Dict = {
     ("TimeMixer", "Weather"):     {"tm_d_model": 16, "tm_d_ff": 32, "tm_e_layers": 3, "lr": 1e-2},
 
     # ---- TimesNet (thuml/Time-Series-Library) ----------------------------
-    # scripts/long_term_forecast/*/TimesNet*.sh — d_model swings 16 → 512
+    # scripts/long_term_forecast/*/TimesNet*.sh ??d_model swings 16 ??512
     ("TimesNet", "ETTh1"):       {"tn_d_model": 16,  "tn_d_ff": 32,  "lr": 1e-4},
     ("TimesNet", "ETTh2"):       {"tn_d_model": 32,  "tn_d_ff": 32,  "lr": 1e-4},
     ("TimesNet", "ETTm1"):       {"tn_d_model": 64,  "tn_d_ff": 64,  "lr": 1e-4},
@@ -405,7 +440,7 @@ _DATASET_OVERRIDES: Dict = {
     ("TimesNet", "Weather"):     {"tn_d_model": 32,  "tn_d_ff": 32,  "lr": 1e-4},
 
     # ---- TQNet (ACAT-SCUT/TQNet) -----------------------------------------
-    # scripts/TQNet/{dataset}.sh — cycle is data-frequency-tied:
+    # scripts/TQNet/{dataset}.sh ??cycle is data-frequency-tied:
     # 24 hourly, 96 15-min, 144 10-min weather/solar, 168 weekly Traffic/ECL
     ("TQNet", "ETTh1"):       {"tqnet_cycle": 24,  "tqnet_dropout": 0.5, "lr": 1e-3},
     ("TQNet", "ETTh2"):       {"tqnet_cycle": 24,  "tqnet_dropout": 0.5, "lr": 1e-3},
@@ -432,47 +467,52 @@ _DATASET_OVERRIDES: Dict = {
     # via committed config files. Entries omitted (falls back to
     # _METHOD_DEFAULTS).
 
-    # ---- FEATHer (this work) — per-dataset val winners from
+    # ---- FEATHer (this work) ??per-dataset val winners from
     # run_hp_search.py --summary (OFAT 512 + --validate combo verdict 32,
     # 2026-07-22 RE-FREEZE under corrected spectral loss + standard Weather
     # split; supersedes the 2026-07-06 freeze). Each row = best-ranked among
     # {base, single-axis variants, validated combo}. The --validate step
     # REJECTED the raw OFAT stack for 4/8 sets (ETTh1/ETTh2/Exchange/Traffic
-    # fell back to base + one axis), confirming the flat axes (kernel/λ, and
-    # num_bands off-Traffic) are noise — stacking them lost to base.
+    # fell back to base + one axis), confirming the flat axes (kernel/貫, and
+    # num_bands off-Traffic) are noise ??stacking them lost to base.
     # d_state=16 now only on ETTm1 (D=7, sub-1K OK) and Electricity (already a
-    # D²-stress set, 115K). H=720 SPK overflow is pre-existing (affects base
-    # too) — sub-1K claim stays H=96-scoped. These feed the LTSF
+    # D짼-stress set, 115K). H=720 SPK overflow is pre-existing (affects base
+    # too) ??sub-1K claim stays H=96-scoped. These feed the LTSF
     # *generalization* section; the MFG main-table canonical arch stays frozen
-    # at base (d8/k7/p12/B3) — nothing in this LTSF OFAT contradicts it.
+    # at base (d8/k7/p12/B3) ??nothing in this LTSF OFAT contradicts it.
     # FEATHer LTSF = FINAL "CI" cell (2026-08-13, grid 27/27 done). LTSF favors
     # channel-INDEPENDENCE (ci_full) over the mfg channel-mix: CIN OVERALL 0.3588
     # ties FITS 0.3582 (4/6 datasets won), beats the base-L cell (0.3647). Per-
     # dataset tuning (symmetric w/ baselines that tune per-dataset); val-selected
     # d_state/kernel/num_bands below, period = per-dataset FFT. loss=mse, lr=1e-3
     # from _METHOD_DEFAULTS. Old L-cell (mix, no residual) OFAT configs replaced.
-    ("FEATHer", "ETTh1"):    {**_FEATHER_LTSF_CI, "d_state": 16, "kernel_size": 3, "num_bands": 3, "period": 6},   # 0.4429
-    ("FEATHer", "ETTh2"):    {**_FEATHER_LTSF_CI, "d_state": 16, "kernel_size": 3, "num_bands": 4, "period": 12},  # 0.3847
-    ("FEATHer", "ETTm1"):    {**_FEATHER_LTSF_CI, "d_state": 8,  "kernel_size": 7, "num_bands": 4, "period": 6},   # 0.4087
-    ("FEATHer", "ETTm2"):    {**_FEATHER_LTSF_CI, "d_state": 8,  "kernel_size": 3, "num_bands": 2, "period": 6},   # 0.2849
-    ("FEATHer", "Weather"):  {**_FEATHER_LTSF_CI, "d_state": 16, "kernel_size": 7, "num_bands": 3, "period": 6},   # 0.2669
-    ("FEATHer", "Exchange"): {**_FEATHER_LTSF_CI, "d_state": 16, "kernel_size": 7, "num_bands": 2, "period": 8},   # 0.3648
+    # 2026-09-04: per-dataset ARCH tuning is GONE -- one frozen config on all 12
+    # datasets, `period` (FFT-detected) the only per-dataset key.  MODEL_FINAL.md
+    # section 6: per-dataset val selection scored 0.2504 vs 0.2501 for the single
+    # setting, i.e. the grid was inside noise, and the baselines DO tune per
+    # dataset -- so dropping it is the conservative (unfavourable) choice and a
+    # fairness argument we can state.
+    ("FEATHer", "ETTh1"):    {**_FEATHER_LTSF_CI, "period": 6},
+    ("FEATHer", "ETTh2"):    {**_FEATHER_LTSF_CI, "period": 12},
+    ("FEATHer", "ETTm1"):    {**_FEATHER_LTSF_CI, "period": 6},
+    ("FEATHer", "ETTm2"):    {**_FEATHER_LTSF_CI, "period": 6},
+    ("FEATHer", "Weather"):  {**_FEATHER_LTSF_CI, "period": 6},
+    ("FEATHer", "Exchange"): {**_FEATHER_LTSF_CI, "period": 8},
     # Electricity / Traffic keep their OFAT-era arch (they were never in the
-    # CIN grid — 321 and 862 channels made the mix-mode search prohibitive),
+    # CIN grid ??321 and 862 channels made the mix-mode search prohibitive),
     # but the CIN cell is merged in so they run the same shipping variant as
     # the other six. Without this they silently trained the old mix-mode
     # FEATHer-L while every other LTSF row was CIN. Parameter counts confirm
     # the pairing reproduces results/probes/probe_ltsf_highD.csv exactly
     # (Electricity 304/320/344/408, Traffic 226/290/386/642 at H=96..720).
     # Channel-independence is what keeps them sub-1K at D=862 at all.
-    ("FEATHer", "Electricity"): {**_FEATHER_LTSF_CI, "d_state": 16, "kernel_size": 9,
-                                 "period": 24, "num_bands": 4, "lambda_spec": 0.0, "lr": 0.005},
-    ("FEATHer", "Traffic"):     {**_FEATHER_LTSF_CI, "d_state": 8, "kernel_size": 7,
-                                 "period": 12, "num_bands": 3, "lambda_spec": 0.01, "lr": 0.005},
+    ("FEATHer", "Electricity"): {**_FEATHER_LTSF_CI, "period": 24, "lambda_spec": 0.0,
+                                 "lr": 0.005},
+    ("FEATHer", "Traffic"):     {**_FEATHER_LTSF_CI, "period": 12, "lr": 0.005},
 
     # ---- Manufacturing freq-tied period/cycle (data-driven, 2026-07-13) ------
     # FFT-detected dominant period on each train split (detrended). Applied by
-    # the SAME rule to all three period-models, each per its own constraint —
+    # the SAME rule to all three period-models, each per its own constraint ??
     # exactly mirroring the LTSF convention (SparseTSF small period_len vs TQNet
     # daily cycle on the same data):
     #   FEATHer/SparseTSF: period must divide seq_len(96)/pred_len -> usable
@@ -482,7 +522,7 @@ _DATASET_OVERRIDES: Dict = {
     # This is the data-FREQUENCY-TIED axis (NOT the frozen mfg arch d8/k7/B3);
     # it gives SparseTSF a fair period instead of a crippling hourly default.
     # NOTE: lr for these mfg cells is MERGED IN later from run_lr_search.py
-    # --summary — EDIT these dicts to add "lr", do NOT paste duplicate keys.
+    # --summary ??EDIT these dicts to add "lr", do NOT paste duplicate keys.
     ("SparseTSF", "Steel"):        {"sparsetsf_period_len": 24},
     ("SparseTSF", "WindSCADA"):    {"sparsetsf_period_len": 48},
     ("SparseTSF", "BlastFurnace"): {"sparsetsf_period_len": 48},
@@ -546,8 +586,8 @@ _DATASET_OVERRIDES: Dict = {
 
 
 # Variants that must inherit another model's per-dataset overrides. SparseTSF's
-# two heads share every dataset-level choice — the FFT-detected period_len and
-# the published lr — and only differ in the head itself, so the MLP entry reads
+# two heads share every dataset-level choice ??the FFT-detected period_len and
+# the published lr ??and only differ in the head itself, so the MLP entry reads
 # the linear entry's rows. Duplicating the 14 cells would let them drift apart,
 # and a silent drift here means the two variants are no longer the controlled
 # comparison the table claims.
@@ -557,7 +597,7 @@ _OVERRIDE_ALIASES = {"SparseTSF_MLP": "SparseTSF"}
 def get_dataset_overrides(name, data):
     """Per-dataset architecture/lr overrides for (name, data).
 
-    Returns an empty dict when the (model, dataset) cell has no entry —
+    Returns an empty dict when the (model, dataset) cell has no entry ??
     the caller should layer this on top of `get_method_defaults(name)`.
     """
     if (name, data) not in _DATASET_OVERRIDES and name in _OVERRIDE_ALIASES:
@@ -566,5 +606,8 @@ def get_dataset_overrides(name, data):
 
 
 def list_models():
-    """Main benchmark lineup — FEATHer + the reproduced baselines."""
+    """Main benchmark lineup ??FEATHer + the reproduced baselines."""
     return sorted(_BUILDERS.keys())
+
+
+

@@ -96,11 +96,11 @@ def full_matrix(df, metric):
 
 def main():
     p = argparse.ArgumentParser(description="Pairwise Wilcoxon signed-rank test")
-    p.add_argument("--csv", default="results/fcst_results.csv")
+    p.add_argument("--csv", default="results/mfg_raw.csv")
     p.add_argument("--exp_tag", default="main")
     p.add_argument("--metric", default="MSE",
                    choices=["MSE", "MAE", "RMSE", "CORR", "R2"])
-    p.add_argument("--reference", default="FEATHer",
+    p.add_argument("--reference", default="FEATHer_mix",
                    help="Reference model for the one-vs-all table.")
     p.add_argument("--output", default=None,
                    help="Write reference-vs-all CSV; matrix prints to stderr.")

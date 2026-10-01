@@ -8,6 +8,11 @@
 #include "dipe_infer.h"
 #include "dipe_vectors.h"
 
+/* Golden vectors are captured per (horizon, width).  The horizon is
+ * already guarded in the port; this covers the width. */
+_Static_assert(DIPE_D == DIPE_D_GEN,
+               "DIPE_D does not match the width the golden vectors were exported at - re-run export_golden_dipe.py --d_model");
+
 #define ATOL 1e-5f
 #define RTOL 1e-4f
 

@@ -51,6 +51,15 @@ OUT_DIR = Path(__file__).resolve().parent / "golden"
 
 
 def main() -> None:
+    global PRED_LEN
+    global D_MODEL
+    _cli = argparse.ArgumentParser()
+    _cli.add_argument("--pred_len", type=int, default=PRED_LEN,
+                      help="board horizon; the C header takes -D<PFX>_H to match")
+    _cli.add_argument("--d_model", type=int, default=D_MODEL,
+                      help="channel count; the C header takes -D<PFX>_D to match")
+    _a = _cli.parse_args()
+    PRED_LEN, D_MODEL = _a.pred_len, _a.d_model
     torch.manual_seed(WEIGHT_SEED)
     args = argparse.Namespace(
         sparsetsf_period_len=PERIOD,
@@ -62,7 +71,12 @@ def main() -> None:
     n_params = sum(p.numel() for p in model.parameters())
     print(f"params = {n_params}")
     # conv 25 + Linear(4->128) 640 + Linear(128->4) 516 = 1,181 at H=96.
-    assert n_params == 1181, f"expected the 1,181-param mlp variant, got {n_params}"
+    # geometry guard: these constants describe the FROZEN H=96 cell
+    # (the reference the 08-24 board numbers were taken at).  At other
+    # horizons the geometry legitimately changes - print it instead, and
+    # the C header must be given matching -D overrides.
+    if PRED_LEN == 96:
+        assert n_params == 1181, f"expected the 1,181-param mlp variant, got {n_params}"
 
     g = torch.Generator().manual_seed(INPUT_SEED)
     x = torch.randn(1, SEQ_LEN, D_MODEL, generator=g)
@@ -89,6 +103,11 @@ def main() -> None:
                 " - do not edit. */\n")
         f.write(f"/* seed={WEIGHT_SEED}, params={n_params} */\n")
         f.write("#ifndef STSF_MLP_WEIGHTS_H\n#define STSF_MLP_WEIGHTS_H\n\n")
+        # Stamp the horizon the weights were generated at.  The port
+        # static-asserts against it, so a stale golden header (weights
+        # from one H, code built for another) fails to COMPILE instead of
+        # silently producing a plausible wrong forecast.
+        f.write(f"#define SMLP_H_GEN {PRED_LEN}\n\n")
         emit_array(f, "SMLP_W_CONV", model.conv1d.weight)     # (1,1,25)
         emit_array(f, "SMLP_W_FC1", model.mlp[0].weight)      # (128,4) out,in
         emit_array(f, "SMLP_B_FC1", model.mlp[0].bias)        # (128,)
@@ -105,6 +124,10 @@ def main() -> None:
         # one build can switch between them. Colliding names are a redefinition
         # error at best and the wrong model's input at worst.
         f.write("#ifndef STSF_MLP_VECTORS_H\n#define STSF_MLP_VECTORS_H\n\n")
+        # Width the golden vectors were captured at; the test
+        # _Static_asserts against it (a port built at another width
+        # compiles fine and fails numerically, which reads as a code bug).
+        f.write(f"#define SMLP_D_GEN {D_MODEL}\n\n")
         emit_array(f, "SM_X", x[0])                # (96,7) time-major
         emit_array(f, "SM_MEAN", seq_mean[0, 0])   # (7,)
         emit_array(f, "SM_XAGG", xa[0])            # (7,96) channel-major

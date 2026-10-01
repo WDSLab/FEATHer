@@ -8,6 +8,15 @@
 #include "mixlinear_infer.h"
 #include "mixlinear_vectors.h"
 
+/* The golden vectors are regenerated per (horizon, width).  Comparing a
+ * port built at one width against vectors captured at another compiles
+ * fine and reports a numerical failure that looks like a code bug, so
+ * refuse it at compile time - the guard the other ports carry on H. */
+_Static_assert(ML_D == ML_D_GEN,
+               "ML_D does not match the width the golden vectors were exported at - re-run export_golden_mixlinear.py --d_model");
+_Static_assert(ML_H == ML_H_GEN,
+               "ML_H does not match the horizon the golden vectors were exported at - re-run export_golden_mixlinear.py --pred_len");
+
 #define ATOL 1e-5f
 #define RTOL 1e-4f
 

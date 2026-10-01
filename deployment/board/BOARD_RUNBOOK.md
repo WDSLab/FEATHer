@@ -8,6 +8,41 @@ _최초 작성 2026-07-27 (보드 도착·5모델 실측 완료한 세션)._
 
 ---
 
+## ★ 2026-09-29 새 절차 (확정 모델 측정) — 아래 §2의 `#define` 편집 방식을 대체
+
+`main.c`를 손으로 고치지 않는다. PC에서 **측정할 칸 하나를 준비하는 명령**을 돌리고,
+CubeIDE에서는 빌드·실행만 한다.
+
+```
+python deployment/board/board_prep.py --plan            # 측정 목록 23칸
+python deployment/board/board_prep.py --model feather_mix --H 96 --D 7
+```
+그다음 CubeIDE에서 **Project → Clean → Build(망치) → Run(▶)**, Tera Term에서 한 줄 읽기:
+```
+FEATHer-mix  H=96 D=7 PASS bad=0 maxabs(x1e6)=0 cycles=... latency_us=... stack=... B
+```
+- 스크립트가 하는 일: 그 칸의 골든(랜덤 가중치) 생성 → 포트·헤더·`main.c.board`를
+  CubeIDE로 복사 → `Core/Inc/board_cfg.h`(모델 스위치·크기) 작성 → repo `golden/` 원상복구.
+  처음 한 번 기존 `main.c`는 `main.c.bak_pre_board_prep`로 백업된다.
+- 전류 측정: 같은 명령에 `--power active` (추론 무한반복) 또는 `--power idle` (WFI).
+  멀티미터 연결은 §3 그대로.
+- **보드 없이 미리 확인**: `--verify_plan` = 23칸 전부를 CubeIDE와 같은 플래그로 WSL에서
+  완전 빌드(링크까지)해 flash/RAM을 본다. 2026-09-29 기준 23/23 통과.
+- 입력 창은 측정 전에 SRAM으로 복사한다(실제 배치와 같게; flash 대기상태로 인한 왜곡 제거).
+- 출력 버퍼만 받는 포트(SparseTSF·STSF-MLP·MixLinear·DiPE·FITS)는 H=720에서
+  720×7 버퍼(20 KB)가 안 들어가므로 **D=1로 재고 ×D** 한다. 채널 독립 모델이라
+  정확하며, H=96에서 D=1과 D=7을 둘 다 재서 선형인지 확인한다(목록 2~6 vs 10~14).
+- FEATHer-mix = 재계산 포트(`feather2r_infer.c`, 요약 4칸). 옛 938p `feather_infer.c`는
+  측정 대상 아님.
+- **빠른 FFT (2026-09-29)**: 길이 96 변환(FEATHer 게이트 · DiPE 주파수 가중 · FITS 분석)은
+  공용 `fea_rfft96_fast / fea_irfft96_fast`(96 = 3×32)로 **세 모델 모두 같이** 바뀜.
+  임시 공간은 비어 있는 버퍼를 빌림(FEATHer-mix·DiPE 추가 0) 또는 새로 잡고 SRAM에 계상
+  (FEATHer-CI·FITS +256 B). 예측 길이만큼 긴 변환(DiPE·FITS 역변환 등)은 출력을 한 칸씩
+  내보내는 메모리 규칙 때문에 모든 모델이 직접 계산 그대로.
+  목록 24~26번은 `--direct_dft`(옛 방식)로 같은 세 모델을 다시 재는 A/B 비교.
+
+---
+
 ## 0. 어디에 뭐가 있나 (경로)
 
 | 항목 | 위치 |

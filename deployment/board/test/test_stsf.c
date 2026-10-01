@@ -8,6 +8,11 @@
 #include "stsf_infer.h"
 #include "stsf_vectors.h"
 
+/* Golden vectors are captured per (horizon, width).  The horizon is
+ * already guarded in the port; this covers the width. */
+_Static_assert(STSF_D == STSF_D_GEN,
+               "STSF_D does not match the width the golden vectors were exported at - re-run export_golden_stsf.py --d_model");
+
 #define ATOL 1e-5f
 #define RTOL 1e-4f
 
