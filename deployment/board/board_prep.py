@@ -86,7 +86,8 @@ PLAN = (
 )
 
 
-def cfg_header(model: str, H: int, D: int, power: str, direct_dft: bool = False) -> str:
+def cfg_header(model: str, H: int, D: int, power: str, direct_dft: bool = False,
+               stream: bool = False) -> str:
     run, name, _, _, _ = MODELS[model]
     if direct_dft:
         name += " (direct DFT)"
@@ -107,6 +108,8 @@ def cfg_header(model: str, H: int, D: int, power: str, direct_dft: bool = False)
             lines += [f"#define {PREFIX[model]}_H {H}", f"#define {PREFIX[model]}_D {D}"]
         elif model == "mixlinear":
             lines.append(f"#define ML_D {D}")
+    if stream:
+        lines.append("#define STREAM_MODE")        # main.c.stream (replay.py), trained weights
     if direct_dft:
         lines.append("#define FEA_DFT_DIRECT")      # A/B: the pre-2026-09-29 96-point DFT
     if power == "active":
@@ -132,10 +135,10 @@ def check_cell(model: str, H: int, D: int) -> None:
         raise SystemExit("CycleNet does not fit the flash at H >= 336 (139-315 KB of weights)")
 
 
-def export(model: str, H: int, D: int) -> None:
+def export(model: str, H: int, D: int, ckpt: str | None = None) -> None:
     _, _, stem, extra, _ = MODELS[model]
     cmd = [sys.executable, str(HERE / f"export_golden_{stem}.py"),
-           "--pred_len", str(H), "--d_model", str(D)] + extra
+           "--pred_len", str(H), "--d_model", str(D)] + extra + (["--ckpt", str(ckpt)] if ckpt else [])
     r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
                        env={**__import__("os").environ, "PYTHONUTF8": "1"})
     if r.returncode != 0:
@@ -143,8 +146,14 @@ def export(model: str, H: int, D: int) -> None:
 
 
 def install(project: Path, model: str, H: int, D: int, power: str,
-            direct_dft: bool = False) -> None:
-    """Export, copy into `project`, write board_cfg.h, restore golden/."""
+            direct_dft: bool = False, stream_ckpt: str | None = None) -> None:
+    """Export, copy into `project`, write board_cfg.h, restore golden/.
+
+    stream_ckpt (2026-10-04): install the STREAMING REPLAY firmware (main.c.stream,
+    driven by replay.py) with the TRAINED weights of that checkpoint instead of the
+    timing harness with random golden weights.  FEATHer-mix only."""
+    if stream_ckpt and model != "feather_mix":
+        raise SystemExit("--stream_ckpt is implemented for feather_mix only")
     src_dir, inc_dir = project / "Core" / "Src", project / "Core" / "Inc"
     for d in (src_dir, inc_dir):
         if not d.is_dir():
@@ -153,7 +162,7 @@ def install(project: Path, model: str, H: int, D: int, power: str,
         bak = Path(tmp) / "golden"
         shutil.copytree(GOLDEN, bak)
         try:
-            export(model, H, D)
+            export(model, H, D, stream_ckpt)
             for f in SRC.glob("*.c"):
                 if f.name == "feather2in_infer.c":      # rejected candidate, not measured
                     continue
@@ -172,12 +181,12 @@ def install(project: Path, model: str, H: int, D: int, power: str,
     if stale.exists():
         stale.unlink()
     with (inc_dir / "board_cfg.h").open("w", encoding="utf-8", newline="\n") as f:
-        f.write(cfg_header(model, H, D, power, direct_dft))
+        f.write(cfg_header(model, H, D, power, direct_dft, stream=bool(stream_ckpt)))
     main_c = src_dir / "main.c"
     keep = src_dir / "main.c.bak_pre_board_prep"
     if main_c.exists() and not keep.exists():
         shutil.copy2(main_c, keep)                  # the 08-24 harness, once
-    shutil.copy2(HERE / "main.c.board", main_c)
+    shutil.copy2(HERE / ("main.c.stream" if stream_ckpt else "main.c.board"), main_c)
 
 
 # ------------------------------------------------------------------ dry build
@@ -198,12 +207,13 @@ def wsl(cmd: str, cwd: Path) -> subprocess.CompletedProcess:
                           capture_output=True, text=True)
 
 
-def dry_build(project: Path, model: str, H: int, D: int, direct_dft: bool = False) -> dict:
+def dry_build(project: Path, model: str, H: int, D: int, direct_dft: bool = False,
+              stream_ckpt: str | None = None) -> dict:
     """Build the whole firmware for one cell in a scratch copy; never touches `project`."""
     with tempfile.TemporaryDirectory() as tmp:
         scratch = Path(tmp) / "proj"
         shutil.copytree(project, scratch, ignore=shutil.ignore_patterns("Debug", "Release"))
-        install(scratch, model, H, D, "none", direct_dft)
+        install(scratch, model, H, D, "none", direct_dft, stream_ckpt)
         script = (
             "set -e; mkdir -p obj; "
             "for f in Core/Src/*.c Drivers/STM32F1xx_HAL_Driver/Src/*.c; do "
@@ -242,6 +252,9 @@ def main() -> None:
     ap.add_argument("--project", type=Path, default=DEFAULT_PROJECT)
     ap.add_argument("--direct_dft", action="store_true",
                     help="A/B: build with the direct (pre-2026-09-29) 96-point DFT")
+    ap.add_argument("--stream_ckpt", default=None,
+                    help="install the streaming replay firmware with this trained checkpoint "
+                         "(feather_mix; drive it with replay.py)")
     ap.add_argument("--plan", action="store_true", help="print the measurement list")
     ap.add_argument("--verify", action="store_true",
                     help="dry-build this cell in a scratch copy instead of installing")
@@ -272,10 +285,10 @@ def main() -> None:
         ap.error("--model is required (or --plan / --verify_plan)")
     check_cell(a.model, a.H, a.D)
     if a.verify:
-        r = dry_build(a.project, a.model, a.H, a.D, a.direct_dft)
+        r = dry_build(a.project, a.model, a.H, a.D, a.direct_dft, a.stream_ckpt)
         print(r)
         sys.exit(0 if r["ok"] else 1)
-    install(a.project, a.model, a.H, a.D, a.power, a.direct_dft)
+    install(a.project, a.model, a.H, a.D, a.power, a.direct_dft, a.stream_ckpt)
     print(f"prepared {MODELS[a.model][1]}  H={a.H}  D={a.D}  power={a.power}"
           f"{'  DIRECT DFT' if a.direct_dft else ''}\n"
           f"  -> {a.project}\n"

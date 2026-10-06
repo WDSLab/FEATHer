@@ -406,7 +406,7 @@ def dispatch(missing, args):
         # override ??CLI flag. lr and loss are top-level worker flags;
         # everything else goes through --model_overrides.
         method_def  = get_method_defaults(m)
-        dataset_ovr = get_dataset_overrides(m, d)
+        dataset_ovr = get_dataset_overrides(m, d, h)   # (m, d, H) entries merged on top
         merged = {**method_def, **dataset_ovr}
 
         lr_to_use   = args.lr   if args.lr   is not None else merged.get("lr",   1e-3)
@@ -596,6 +596,8 @@ def dispatch(missing, args):
             cmd += ["--mix_lag", args.mix_lag]
         if args.mix_zero_init:
             cmd += ["--mix_zero_init"]
+        if args.far_coarse:
+            cmd += ["--far_coarse", str(args.far_coarse), "--near_len", str(args.near_len)]
         if args.spk_hidden is not None:
             cmd += ["--spk_hidden", str(args.spk_hidden)]
         if args.band_act:
@@ -755,6 +757,11 @@ def main():
                    help="(B) 'k,dil': identity-initialised temporal conv on the mixer summary.")
     p.add_argument("--mix_zero_init", action="store_true",
                    help="(C) zero-init the mixer up-projection (start as the mixer-off model).")
+    p.add_argument("--far_coarse", type=int, default=0,
+                   help="(2026-10-04, idea A) near/far head: whole horizon from the pooled LOW band "
+                        "at 1/r resolution (r=4) + SPK detail on the first --near_len steps. 0 = off.")
+    p.add_argument("--near_len", type=int, default=96,
+                   help="near/far head: steps covered by the full-resolution detail head.")
     p.add_argument("--gate_zero_init", action="store_true",
 
                    help="Zero-init the global gate conv so every band starts at "

@@ -426,6 +426,16 @@ ARMS = {
     "L96":  "",
     "L192": "--seq_len 192",
     "L336": "--seq_len 336",
+    # 같은 L 에서 섞기를 끈 것 (2026-10-02). Han et al. TKDE 2024: "입력이 길면 CI 는 좋아지고
+    # CD 는 나빠질 수 있다" -> mix 의 이득(L96 +5.3%)이 L192·336 에서도 남는지. CLI 의
+    # --channel_mode 가 _DATASET_OVERRIDES 의 mix 를 덮어쓴다(run_forecast.py cli_switches).
+    "L96ci":  "--channel_mode ci_full",
+    "L192ci": "--seq_len 192 --channel_mode ci_full",
+    "L336ci": "--seq_len 336 --channel_mode ci_full",
+    # 근거리/원거리 헤드 (2026-10-04, 아이디어 A). 느린 밴드만으로 H 전체를 1/4 해상도로 예측해
+    # 보간 + 처음 96칸은 전 밴드 SPK 로 자세히. 사전 판정: H336·H720 평균 ≥2% 개선, 데이터 ≥5/6,
+    # H96 악화 ≤0.5%, 칩당 ≥42채널 (lr 은 val 로 선택). 기준선 = 같은 CSV 의 L96 arm.
+    "nf4": "--far_coarse 4 --near_len 96",
 }
 
 DEFAULT_ARMS = ["canon", "redA", "gatestatic", "dtkgelu", "noinproj",

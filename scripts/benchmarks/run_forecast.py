@@ -208,7 +208,14 @@ def train_single(args, data_name, pred_len, device, seed):
     else:
         raise ValueError(f"Unknown loss: {args.loss}")
 
-    if args.optimizer == "adamw":
+    # 2026-10-06: SAMformer is trained with sharpness-aware minimisation (part of
+    # the method, ICML'24); every other model keeps the shared Adam optimizer.
+    use_sam = args.model == "SAMformer"
+    if use_sam:
+        from baselines.SAMformer.wrapper import make_sam
+        optimizer = make_sam(model.parameters(), lr=args.lr,
+                             rho=float(getattr(args, "samformer_rho", 0.5)))
+    elif args.optimizer == "adamw":
         optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     else:
         optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
@@ -263,6 +270,11 @@ def train_single(args, data_name, pred_len, device, seed):
                 loss = main_loss + args.lambda_spec * losses.spectral_separation_loss_scales(H)
             else:
                 loss = main_loss
+            # 2026-10-06: a baseline's own auxiliary training term (TimeBase's
+            # orthogonality loss) is exposed by its wrapper as `_aux_loss`.
+            aux = getattr(model, "_aux_loss", None)
+            if aux is not None:
+                loss = loss + aux
 
             if torch.isnan(loss) or torch.isinf(loss):
                 optimizer.zero_grad(set_to_none=True)
@@ -270,7 +282,24 @@ def train_single(args, data_name, pred_len, device, seed):
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.step()
+            if use_sam:
+                # SAM: perturb to w + e(w), recompute the loss there, update w.
+                optimizer.first_step(zero_grad=True)
+                out2 = model(batch_x[:, :, :n_features])[:, -pred_len:]
+                loss2 = _masked_loss(out2, target, args.loss)
+                if torch.isfinite(loss2):
+                    loss2.backward()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                    optimizer.second_step(zero_grad=True)
+                else:   # restore w without stepping
+                    with torch.no_grad():
+                        for g in optimizer.param_groups:
+                            for prm in g["params"]:
+                                if "e_w" in optimizer.state[prm]:
+                                    prm.sub_(optimizer.state[prm]["e_w"])
+                    optimizer.zero_grad(set_to_none=True)
+            else:
+                optimizer.step()
 
             total_loss += loss.item()
 
@@ -675,6 +704,8 @@ def parse_args():
     p.add_argument("--mix_listen", action="store_true", help="A: per-sensor scale on the mixer correction.")
     p.add_argument("--mix_lag", type=str, default=None, help="B: 'k,dil' temporal conv on the mixer summary.")
     p.add_argument("--mix_zero_init", action="store_true", help="C: zero-init the mixer up-projection.")
+    p.add_argument("--far_coarse", type=int, default=0, help="Near/far head (idea A): coarse factor r=4; 0 = off.")
+    p.add_argument("--near_len", type=int, default=96, help="Near/far head: steps of the full-resolution detail head.")
 
     # Training
     p.add_argument("--batch_size",  type=int,   default=32)

@@ -32,6 +32,12 @@ declare -A REPOS=(
   ["MixLinear/MixLinear-main"]="https://github.com/aitianma/MixLinear.git"
   ["CycleNet/CycleNet-main"]="https://github.com/ACAT-SCUT/CycleNet.git"
   ["MDMLP_EIA/MDMLP_EIA-main"]="https://github.com/zh1985csuccsu/MDMLP-EIA.git"
+  # 2026-10-06: CMoS ICML'25 (official, commit b696a0c; data is git-lfs, not needed)
+  ["CMoS/CMoS-main"]="https://github.com/CSTCloudOps/CMoS.git"
+  # 2026-10-06: completeness check additions
+  ["TimeBase/TimeBase-main"]="https://github.com/hqh0728/TimeBase.git"
+  ["PhaseFormer/PhaseFormer-main"]="https://github.com/neumyor/PhaseFormer_TSL.git"
+  ["SAMformer/SAMformer-main"]="https://github.com/romilbert/samformer.git"
 )
 
 # Out-of-scope (cited in paper, not benchmarked):

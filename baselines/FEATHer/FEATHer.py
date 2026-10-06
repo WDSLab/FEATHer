@@ -781,6 +781,8 @@ class FEATHer(nn.Module):
         mix_listen: bool = False,
         mix_lag: str = "",
         mix_zero_init: bool = False,
+        far_coarse: int = 0,
+        near_len: int = 96,
     ):
         super().__init__()
 
@@ -1096,6 +1098,20 @@ class FEATHer(nn.Module):
         # (see DenseLinearHead ??it is deliberately not capacity-matched).
         assert head_mode in ("spk", "linear", "mlp", "conv"), head_mode
         self.head_mode = head_mode
+        # Near/far head (2026-10-04, idea A).  far_coarse = r > 0: the SPK head
+        # above only produces the first near_len steps (all bands, full
+        # resolution); a second SPK head forecasts the WHOLE horizon from the
+        # pooled LOW band alone at 1/r resolution, interpolated back to H, and the
+        # near head is added on top.  Far-ahead fast detail is not forecastable,
+        # so the fast bands never feed the far horizon.  0 = off, byte-identical.
+        self.far_coarse = int(far_coarse)
+        self.near_len = min(int(near_len), pred_len) if self.far_coarse else pred_len
+        if self.far_coarse:
+            assert head_mode == "spk" and not spk_hidden and head2 == "none", \
+                "far_coarse extends the plain SPK head"
+            assert band_mode == "conv" and self.far_coarse == 4, \
+                "the coarse head reads pool_low (AvgPool1d k=4)"
+            assert self.near_len % period == 0, (self.near_len, period)
         if head_mode == "linear":
             self.sparse_head = DenseLinearHead(
                 seq_len=seq_len,
@@ -1117,7 +1133,7 @@ class FEATHer(nn.Module):
         else:
             self.sparse_head = SparsePeriodKernel(
                 seq_len=seq_len,
-                pred_len=pred_len,
+                pred_len=self.near_len,
                 d_model=eff_d,
                 period=period,
                 hidden=spk_hidden,
@@ -1201,6 +1217,13 @@ class FEATHer(nn.Module):
             assert not mlp_tie, "mix_zero_init zeroes nl_up"
             nn.init.zeros_(self.nl_up.weight)
             nn.init.zeros_(self.nl_up.bias)
+        # Near/far coarse head: built LAST so every other module keeps its init.
+        if self.far_coarse:
+            r = self.far_coarse
+            assert seq_len % r == 0 and pred_len % r == 0 and period % r == 0, (seq_len, pred_len, period)
+            self.coarse_head = SparsePeriodKernel(
+                seq_len=seq_len // r, pred_len=pred_len // r,
+                d_model=eff_d, period=period // r)
 
     def _head2_readout(self, hidden: torch.Tensor) -> torch.Tensor:
         """The SPK readout at period2 on the head's own aggregated series."""
@@ -1223,6 +1246,22 @@ class FEATHer(nn.Module):
         e = torch.stack([torch.log(P[:, b].sum(dim=1) / tot + 1e-6)
                          for b in self._h2_bins], dim=-1)       # (B, D, 2)
         return torch.sigmoid(self.head2_gate(e)).permute(0, 2, 1)
+
+    def _near_far(self, y_near: torch.Tensor) -> torch.Tensor:
+        """Coarse whole-horizon forecast from the pooled LOW band + near detail.
+
+        The LOW band goes through the same residual mixer (shared weights), so
+        the far horizon keeps the channel mixing; the coarse head runs at period
+        P/r on L/r points and its H/r outputs are linearly interpolated to H
+        (align_corners=False: coarse point j sits at the centre of steps
+        [rj, rj + r), matching AvgPool's cells)."""
+        s = self._low_ds
+        if self.use_residual_mlp:
+            s = s + self._mixer(s)
+        yc = self.coarse_head(s)                                    # (B, H/r, D)
+        yc = F.interpolate(yc.permute(0, 2, 1), size=self.pred_len,
+                           mode="linear", align_corners=False).permute(0, 2, 1)
+        return yc + F.pad(y_near, (0, 0, 0, self.pred_len - y_near.size(1)))
 
     def _mixer(self, v: torch.Tensor) -> torch.Tensor:
         """Residual MLP over the channel axis: W_up(GELU(W_down v))."""
@@ -1353,6 +1392,8 @@ class FEATHer(nn.Module):
 
         # LOW band
         fL_ds = self.pool_low(h_t).permute(0, 2, 1)
+        if self.far_coarse:
+            self._low_ds = fL_ds              # (B, L/4, D) read by _near_far
         fL = F.interpolate(
             fL_ds.permute(0, 2, 1),
             size=self.seq_len,
@@ -1437,7 +1478,9 @@ class FEATHer(nn.Module):
             hidden = hidden + delta
 
         # Forecasting head
-        y = self.sparse_head(hidden)  # (B, pred_len, D)
+        y = self.sparse_head(hidden)  # (B, pred_len, D)  [near_len if far_coarse]
+        if self.far_coarse:
+            y = self._near_far(y)
         if self.head2 != "none":
             g = self._head2_weight(x_norm)
             y = g * y + (1 - g) * self._head2_readout(hidden)

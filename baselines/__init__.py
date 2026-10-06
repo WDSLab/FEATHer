@@ -65,6 +65,8 @@ def _build_feather(args, n_features, seq_len, pred_len):
         mix_listen=getattr(args, "mix_listen", False),
         mix_lag=getattr(args, "mix_lag", None) or "",
         mix_zero_init=getattr(args, "mix_zero_init", False),
+        far_coarse=getattr(args, "far_coarse", None) or 0,
+        near_len=getattr(args, "near_len", None) or 96,
     )
 
 
@@ -160,6 +162,31 @@ def _build_cyclenet(args, n_features, seq_len, pred_len):
     return build(args, n_features, seq_len, pred_len)
 
 
+# 2026-10-06 (user): CMoS ICML 2025, super-lightweight with an edge claim; the
+# paper we cite for "lightweight models do not mix channel values".
+def _build_cmos(args, n_features, seq_len, pred_len):
+    from baselines.CMoS.wrapper import build
+    return build(args, n_features, seq_len, pred_len)
+
+
+# 2026-10-06 (user, after the baseline-completeness check): TimeBase ICML'25
+# (smallest, edge claim), PhaseFormer ICLR'26 (newest ~1K), SAMformer ICML'24
+# (peer-reviewed lightweight model that mixes channel values).
+def _build_timebase(args, n_features, seq_len, pred_len):
+    from baselines.TimeBase.wrapper import build
+    return build(args, n_features, seq_len, pred_len)
+
+
+def _build_phaseformer(args, n_features, seq_len, pred_len):
+    from baselines.PhaseFormer.wrapper import build
+    return build(args, n_features, seq_len, pred_len)
+
+
+def _build_samformer(args, n_features, seq_len, pred_len):
+    from baselines.SAMformer.wrapper import build
+    return build(args, n_features, seq_len, pred_len)
+
+
 # NOTE ??deliberately excluded from the benchmark (cite in Related Work only):
 #   S-Mamba: selective-scan CUDA kernels have no Cortex-M / STM32 port.
 #   TimeCMA: frozen GPT-2 features blow past the sub-1K parameter budget by
@@ -183,6 +210,10 @@ _BUILDERS: Dict[str, Callable] = {
     # Edge-tier additions (2026-07-31) ??sub-1K / small-deployable competitors
     "MixLinear":    _build_mixlinear,      # ICLR 2026, ~0.1K params (sub-1K rival)
     "CycleNet":     _build_cyclenet,       # NeurIPS 2024, learnable cycle
+    "CMoS":         _build_cmos,           # ICML 2025, chunk-wise correlations (added 10-06)
+    "TimeBase":     _build_timebase,       # ICML 2025, minimalist basis (added 10-06)
+    "PhaseFormer":  _build_phaseformer,    # ICLR 2026, phase routing (added 10-06)
+    "SAMformer":    _build_samformer,      # ICML 2024, channel-wise attention + SAM (added 10-06)
 }
 
 
@@ -249,6 +280,14 @@ _METHOD_DEFAULTS: Dict[str, Dict] = {
     # scripts use 0.03, CycleNet scripts use 0.005.
     "MixLinear":    {"lr": 3e-2, "loss": "mse"},
     "CycleNet":     {"lr": 5e-3, "loss": "mse"},
+    # CMoS: model/CMoS/config.toml default lr 8e-4, MSELoss (Pipeline/OneMulEdit.py)
+    "CMoS":         {"lr": 8e-4, "loss": "mse"},
+    # ETTh1 official settings (same rule as SparseTSF): TimeBase scripts/etth1.sh
+    # lr 1e-1; PhaseFormer run_etth1.py (H<=336 lightweight config) lr 1e-3;
+    # SAMformer PyTorch trainer default lr 1e-3 (+ SAM rho 0.5 in the worker).
+    "TimeBase":     {"lr": 1e-1, "loss": "mse"},
+    "PhaseFormer":  {"lr": 1e-3, "loss": "mse"},
+    "SAMformer":    {"lr": 1e-3, "loss": "mse"},
 }
 
 
@@ -548,6 +587,19 @@ _DATASET_OVERRIDES: Dict = {
     # FEATHer/SparseTSF period 24 (snap of the [2,48] dominant), TQNet cycle 96
     # (daily = 96 samples/day), same rule as Steel (also 15-min).
     ("SparseTSF", "EWELD"): {"sparsetsf_period_len": 24},
+    # 2026-10-06: TimeBase / PhaseFormer period = the SparseTSF FFT period (same rule).
+    ("TimeBase", "Steel"): {"timebase_period_len": 24},
+    ("TimeBase", "WindSCADA"): {"timebase_period_len": 48},
+    ("TimeBase", "BlastFurnace"): {"timebase_period_len": 48},
+    ("TimeBase", "MetroPT3"): {"timebase_period_len": 24},
+    ("TimeBase", "N2O"): {"timebase_period_len": 24},
+    ("TimeBase", "EWELD"): {"timebase_period_len": 24},
+    ("PhaseFormer", "Steel"): {"phaseformer_period_len": 24},
+    ("PhaseFormer", "WindSCADA"): {"phaseformer_period_len": 48},
+    ("PhaseFormer", "BlastFurnace"): {"phaseformer_period_len": 48},
+    ("PhaseFormer", "MetroPT3"): {"phaseformer_period_len": 24},
+    ("PhaseFormer", "N2O"): {"phaseformer_period_len": 24},
+    ("PhaseFormer", "EWELD"): {"phaseformer_period_len": 24},
     ("TQNet", "EWELD"):     {"tqnet_cycle": 96},
     ("FEATHer", "EWELD"):   {**_FEATHER_MFG_N, "period": 24},
     # ---- Edge-tier additions (2026-07-31): freq-tied period, same FFT-detected
@@ -594,15 +646,97 @@ _DATASET_OVERRIDES: Dict = {
 _OVERRIDE_ALIASES = {"SparseTSF_MLP": "SparseTSF"}
 
 
-def get_dataset_overrides(name, data):
+# ---- 2026-10-06 LTSF settings of the four added baselines (official scripts; L = 96 by protocol).
+# CMoS / TimeBase tune per horizon -> (model, data, H) keys; Exchange has no official
+# setting in any of the four repos -> model defaults (+ SparseTSF's Exchange period 24).
+_DATASET_OVERRIDES.update({
+    ("CMoS", "ETTh1"): {"cmos_seg_size": 24, "cmos_num_map": 4, "cmos_kernel_size": 8, "cmos_conv_stride": 4, "cmos_dropout": 0.05, "cmos_use_pi": True, "cmos_period": 24, "lr": 8e-05},
+    ("CMoS", "ETTh2"): {"cmos_seg_size": 8, "cmos_num_map": 2, "cmos_kernel_size": 8, "cmos_conv_stride": 4, "cmos_dropout": 0.05, "cmos_use_pi": True, "cmos_period": 24, "lr": 5e-05},
+    ("CMoS", "ETTm1"): {"cmos_seg_size": 4, "cmos_num_map": 4, "cmos_kernel_size": 8, "cmos_conv_stride": 4, "cmos_dropout": 0.05, "cmos_use_pi": True, "cmos_period": 96, "lr": 5e-05},
+    ("CMoS", "ETTm2"): {"cmos_seg_size": 2, "cmos_num_map": 4, "cmos_kernel_size": 8, "cmos_conv_stride": 4, "cmos_dropout": 0.05, "cmos_use_pi": True, "cmos_period": 96, "lr": 2e-05},
+    ("CMoS", "Weather"): {"cmos_seg_size": 4, "cmos_num_map": 4, "cmos_kernel_size": 4, "cmos_conv_stride": 2, "cmos_dropout": 0.0008, "cmos_use_pi": False, "cmos_period": 144, "lr": 0.0008},
+    ("CMoS", "Electricity"): {"cmos_seg_size": 8, "cmos_num_map": 4, "cmos_kernel_size": 8, "cmos_conv_stride": 4, "cmos_dropout": 0.05, "cmos_use_pi": True, "cmos_period": 168, "lr": 0.0008},
+    ("CMoS", "Traffic"): {"cmos_seg_size": 4, "cmos_num_map": 8, "cmos_kernel_size": 8, "cmos_conv_stride": 4, "cmos_dropout": 0.05, "cmos_use_pi": True, "cmos_period": 168, "lr": 0.0008},
+    ("CMoS", "ETTh1", 96): {"cmos_seg_size": 24, "cmos_num_map": 2, "cmos_kernel_size": 8, "cmos_conv_stride": 4, "lr": 5e-05},
+    ("CMoS", "ETTh1", 192): {"cmos_seg_size": 24, "cmos_num_map": 4, "cmos_kernel_size": 4, "cmos_conv_stride": 4, "lr": 0.0002},
+    ("CMoS", "ETTh1", 336): {"cmos_seg_size": 24, "cmos_num_map": 4, "cmos_kernel_size": 8, "cmos_conv_stride": 4, "lr": 8e-05},
+    ("CMoS", "ETTh1", 720): {"cmos_seg_size": 24, "cmos_num_map": 2, "cmos_kernel_size": 24, "cmos_conv_stride": 4, "lr": 2e-05},
+    ("CMoS", "ETTh2", 96): {"cmos_seg_size": 4, "cmos_num_map": 8, "cmos_kernel_size": 4, "cmos_conv_stride": 4, "lr": 2e-05},
+    ("CMoS", "ETTh2", 192): {"cmos_seg_size": 4, "cmos_num_map": 8, "cmos_kernel_size": 4, "cmos_conv_stride": 4, "lr": 5e-05},
+    ("CMoS", "ETTh2", 336): {"cmos_seg_size": 4, "cmos_num_map": 4, "cmos_kernel_size": 12, "cmos_conv_stride": 4, "lr": 2e-05},
+    ("CMoS", "ETTh2", 720): {"cmos_seg_size": 4, "cmos_num_map": 2, "cmos_kernel_size": 12, "cmos_conv_stride": 4, "lr": 2e-05},
+    ("CMoS", "ETTm1", 96): {"cmos_seg_size": 2, "cmos_num_map": 8, "cmos_kernel_size": 4, "cmos_conv_stride": 4, "lr": 5e-05},
+    ("CMoS", "ETTm1", 192): {"cmos_seg_size": 2, "cmos_num_map": 4, "cmos_kernel_size": 8, "cmos_conv_stride": 4, "lr": 0.0008},
+    ("CMoS", "ETTm1", 336): {"cmos_seg_size": 2, "cmos_num_map": 8, "cmos_kernel_size": 24, "cmos_conv_stride": 4, "lr": 5e-05},
+    ("CMoS", "ETTm1", 720): {"cmos_seg_size": 2, "cmos_num_map": 4, "cmos_kernel_size": 24, "cmos_conv_stride": 4, "lr": 2e-05},
+    ("CMoS", "ETTm2", 96): {"cmos_seg_size": 2, "cmos_num_map": 2, "cmos_kernel_size": 4, "cmos_conv_stride": 4, "lr": 2e-05},
+    ("CMoS", "ETTm2", 192): {"cmos_seg_size": 2, "cmos_num_map": 4, "cmos_kernel_size": 8, "cmos_conv_stride": 4, "lr": 2e-05},
+    ("CMoS", "ETTm2", 336): {"cmos_seg_size": 2, "cmos_num_map": 4, "cmos_kernel_size": 4, "cmos_conv_stride": 4, "lr": 2e-05},
+    ("CMoS", "ETTm2", 720): {"cmos_seg_size": 2, "cmos_num_map": 2, "cmos_kernel_size": 4, "cmos_conv_stride": 4, "lr": 2e-05},
+    ("CMoS", "Weather", 96): {"cmos_seg_size": 4, "cmos_num_map": 4, "cmos_kernel_size": 4, "cmos_conv_stride": 4, "lr": 0.0005},
+    ("TimeBase", "ETTh1", 96): {"timebase_orthogonal_weight": 0.16, "timebase_period_len": 24, "timebase_basis_num": 6, "lr": 0.1},
+    ("TimeBase", "ETTh1", 192): {"timebase_orthogonal_weight": 0.16, "timebase_period_len": 24, "timebase_basis_num": 6, "lr": 0.4},
+    ("TimeBase", "ETTh1", 336): {"timebase_orthogonal_weight": 0.08, "timebase_period_len": 24, "timebase_basis_num": 6, "lr": 0.4},
+    ("TimeBase", "ETTh1", 720): {"timebase_orthogonal_weight": 0.12, "timebase_period_len": 24, "timebase_basis_num": 6, "lr": 0.05},
+    ("TimeBase", "ETTh2", 96): {"timebase_orthogonal_weight": 0.2, "timebase_period_len": 24, "timebase_basis_num": 6, "lr": 0.2},
+    ("TimeBase", "ETTh2", 192): {"timebase_orthogonal_weight": 0.08, "timebase_period_len": 24, "timebase_basis_num": 4, "lr": 0.06},
+    ("TimeBase", "ETTh2", 336): {"timebase_orthogonal_weight": 0.12, "timebase_period_len": 24, "timebase_basis_num": 6, "lr": 0.4},
+    ("TimeBase", "ETTh2", 720): {"timebase_orthogonal_weight": 0.12, "timebase_period_len": 24, "timebase_basis_num": 6, "lr": 0.4},
+    ("TimeBase", "ETTm1", 96): {"timebase_orthogonal_weight": 0.04, "timebase_period_len": 4, "timebase_basis_num": 18, "lr": 0.02},
+    ("TimeBase", "ETTm1", 192): {"timebase_orthogonal_weight": 0.04, "timebase_period_len": 4, "timebase_basis_num": 20, "lr": 0.02},
+    ("TimeBase", "ETTm1", 336): {"timebase_orthogonal_weight": 0.08, "timebase_period_len": 4, "timebase_basis_num": 20, "lr": 0.02},
+    ("TimeBase", "ETTm1", 720): {"timebase_orthogonal_weight": 0.12, "timebase_period_len": 6, "timebase_basis_num": 20, "lr": 0.01},
+    ("TimeBase", "ETTm2", 96): {"timebase_orthogonal_weight": 0.04, "timebase_period_len": 4, "timebase_basis_num": 20, "lr": 0.01},
+    ("TimeBase", "ETTm2", 192): {"timebase_orthogonal_weight": 0.04, "timebase_period_len": 4, "timebase_basis_num": 20, "lr": 0.01},
+    ("TimeBase", "ETTm2", 336): {"timebase_orthogonal_weight": 0.04, "timebase_period_len": 4, "timebase_basis_num": 20, "lr": 0.01},
+    ("TimeBase", "ETTm2", 720): {"timebase_orthogonal_weight": 0.04, "timebase_period_len": 6, "timebase_basis_num": 20, "lr": 0.01},
+    ("TimeBase", "Weather", 96): {"timebase_orthogonal_weight": 0.04, "timebase_period_len": 4, "timebase_basis_num": 6, "lr": 0.02, "timebase_individual": 1},
+    ("TimeBase", "Weather", 192): {"timebase_orthogonal_weight": 0.04, "timebase_period_len": 4, "timebase_basis_num": 6, "lr": 0.02, "timebase_individual": 1},
+    ("TimeBase", "Weather", 336): {"timebase_orthogonal_weight": 0.08, "timebase_period_len": 4, "timebase_basis_num": 6, "lr": 0.05, "timebase_individual": 1},
+    ("TimeBase", "Weather", 720): {"timebase_orthogonal_weight": 0.04, "timebase_period_len": 4, "timebase_basis_num": 6, "lr": 0.05, "timebase_individual": 1},
+    ("TimeBase", "Electricity", 96): {"timebase_orthogonal_weight": 0.04, "timebase_period_len": 24, "timebase_basis_num": 6, "lr": 0.02},
+    ("TimeBase", "Electricity", 192): {"timebase_orthogonal_weight": 0.04, "timebase_period_len": 24, "timebase_basis_num": 6, "lr": 0.02},
+    ("TimeBase", "Electricity", 336): {"timebase_orthogonal_weight": 0.04, "timebase_period_len": 24, "timebase_basis_num": 6, "lr": 0.02},
+    ("TimeBase", "Electricity", 720): {"timebase_orthogonal_weight": 0.08, "timebase_period_len": 24, "timebase_basis_num": 6, "lr": 0.08},
+    ("TimeBase", "Traffic", 96): {"timebase_orthogonal_weight": 0.04, "timebase_period_len": 24, "timebase_basis_num": 6, "lr": 0.05},
+    ("TimeBase", "Traffic", 192): {"timebase_orthogonal_weight": 0.04, "timebase_period_len": 24, "timebase_basis_num": 8, "lr": 0.03},
+    ("TimeBase", "Traffic", 336): {"timebase_orthogonal_weight": 0.08, "timebase_period_len": 24, "timebase_basis_num": 15, "lr": 0.03},
+    ("TimeBase", "Traffic", 720): {"timebase_orthogonal_weight": 0.04, "timebase_period_len": 24, "timebase_basis_num": 8, "lr": 0.03},
+    ("TimeBase", "Exchange"): {"timebase_period_len": 24},
+    ("PhaseFormer", "ETTh1"): {"phaseformer_layers": 3, "phaseformer_latent_dim": 4, "phaseformer_routers": 8, "phaseformer_heads": 1, "phaseformer_pos_embed": True, "phaseformer_period_len": 24, "lr": 0.001},
+    ("PhaseFormer", "ETTh2"): {"phaseformer_layers": 1, "phaseformer_latent_dim": 8, "phaseformer_routers": 8, "phaseformer_heads": 1, "phaseformer_pos_embed": True, "phaseformer_period_len": 24, "lr": 0.001},
+    ("PhaseFormer", "ETTm1"): {"phaseformer_layers": 2, "phaseformer_latent_dim": 8, "phaseformer_routers": 8, "phaseformer_heads": 1, "phaseformer_pos_embed": True, "phaseformer_period_len": 24, "lr": 0.001},
+    ("PhaseFormer", "ETTm2"): {"phaseformer_layers": 2, "phaseformer_latent_dim": 8, "phaseformer_routers": 8, "phaseformer_heads": 1, "phaseformer_pos_embed": True, "phaseformer_period_len": 24, "lr": 0.001},
+    ("PhaseFormer", "Weather"): {"phaseformer_layers": 3, "phaseformer_latent_dim": 8, "phaseformer_routers": 8, "phaseformer_heads": 1, "phaseformer_pos_embed": True, "phaseformer_period_len": 24, "lr": 0.001},
+    ("PhaseFormer", "Electricity"): {"phaseformer_layers": 2, "phaseformer_latent_dim": 8, "phaseformer_routers": 8, "phaseformer_heads": 1, "phaseformer_pos_embed": True, "phaseformer_period_len": 24, "lr": 0.002},
+    ("PhaseFormer", "Traffic"): {"phaseformer_layers": 2, "phaseformer_latent_dim": 32, "phaseformer_routers": 1, "phaseformer_heads": 8, "phaseformer_pos_embed": False, "phaseformer_period_len": 24, "lr": 0.001},
+    ("PhaseFormer", "Exchange"): {"phaseformer_period_len": 24},
+    ("SAMformer", "ETTh1"): {"samformer_rho": 0.7, "lr": 0.001},
+    ("SAMformer", "ETTh2"): {"samformer_rho": 0.7, "lr": 0.001},
+    ("SAMformer", "ETTm1"): {"samformer_rho": 0.7, "lr": 0.001},
+    ("SAMformer", "ETTm2"): {"samformer_rho": 0.7, "lr": 0.001},
+    ("SAMformer", "Weather"): {"samformer_rho": 0.7, "lr": 0.0001},
+    ("SAMformer", "Electricity"): {"samformer_rho": 0.7, "lr": 0.0001},
+    ("SAMformer", "Traffic"): {"samformer_rho": 0.7, "lr": 0.0001},
+    ("SAMformer", "Exchange"): {"samformer_rho": 0.7, "lr": 0.001},
+})
+
+
+def get_dataset_overrides(name, data, pred_len=None):
     """Per-dataset architecture/lr overrides for (name, data).
 
     Returns an empty dict when the (model, dataset) cell has no entry ??
     the caller should layer this on top of `get_method_defaults(name)`.
+    2026-10-06: a (name, data, pred_len) entry, if present, is merged on top
+    (official scripts that tune per horizon: CMoS, TimeBase).  Callers that
+    pass no pred_len get exactly the old behaviour.
     """
     if (name, data) not in _DATASET_OVERRIDES and name in _OVERRIDE_ALIASES:
         name = _OVERRIDE_ALIASES[name]
-    return dict(_DATASET_OVERRIDES.get((name, data), {}))
+    out = dict(_DATASET_OVERRIDES.get((name, data), {}))
+    if pred_len is not None:
+        out.update(_DATASET_OVERRIDES.get((name, data, int(pred_len)), {}))
+    return out
 
 
 def list_models():
