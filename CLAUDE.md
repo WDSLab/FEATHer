@@ -65,8 +65,8 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
   7월 `*_jms.md`·arXiv 프리프린트 문장 재사용 금지, 인용 `[저자연도]` + 검증 서지.
 - **⚠ 프리프린트 arXiv 2601.11350**: 옛 구조·숫자 금지, "real board (LM3S6965EVB)" = 실제 QEMU → 서론에서 인용 + "이번이 첫 실보드
   실측", arXiv v2 정정은 공저자와 결정. 코드 공개 = `github.com/WDSLab/FEATHer`.
-- **Git**: 10-06 커밋 `4ca430c`(새 베이스라인 4개 + 10-01~10-06 작업) personal push 완료. 그 뒤 변경(P1 옵션·run_dev arm·
-  p1_verdict·coupling 도구·new_baselines_compare·CLAUDE.md)은 **미커밋**. 커밋은 요청 시, personal 만.
+- **Git**: 10-06 커밋 `4ca430c`(새 베이스라인 4개 + 10-01~10-06 작업) · `357952a`(P1 옵션·비교/판정/연동 도구·이 상태 블록)
+  personal push 완료, 작업 트리 깨끗함(drafts·results 는 gitignore). 커밋은 요청 시, personal 만.
 - **미결 작은 결정**: `data/*/data.csv.premask` 3개 삭제 여부 · 보드 USB 는 뽑아도 됨(당분간 측정 없음; 새 모델 C 포팅 후 다시 사용).
 
 ### 정리 (10-01, 사용자 승인) + 코드 공개 전 할 일
