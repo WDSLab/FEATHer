@@ -67,6 +67,9 @@ def _build_feather(args, n_features, seq_len, pred_len):
         mix_zero_init=getattr(args, "mix_zero_init", False),
         far_coarse=getattr(args, "far_coarse", None) or 0,
         near_len=getattr(args, "near_len", None) or 96,
+        factor_head=getattr(args, "factor_head", None) or 0,
+        factor_src=getattr(args, "factor_src", None) or "hidden",
+        front=getattr(args, "front", None) or "bands",
     )
 
 

@@ -706,6 +706,9 @@ def parse_args():
     p.add_argument("--mix_zero_init", action="store_true", help="C: zero-init the mixer up-projection.")
     p.add_argument("--far_coarse", type=int, default=0, help="Near/far head (idea A): coarse factor r=4; 0 = off.")
     p.add_argument("--near_len", type=int, default=96, help="Near/far head: steps of the full-resolution detail head.")
+    p.add_argument("--factor_head", type=int, default=0, help="P1 (10-06): shared-factor forecasting; 0 = off.")
+    p.add_argument("--factor_src", type=str, default=None, help="P1 factor source: hidden (default) | low (P2).")
+    p.add_argument("--front", type=str, default=None, help="bands (default) | none (P3: no bands, no FFT gate).")
 
     # Training
     p.add_argument("--batch_size",  type=int,   default=32)

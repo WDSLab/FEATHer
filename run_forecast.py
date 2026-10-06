@@ -598,6 +598,12 @@ def dispatch(missing, args):
             cmd += ["--mix_zero_init"]
         if args.far_coarse:
             cmd += ["--far_coarse", str(args.far_coarse), "--near_len", str(args.near_len)]
+        if args.factor_head:
+            cmd += ["--factor_head", str(args.factor_head)]
+        if args.factor_src:
+            cmd += ["--factor_src", args.factor_src]
+        if args.front:
+            cmd += ["--front", args.front]
         if args.spk_hidden is not None:
             cmd += ["--spk_hidden", str(args.spk_hidden)]
         if args.band_act:
@@ -762,6 +768,13 @@ def main():
                         "at 1/r resolution (r=4) + SPK detail on the first --near_len steps. 0 = off.")
     p.add_argument("--near_len", type=int, default=96,
                    help="near/far head: steps covered by the full-resolution detail head.")
+    p.add_argument("--factor_head", type=int, default=0,
+                   help="(2026-10-06, P1) shared-factor forecasting: the residual mixer becomes an "
+                        "explicit R-factor model whose trajectory is forecast once. 0 = off.")
+    p.add_argument("--factor_src", type=str, default=None, choices=["hidden", "low"],
+                   help="P1 factor source: hidden (gated bands) | low (pooled slow band, P2).")
+    p.add_argument("--front", type=str, default=None, choices=["bands", "none"],
+                   help="front end: bands (canonical) | none (P3: no band bank, no FFT gate).")
     p.add_argument("--gate_zero_init", action="store_true",
 
                    help="Zero-init the global gate conv so every band starts at "

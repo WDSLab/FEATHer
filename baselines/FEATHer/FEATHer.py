@@ -783,6 +783,9 @@ class FEATHer(nn.Module):
         mix_zero_init: bool = False,
         far_coarse: int = 0,
         near_len: int = 96,
+        factor_head: int = 0,
+        factor_src: str = "hidden",
+        front: str = "bands",
     ):
         super().__init__()
 
@@ -1225,6 +1228,46 @@ class FEATHer(nn.Module):
                 seq_len=seq_len // r, pred_len=pred_len // r,
                 d_model=eff_d, period=period // r)
 
+        # Shared-factor forecasting (2026-10-06, "P1": sensors forecast themselves,
+        # the process is forecast once).  The residual mixer's two layers are
+        # reused as an explicit factor model:
+        #     z_t = GELU(W_down h_t + b_down)            R process factors per step
+        #     common_t = W_up z_t + b_up                 their footprint on each sensor
+        #     y = SPK_sensor(h - common) + W_up SPK_factor(z) + b_up
+        # i.e. each sensor's own (idiosyncratic) part is forecast by the per-sensor
+        # SPK head, and the R-dim factor trajectory is forecast ONCE by its own SPK
+        # head and distributed back.  On the MCU the shared state stays L x R.
+        #   factor_src "hidden" = factors from the gated bands (P1);
+        #              "low"    = from the slow (pooled) band only (P2: couplings
+        #                         through heat / material flow are slow).
+        #   front      "bands"  = canonical three-band front end + FFT gate;
+        #              "none"   = no bands, no gate, h = normalised input (P3).
+        # Built LAST and off by default: the frozen model is byte-identical.
+        assert factor_src in ("hidden", "low"), factor_src
+        assert front in ("bands", "none"), front
+        self.factor_head_on = bool(factor_head)
+        self.factor_src = factor_src
+        self.front = front
+        if front == "none":
+            assert band_mode == "conv" and not self.far_coarse and head2 == "none" \
+                and gate_mix == "none", "front=none drops the band bank and the gate"
+            # constructed above (RNG stream unchanged), removed here so they are
+            # neither used nor counted
+            self.conv_point = None
+            self.conv_high = None
+            self.conv_mid = None
+            self.freq_gate = None
+        if self.factor_head_on:
+            assert use_residual_mlp and channel_mode == "mix" and mix_mode == "hidden" \
+                and not mlp_tie and not self.mix_lag and not self.mix_listen \
+                and head_mode == "spk" and not spk_hidden and not self.far_coarse \
+                and head2 == "none" and gate_mix == "none", \
+                "factor_head replaces the hidden residual mixer of the mix model"
+            assert factor_src == "hidden" or (front == "bands" and num_bands >= 2), \
+                "factor_src=low needs the pooled LOW band"
+            self.factor_head = SparsePeriodKernel(
+                seq_len=seq_len, pred_len=pred_len, d_model=mlp_rank, period=period)
+
     def _head2_readout(self, hidden: torch.Tensor) -> torch.Tensor:
         """The SPK readout at period2 on the head's own aggregated series."""
         sp = self.sparse_head
@@ -1360,6 +1403,11 @@ class FEATHer(nn.Module):
         x_proj = self.in_proj(x_norm)
         h_t = x_proj.permute(0, 2, 1)  # (B, D, L)
 
+        # front="none" (P3): no band bank, no gate - one "band" = the input itself
+        if getattr(self, "front", "bands") == "none":
+            return self._synthesize(x_norm, [x_proj], means, stdev, B, D, ci,
+                                    return_components, x_raw=x)
+
         # Parameter-free band splits (2026-08-27). They replace the learned conv
         # bank entirely, so they short-circuit the per-branch block below.
         if self.band_mode != "conv":
@@ -1401,6 +1449,8 @@ class FEATHer(nn.Module):
             align_corners=False
         ).permute(0, 2, 1)
         oL = self.dense_kernel(fL)
+        if getattr(self, "factor_src", "hidden") == "low":
+            self._low_band = oL               # (B, L, D) read by the factor path (P2)
 
         # Collect bands according to num_bands
         if self.num_bands == 1:
@@ -1435,7 +1485,9 @@ class FEATHer(nn.Module):
         # Band synthesis. --gate_uniform (use_gate=False) fixes the weights at
         # 1/S = an average; gate_mode "none" instead sums the bands unweighted,
         # and "softmax" gates on the pooled input without touching the spectrum.
-        if not self.use_gate:
+        if getattr(self, "front", "bands") == "none":
+            g = None                          # single "band": the sum is the input
+        elif not self.use_gate:
             g = x_norm.new_full((x_norm.size(0), self.num_bands), 1.0 / self.num_bands)
         elif self.gate_mode == "none":
             g = None
@@ -1458,7 +1510,7 @@ class FEATHer(nn.Module):
         # Optional nonlinear residual refinement (channel-axis bottleneck),
         # OFF by default. nn.Linear acts on the last (channel) axis, shared
         # across the L=seq_len time steps.
-        if self.use_residual_mlp:
+        if self.use_residual_mlp and not getattr(self, "factor_head_on", False):
             if self.mix_mode in ("input", "input_raw"):
                 src = x_raw if self.mix_mode == "input_raw" else x_norm
                 if self.mix_pool > 1:
@@ -1478,7 +1530,14 @@ class FEATHer(nn.Module):
             hidden = hidden + delta
 
         # Forecasting head
-        y = self.sparse_head(hidden)  # (B, pred_len, D)  [near_len if far_coarse]
+        if getattr(self, "factor_head_on", False):
+            # shared-factor forecasting (P1/P2/P3, see __init__)
+            src = self._low_band if self.factor_src == "low" else hidden
+            z = F.gelu(self.nl_down(src))                       # (B, L, R)
+            common = self.nl_up(z)                              # (B, L, D)
+            y = self.sparse_head(hidden - common) + self.nl_up(self.factor_head(z))
+        else:
+            y = self.sparse_head(hidden)  # (B, pred_len, D)  [near_len if far_coarse]
         if self.far_coarse:
             y = self._near_far(y)
         if self.head2 != "none":

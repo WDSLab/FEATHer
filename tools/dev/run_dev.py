@@ -436,6 +436,13 @@ ARMS = {
     # 보간 + 처음 96칸은 전 밴드 SPK 로 자세히. 사전 판정: H336·H720 평균 ≥2% 개선, 데이터 ≥5/6,
     # H96 악화 ≤0.5%, 칩당 ≥42채널 (lr 은 val 로 선택). 기준선 = 같은 CSV 의 L96 arm.
     "nf4": "--far_coarse 4 --near_len 96",
+    # 공유 인자 예측 (2026-10-06, Fable 제안 P1, 사용자 승인). "센서는 각자 예측하고, 공정은 하나로
+    # 예측한다": 섞기 MLP 를 R=4 인자 모델로 바꿔 인자 궤적을 따로 한 번 예측해 나눠 준다.
+    #   p1 = 인자를 게이트 거친 밴드에서 / p2 = 느린(풀링) 밴드에서만 / p3 = 밴드·FFT 게이트 제거.
+    # 사전 판정 규칙은 manuscript/drafts/p1_factor_plan.md (결과 보기 전에 작성). 기준선 = L96.
+    "p1": "--factor_head 1",
+    "p2": "--factor_head 1 --factor_src low",
+    "p3": "--factor_head 1 --front none",
 }
 
 DEFAULT_ARMS = ["canon", "redA", "gatestatic", "dtkgelu", "noinproj",
