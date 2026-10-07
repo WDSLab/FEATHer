@@ -7,6 +7,8 @@
 
 Stages (EXPERIMENT_PROTOCOL.md):
     ltsf      every model x 8 LTSF datasets x 4 H x 3 seeds, L 96, official settings      -> raw_ltsf.csv
+              (cells without an official setting run once their setting is chosen by ltsf_select)
+    ltsf_select  no-official LTSF cells: the model's published settings x 4 H x seed 2025 -> select_ltsf.csv
     select    industrial candidates x 6 datasets x 4 H x seed 2025, L 96                   -> select_mfg.csv
     main      industrial chosen setting x 3 seeds, L 96 (models without a choice are skipped) -> raw_mfg.csv
     lookback  industrial chosen setting x 3 seeds, L 48 / 192 / 336 (chip models + FEATHer) -> raw_mfg.csv
@@ -38,15 +40,33 @@ def plan(stage, models=None):
     cells = []
     add = lambda **c: cells.append(c)
     if stage == "ltsf":
+        pending = []
         for m in (models or P.FEATHER + P.LIGHT + P.HEAVY):
             for d in P.LTSF:
+                cfg = P.ltsf_config_id(m, d)
+                if cfg is None:                      # no official setting and not chosen yet
+                    pending.append(f"{m}|{d}")
+                    continue
                 for h in P.HS:
                     for s in P.SEEDS:
-                        add(role="reference" if m in P.HEAVY else "main", config_id=P.ltsf_config_id(m, d),
+                        add(role="reference" if m in P.HEAVY else "main", config_id=cfg,
                             model=m, group="ltsf", data=d, pred_len=h, seq_len=96, seed=s)
+        if pending:
+            print(f"  [skip] {len(pending)} LTSF cells without an official setting wait for --stage ltsf_select: "
+                  + ", ".join(pending))
+    elif stage == "ltsf_select":
+        for m in (models or P.LIGHT):
+            for d in P.LTSF:
+                cands = P.ltsf_candidates(m, d)
+                if len(cands) < 2:
+                    continue
+                for c in cands:
+                    for h in P.HS:
+                        add(role="select", config_id=c, model=m, group="ltsf", data=d, pred_len=h,
+                            seq_len=96, seed=P.SELECT_SEED)
     elif stage == "select":
         for m in (models or list(P.CANDIDATES)):
-            cands = P.CANDIDATES[m]
+            cands = P.CANDIDATES.get(m, [])
             if len(cands) < 2:
                 continue
             for c in cands:
@@ -75,7 +95,7 @@ def plan(stage, models=None):
 
 def done_set():
     frames = []
-    for f in ["raw_mfg.csv", "raw_ltsf.csv", "select_mfg.csv"]:
+    for f in ["raw_mfg.csv", "raw_ltsf.csv", "select_mfg.csv", "select_ltsf.csv"]:
         p = os.path.join(RES, f)
         if os.path.exists(p):
             frames.append(pd.read_csv(p, usecols=lambda c: c in KEY))
@@ -118,7 +138,7 @@ def jobs_for(missing, args, out_csv):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", required=True, choices=["ltsf", "select", "main", "lookback"])
+    ap.add_argument("--stage", required=True, choices=["ltsf", "ltsf_select", "select", "main", "lookback"])
     ap.add_argument("--models", default="", help="comma list (default: the stage's pool)")
     ap.add_argument("--data", default="", help="comma list of datasets (default: all of the stage)")
     ap.add_argument("--configs", default="", help="comma list of config_ids (default: all)")

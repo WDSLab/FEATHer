@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 지난 상태 블록은 `manuscript/notes/CLAUDE_STATUS_ARCHIVE_2026-10-01.md`(06월~09-30) · `..._2026-10-06.md`(10-01~10-04 실험
-실행 기록) · `..._2026-10-06b.md`(10-06 오전 "실험 끝, 글쓰기 단계" 블록)에 원문 그대로 있다 (평소엔 읽을 필요 없음 — 세션별
+실행 기록) · `..._2026-10-06b.md`(10-06 오전 "실험 끝, 글쓰기 단계" 블록) · `..._2026-10-07.md`(10-06 저녁 블록)에 원문 그대로 있다 (평소엔 읽을 필요 없음 — 세션별
 상세는 메모리 파일). **사용자에게는 항상 한글로 답한다.**
 
 ## Project Overview
@@ -17,76 +17,37 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
 메모리 안에 들어가게 만들었다 (칩당 43채널). 철학 = "과거를 길게 못 보면 옆 센서를 본다"(10-06 v2). flash 가 H에 거의 무관(18.1→18.5 KB, H96→720; 파라미터는 MetroPT3 340→444 — 옛 "1.008배"는 동결 전 모델 값, 쓰지 말 것)해서 긴 H로 갈수록 칩 안 비교에서 유리해진다.
 판정 기준은 파라미터가 아니라 **실측 flash·SRAM·보드 지연시간**.
 
-## Current status (2026-10-06 저녁) — 새 베이스라인 4개 실험 중 + 프레이밍 v2(철학) 확정
+## Current status (2026-10-07) — 실험 프로토콜 확정, 재실험 진행 중
 
-**한 줄**: 10-06 에 빠진 경량 베이스라인 4개를 찾아 넣었고(CMoS 가 MAE 로 우리보다 좋음), 모델 철학을 "**과거를 길게 못 보면
-옆 센서를 본다**"로 정했다. 지금은 베이스라인 실험이 로컬·서버에서 돌고 있고, 끝나면 표·주장을 갱신한 뒤 글쓰기로 돌아간다.
-**새 세션 시작점 = 메모리 `project_session_1006b.md`(HANDOFF)** · 흐름 = `manuscript/drafts/analysis_flow.md` v2.
-(이전 상태 블록 원문 = `manuscript/notes/CLAUDE_STATUS_ARCHIVE_2026-10-06b.md`.)
+**한 줄**: 베이스라인 공정성 문제(FEATHer 만 mfg 에서 설정을 고름 · 베이스라인 설정 출처가 제각각 · 7개 모델이 공식 설정과
+다름)를 찾아 **실험 규칙을 새로 정했다 → `EXPERIMENT_PROTOCOL.md`**. 결과는 `results/raw_{mfg,ltsf}.csv` 로 통합했고
+`run_plan.py` 가 빠진 칸만 돌린다. **새 세션 시작점 = 메모리 `project_session_1007.md`(HANDOFF)**.
+(이전 상태 블록 원문 = `manuscript/notes/CLAUDE_STATUS_ARCHIVE_2026-10-07.md`.)
 
-- **프레이밍 v2 (10-06, 사용자와 확정)**: 문제 = 작은 칩에서는 메모리(센서당 과거 1칸 = 4 B) 때문에 각 센서의 과거를 짧게만 본다
-  (경량 모델은 전부 채널 독립 → 과거에 굶주림: 입력 96→336 에서 베이스라인 −10~11 %, 대신 칩당 센서 49→14). 설계 = 과거 대신
-  **센서 사이의 연동**을 본다(4개 요약만 공유 + 센서별 재계산 순서 → 같은 섞기를 그대로 구현하면 24개, 우리 43개). 증거 = 같은 칩
-  메모리라면 옆 보기 > 뒤 보기: mix L96 0.699(43개) ≈ CI L192 0.690(24개), 같은 센서 수 보간 시 43개 3.7 %·18개 0.7 % 더 정확;
-  섞기 이득은 과거가 길수록 줆(5.9→4.1→2.7 %). 다른 경량 모델은 전부 **한 센서 안의 시간축** 패턴(주기·구간 관계·기본 패턴·위상),
-  FEATHer 는 **센서 사이 축**. 기여 순서는 그대로(① 칩 실측 ② FEATHer ③ 산업 근거 ④ 가이드). 상세 메모리 `project_framing_1001.md`.
-- **새 베이스라인 (10-06)**: CMoS(ICML'25)·TimeBase(ICML'25)·PhaseFormer(ICLR'26) = 채널 독립·전 H 칩 적합 추정, SAMformer
-  (ICML'24) = 섞음·H96 만 칩 적합 추정(DLinear 처럼 참고용). 공식 코드 + 공식 ETTh1 설정(mfg) / 공식 데이터별 설정(LTSF).
-  F-Net(IEEE TAI 2026) = DLinear 크기(약 18K) 섞는 모델, TF·무라이선스 → 인용만. 상세 메모리 `project_cmos_baseline_1006.md`.
-- **CMoS 결과 (mfg 시드 2025, 24칸)**: MSE 우리 14/24 승(평균 0.4 % 우리 우세, 유의 아님), MAE CMoS 20/24 승(1.9 %).
-  H96 은 CMoS, H≥192 MSE 는 우리. 칩 풀 8모델 순위 MSE CMoS 1.71(1등 10)·우리 2.17(1등 14), MAE CMoS 1.38·우리 3.17.
-  ⇒ "칩 안에서 가장 정확" → "**MSE 1등 칸 최다 + H≥192 우세**" 로 좁힐 예정(3시드 확정 후).
-- **진행 중 실험 (10-06 저녁)**:
-  - 로컬(대기열, 동시 3개): PhaseFormer → SAMformer mfg 시드 2025(`results/new3_mfg.csv`) → TimeBase lr 0.01·0.001 재선택
-    (`results/timebase_lr_mfg.csv`; 공식 lr 0.1 이 SparseTSF 보다 4~25 % 나빠서, **검증 손실로만** 하나 고름 — DLinear ETTh2 선례).
-    CMoS·TimeBase(lr 0.1) mfg 시드 2025 는 완료(`results/cmos_mfg.csv`, `new3_mfg.csv`). 대기열 스크립트·로그 = 세션 임시 폴더
-    `C:\Users\lee\AppData\Local\Temp\claude\C--Users-lee-Dropbox-github-research-timeseries-FEATHer\83037d0f-ae0e-44a0-926f-5e14e7f85a2f\scratchpad\`
-    (`queue_local.cmd`/`queue_run.log` → `after_seed1.cmd`/`after_seed1.log`). 진행 확인 = 결과 CSV 행 수.
-  - 서버(`~/lee/FEATHer`, 2×RTX PRO 6000, torch 2.8.0+cu128, 커밋 4ca430c): 4모델 LTSF × 3시드 → `results/new4_ltsf.csv`
-    (끝나면 사용자가 로컬로 가져옴). TimeBase LTSF 도 공식 lr(0.01~0.4) 이라 같은 문제 가능 → 결과 보고 확인.
-  - **보류(사용자 결정 대기)**: 4모델 mfg 시드 2026·2027(로컬 or 서버) · P1 실험(아래).
-  - ⚠ 로컬 메모리 빠듯(커밋 ~70/76 GB; 사용자의 다른 실험 eval_anom·train.py 등 동시 실행) → 우리 실험은 동시 3개 이하.
-- **⚠ 10-06 늦저녁 최우선 — 대조군 실험 "SparseTSF + 섞기 통로 vs FEATHer-mix"** (철학 토론 결과: SparseTSF 는 아이디어 하나, 나머지는
-  조합이고 우리도 조합 → 핵심 질문 "SparseTSF 에 작은 섞기만 붙인 것보다 FEATHer 가 뭘 더 잘하나"에 정면으로 답해야 함).
-  모델 = 공식 SparseTSF(linear/mlp) + FEATHer 의 D→4→D 잔차 GELU 섞기만 (`baselines/SparseTSF/wrapper.py` `SparseTSFMix`; 레지스트리
-  `SparseTSF_mix`·`_mixM`(평균 정규화만)·`SparseTSF_MLP_mix`·`_mixM`; 섞기 0 이면 공식 모델과 바이트 동일 확인) + arm C `FEATHer --front none`
-  (밴드·게이트만 제거, 258p). 사전 규칙 `drafts/control_sparsetsf_mix_plan.md`, 판정 `tools/dev/control_verdict.py`: FEATHer-mix 가 최고
-  대조군보다 ≥1 %·p<0.05 좋으면 밴드·게이트 "작은 보정"으로 유지 / 그 안이면 핵심 주장에서 빼고 한 문장 = "SparseTSF + 가장 싼 섞기 통로,
-  칩당 43채널"(동결 해제는 사용자 결정) / 대조군이 더 좋으면 단순화 필수. 결과 `results/control_sparsetsf_mix.csv`(ctrl)·
-  `control_front_none.csv`(ctrl_frontnone). 로컬 대기열(TimeBase lr) 끝난 뒤 자동 실행(세션 7072e354 스크래치패드 `control_queue.cmd`,
-  로그 `control_queue.log`). 참고: 공식 SparseTSF 는 우리보다 +7.9 %, SparseTSF-MLP +4.2 % 나쁨. **C 포팅·표 문구는 이 판정 뒤.**
-- **10-06 늦저녁 (사용자 결정 + 빌더 준비)**: 결정 = 4모델 mfg 시드 2026·27 **보류** · T11/T12 에 CMoS·TimeBase·PhaseFormer
-  **셋 다** 넣음(L192/336 재학습 필요, 미실행) · C 포팅·보드 **넷 다**(SAMformer 는 H96 만; 미착수). 빌더 준비 완료: `merge_raw.py`
-  가 새 베이스라인 CSV(cmos_mfg·new3_mfg·new4_mfg_s2627·timebase_lr_mfg·new4_ltsf)를 `*_raw.csv` 에 합침(`TIMEBASE_MFG_LR_TAG`
-  로 lr 선택) · `table_main.EDGE` 13모델(파라미터 순) · `tables_cf.py` T1 행 4개, T4/T5 결측 "-"+노란 "runs incomplete",
-  T6 미포팅 모델은 풀 밖+노란 TODO, T13/T11 은 3시드 완성 모델만+노란 TODO, T11 은 `results/new4_mfg_lookback_L{192,336}.csv`
-  도 읽음. 새 도구 `tools/dev/timebase_lr_verdict.py`(검증 손실만). 서버 명령 전부 = `manuscript/notes/server_queue_1006.md`.
-  파이프라인 = merge_raw → **table_deploy(그룹 인자 없이)** → make.py. 시험 빌드 렌더 확인함, **v5 는 재빌드 안 함**(1시드 값).
-  확인된 사실: 섞기 프로브 SAMformer 만 섞음 · 파라미터 CMoS 939→6,009 / TimeBase 58→240 / PhaseFormer 1,500→1,630 /
-  SAMformer 21.7K→82K(H≥192 flash 초과) · 중간치 TimeBase(lr 0.1) 우리보다 +21 % MSE, PhaseFormer 13칸 +7.6 %.
-  T12(`sram_vs_lookback.py`)·Fig.1(`fig_pareto_board.py`) 은 아직 옛 9모델 — 포팅 후 확장.
-- **P1 공유 인자 예측 (10-06, 구현 후 보류)**: "공정은 하나로 예측" 구조. `FEATHer.py` 옵션 `factor_head`/`factor_src`/`front`
-  (기본 꺼짐, 동결 모델 바이트 동일 확인), run_dev arm p1/p2/p3, 판정 규칙 `drafts/p1_factor_plan.md`, `tools/dev/p1_verdict.py`.
-  철학 v2 에는 필요 없어 실험은 대기열에서 뺐다. 외부 비판 반영: 하게 되면 "빼지 않고 더하기" 대조군·서로 다른 예측 규칙 arm 추가.
-- **연동 강도 분석 (10-06, 사전 규칙 실패)**: 같은 시점 센서 상관 크기 vs 섞기 이득, 14 데이터 ρ 0.36(p 0.10, 기준 0.5) →
-  "연동이 강할수록 이득" 주장 금지 (Exchange 연동 강한데 −8.4 %, N2O 약한데 +5.2 %). `drafts/coupling_plan.md`.
-- **표 (v5)**: T1 설계 · T2 데이터(+H720 ahead) · **T3 칩 비용 · T4/T5 정확도** (10-06 번호 변경; 메모리의 "T5 칩 비용"·"T3/T4
-  정확도"는 옛 번호) · Fig.1 · T6 칩 안 종합 · T7–T10 ablation · T11 입력 길이 · T12 칩당 채널 vs L · T13 LTSF.
-  10-06 정리: T6 캡션에 "네 H 모두 칩에 들어가는 모델" 명시, T11 주석 Tables 4–6, T13 끝 문장(채널 수로 안 정해짐).
-  **새 베이스라인 반영은 아직** (T1 행 4개, T3 C 포트·보드, T4/T5/T13 열, T6 풀, T11/T12 포함 여부 = 결정 필요).
-  **표 서식 규칙(사용자)**: 표 폭 = 본문 폭 8844 twip, **행 높이 정확히 0.5 cm**, **글자 전부 8 pt**(위첨자만 7 pt),
-  데이터 이름 = "**industrial datasets**".
-- **원고 파일**: `FEATHer_JMS_v1~v4.docx` = 사용자 검토 사본(**덮어쓰기 금지**). 빌드 = **v5** ← `python manuscript/version/_build/make.py`.
-  빌드 전 직전 버전과 글자 diff(사용자 Word 수정 확인), 렌더 확인 = Word COM → PDF → pdftoppm. 제목·저자·소속 형식 = 이전과 같음
-  (CF-JEPA R2 형식). 초안: `drafts/sec3_method.md` v0 **보류**(철학 v2 로 다시 맞춰야 함) · `sec1_intro_outline.md`(v2 반영 필요) ·
-  `sec2_related.md`(새 베이스라인·CMoS 원문 대조 반영됨) · `sec5_implications.md`. 빌더에 drafts 삽입 코드 아직 없음.
-- **글쓰기 방식**: 초안 전에 `analysis_flow.md` 기준 확인(메모리 피드백). `drafts/secN_*.md` = **영어 한 문장 + 한국어 한 줄(`> `)**,
-  7월 `*_jms.md`·arXiv 프리프린트 문장 재사용 금지, 인용 `[저자연도]` + 검증 서지.
-- **⚠ 프리프린트 arXiv 2601.11350**: 옛 구조·숫자 금지, "real board (LM3S6965EVB)" = 실제 QEMU → 서론에서 인용 + "이번이 첫 실보드
-  실측", arXiv v2 정정은 공저자와 결정. 코드 공개 = `github.com/WDSLab/FEATHer`.
-- **Git**: 10-06 커밋 `4ca430c`(새 베이스라인 4개 + 10-01~10-06 작업) · `357952a`(P1 옵션·비교/판정/연동 도구·이 상태 블록)
-  personal push 완료, 작업 트리 깨끗함(drafts·results 는 gitignore). 커밋은 요청 시, personal 만.
-- **미결 작은 결정**: `data/*/data.csv.premask` 3개 삭제 여부 · 보드 USB 는 뽑아도 됨(당분간 측정 없음; 새 모델 C 포팅 후 다시 사용).
+- **규칙 요약 (상세 = 프로토콜 §5)**: 베이스라인 설정 = 저자가 공개한 값만(최종 스크립트 + 저자 기본 설정; 빈칸용 argparse 값
+  제외, 조합 금지) · L96 공식 스크립트 우선(CycleNet lr 0.01) · LTSF = 데이터(·H)별 공식, 없거나 탐색 스크립트뿐이면 ETTh1 설정 ·
+  **mfg = 후보(저자 데이터별 설정 묶음) 중 6데이터 검증 손실 평균 순위 1등 하나를 모든 데이터·모든 L 에** (시드 2025, 테스트 안 봄) ·
+  칩 필터(가중치만 128 KB 초과 후보 제외; 실측 초과 시 2등) · 건강 검사(best epoch ≤2 / 발산) · 입력 길이로 정의 안 되는 값은
+  최대값(MixLinear lpf, FITS cut_freq ≤ L/2) · 주기류는 규칙(FFT ≤48 / 하루 주기) · 학습 방법은 통일(Huber·에폭·FITS train_mode)
+  하되 방법 고유 손실 항은 유지(FEATHer 스펙트럼, TimeBase 직교, DiPE 주파수 비율+라우터 온도, SAMformer SAM).
+- **10-07 사용자 결정**: FEATHer 동결 유지, mfg·LTSF 다시 안 돌림(LTSF 주기 = 7월 LTSF 검증 선택 → 사실대로 공개) ·
+  대조군 판정 = 규칙 2(밴드·게이트 약 1 %, "작은 보정"으로 낮춰 씀; 핵심 = 섞기 통로 — 섞기 이득이 바탕과 무관하게
+  SparseTSF +6.7 · SparseTSF-MLP +4.2 · FEATHer +5.9 %, 데이터 패턴도 같음) · **L = 48 추가**(판정 규칙 사전 작성 필요:
+  섞기 이득 > +5.9 % & p<0.05 예상), L720 안 함(입력 창만으로 SRAM 초과) · 서버급 7개 = L96 참고 표(mfg+LTSF, mfg 는 기본 설정 명시) ·
+  CycleNet 은 모든 L 에 lr 0.01 하나 · SparseTSF-MLP 는 자기 공식 lr(선형 lr 빌려 쓰던 것 폐기).
+- **공식 대조로 드러난 것**: LTSF 에서 공식과 다르던 모델 = SparseTSF-MLP · CycleNet · DiPE · MixLinear · FITS · PhaseFormer ·
+  DLinear(2곳) → 수정·재실행. 맞던 것 = SparseTSF · CMoS · TimeBase · SAMformer(+서버급). PhaseFormer ETTh1 후보는 H720 이
+  큰 설정이라 칩 초과 → mfg 후보 4개(ETTh2·ETTm1·ETTm2·Weather). 근거 = `manuscript/drafts/baseline_official_configs.md`.
+- **진행 중**: 서버 LTSF 790칸(`run_plan.py --stage ltsf`, 서버 `results/_incoming/DESKTOP-K390KQ4_ltsf.csv` → Dropbox 로 받아
+  `tools/results/merge_incoming.py`) · 로컬 mfg 고르기 927칸(`--stage select`, 동시 3, `results/_incoming/DESKTOP-AKL16D8_select.csv`) ·
+  Fable 독립 검토(공정성·코드).
+- **다음**: 고르기 끝 → `tools/results/select_verdict.py --write`(→ `results/chosen_mfg.json`) → `--stage main`(바뀐 모델 3시드 +
+  CycleNet 72) → `--stage lookback`(L48 전부 + 192·336 바뀐 모델) → 대조군(바탕 설정 바뀌면) → C 포팅(새 4개 + 구조 바뀐 후보) →
+  표 도구를 raw 로 이전 → 4장 초안(`drafts/sec4_setup.md` v0) 프로토콜대로 고침.
+- **원고 상태**: 빌더·표 도구는 아직 `results/_archive/pre_raw_20261007/` 의 옛 CSV 를 읽음(재정리 전후 원고 글자 동일 확인).
+  v5 재빌드 안 함. 프레이밍 v2 = "과거를 길게 못 보면 옆 센서를 본다". 표 서식(8844 twip, 행 0.5 cm, 8 pt) · v1~v4 덮어쓰기 금지 ·
+  drafts 형식(영어 한 문장 + 한국어 한 줄) · 프리프린트 주의 · 용어 channel 은 그대로.
+- **Git**: 10-07 `06b089e`(프로토콜·실행기·결과 재정리·래퍼) personal push. 커밋은 요청 시, personal 만.
 
 ### 정리 (10-01, 사용자 승인) + 코드 공개 전 할 일
 - **삭제함**: `__pycache__`(85파일) · `deployment/board/build/`(make 가 다시 만듦) · `tex_workspace` LaTeX 부산물 ·
@@ -102,6 +63,7 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
   (QEMU, 프리프린트가 쓴 평가)는 기록용으로 보관 ④ `tools/dev` 도구들의 기본 경로 정리.
 
 ### 확정 숫자 (원고에 쓰는 값)
+- ⚠ **10-07**: 베이스라인 설정을 프로토콜대로 고쳐 다시 돌리므로 **베이스라인 관련 숫자(LTSF 전부, mfg 순위·승패, T11)는 재실행 후 다시 계산**. FEATHer 자체 숫자·보드·ablation 은 그대로.
 - ⚠ **10-06**: 아래 칩 풀 순위(T6 "7모델 MSE·MAE 1등")는 **새 베이스라인 넣기 전** 값. CMoS 포함 시(시드 2025) MSE 1등 칸
   우리 14 · CMoS 10, 평균순위 CMoS 1.71 · 우리 2.17, MAE CMoS 1.38 · 우리 3.17 → 3시드 확정 후 T6 다시 계산.
 - **뒤 보기 vs 옆 보기 (10-06, 철학의 핵심 증거, 24칸 평균 MSE (칩당 센서))**: CI L96 0.736 (48) · L192 0.690 (24) · L336 0.657 (13);
@@ -232,6 +194,9 @@ RevIN -> 3 bands: conv k=3 | conv k=5 | AvgPool(4)+interp -> banded FFT gate -> 
 
 ```
 run_forecast.py                   오케스트레이터 (--check, resume, --ngpu/--jobs_per_gpu, --ablation_arm)
+run_plan.py                       (10-07) 계획 기반 실행기 — 프로토콜이 요구하는 칸 중 결과에 없는 것만 실행
+tools/results/                    (10-07) protocol(후보·설정 해석) · build_raw · merge_incoming · select_verdict
+EXPERIMENT_PROTOCOL.md            (10-07) 실험 규칙 확정본 (데이터·L/H·학습 절차·설정 규칙·모델별 후보)
 scripts/benchmarks/run_forecast.py 워커 (모델 × 데이터 × H × N시드)
 baselines/__init__.py             레지스트리(15) + _METHOD_DEFAULTS + _DATASET_OVERRIDES + _FEATHER_FROZEN
 baselines/<Name>/wrapper.py       upstream Model 을 forward(x)->(B,H,D) 로 감쌈
@@ -258,29 +223,20 @@ stsf · stsf_mlp · mixlinear · dipe · fits. **공통 규칙 ①**("원래 계
 `FEA2_R_GEN` 을 가중치 헤더에 스탬프 → `.c` 가 `_Static_assert` (호라이즌/랭크 불일치 = 컴파일 실패).
 골든 가중치는 전부 랜덤(blind 골든 방지).
 
-## Results files
+## Results files (2026-10-07 재정리 — 상세 `results/README.md`)
 
 | 파일 | 내용 |
 |---|---|
-| `results/mfg_baselines.csv` · `ltsf_baselines.csv` | 베이스라인 14 × 데이터 × 4H × 3시드 (얼림) |
-| `results/feather_mfg_candR4{,_ci}.csv` · `feather_ltsf_candR4{,_mix}.csv` | FEATHer 정식 런 (mix/CI) |
-| `results/feather_{mfg,ltsf}.csv` · `{mfg,ltsf}_raw.csv` | `tools/paper/merge_raw.py` 출력 (raw = 둘을 이어붙임) |
-| `results/ablation.csv` | `--ablation_arm` 런 (`abl_*`) |
-| `results/board_footprint.csv` | ARM 크로스컴파일 flash/SRAM (모델 × D × H) |
-| `results/board_latency_20260929.csv` · `board_current_20260929.csv` | 보드 실측 |
-| `results/complexity.csv` | 파라미터·연산 수 (⚠ FEATHer 행은 동결 전 구조 — 연산 수는 아래 ops_vs_latency 사용) |
-| `results/{feather,feather_ci,stsf_mlp}_mfg_lookback_L{192,336}.csv` | 입력 길이 정식 (T11; 베이스라인은 `_archive/baselines/fcst_results_baselines.csv` exp_tag lookback) |
-| `results/sram_vs_lookback_20261006.csv` · `ops_vs_latency_20261006.csv` | T12 계산 · 연산 수 vs 보드 지연 |
-| `results/board_replay_MetroPT3_H{96,720}_s2025_board_every60.csv` | 보드 실시간 재생 (예측 1회당 1행) |
-| `results/board_footprint_rsweep_1004.csv` | R2/R4/R8 크로스컴파일 (T7 Ch/chip) |
-| `results/dev_*.csv` | dev 실험(입력 길이 dev, 아이디어 A `dev_nearfar`, 센서 고장 `dev_sensor_dropout`) — 원고 숫자 아님 |
-| `results/_archive/` | 옛 값(452p 판, 빠른 FFT 전, CycleNet 전 등) — provenance |
-| `results/cmos_mfg.csv` · `new3_mfg.csv` (10-06) | 새 베이스라인 mfg 시드 2025 (로컬). 시드 2026·27 은 `new4_mfg_s2627.csv` 예정 |
-| `results/timebase_lr_mfg.csv` (10-06) | TimeBase lr 0.01·0.001 재선택용 (검증 손실로 선택) |
-| `results/new4_ltsf.csv` (10-06, 서버) | 새 베이스라인 4개 LTSF × 3시드 — 서버에서 가져와야 함 |
-| `results/coupling_vs_mixing_20261006.csv` | 연동 강도 vs 섞기 이득 (사전 규칙 실패, `drafts/coupling_plan.md`) |
+| `results/raw_mfg.csv` · `raw_ltsf.csv` | 정식 결과 (role = main/reference/lookback/ablation/control, config_id = 설정 이름) |
+| `results/select_mfg.csv` · `chosen_mfg.json` | mfg 설정 고르기 결과 · 고른 설정 (select_verdict) |
+| `results/_incoming/` | 새 실행 조각 (run_plan 출력, exp_tag = `role|config_id`) → merge_incoming 으로 합침 |
+| `results/board/` | 보드·칩 측정 (footprint, latency_20260929, current, replay, rsweep, recompute) |
+| `results/analysis/` | complexity, ops_vs_latency, sram_vs_lookback, coupling, r2, kpi, linear_ceiling |
+| `results/dev/` | dev 실험 (원고 숫자 아님) |
+| `results/_archive/pre_raw_20261007/` | raw 를 만든 옛 CSV (mfg_baselines, feather_*candR4*, mfg_raw …) — **원고 빌더가 아직 읽음** |
+| `results/_archive/legacy_rows_20261007.csv` | 규칙과 설정이 달라 raw 에서 뺀 행 (지우지 않음) |
 
-CSV 키: `exp_tag, model, data, pred_len, seq_len, seed` + MSE/MAE/RMSE/CORR/R2/val_loss/best_epoch/num_params.
+CSV 키: `role, config_id, exp_tag, model, data, pred_len, seq_len, seed` + MSE/MAE/RMSE/CORR/R2/val_loss/best_epoch/num_params.
 결과 CSV 의 FEATHer 이름 = `FEATHer_mix` / `FEATHer_CI` (footprint CSV 는 mix 를 `FEATHer` 로 씀).
 
 ## Model registry (15 + 10-06 추가 4 = 19)
@@ -311,18 +267,14 @@ TimeBase(ICML'25, 58~240) · PhaseFormer(ICLR'26, 1,500~1,630) — 셋 다 채�
 클래스) · SWIFT(공식 코드 미성숙, FITS 와 동률; 여전히 프리프린트) · F-Net(IEEE TAI 2026, 약 18K·섞음, TF·무라이선스) ·
 LiPFormer·LightMTS·FilterNet·TinyCast·RhyMix 등(10-06 조사, 메모리 `project_cmos_baseline_1006.md`). **크기는 제외 기준이 아님**.
 
-## Training protocol
+## Training protocol — `EXPERIMENT_PROTOCOL.md` 가 기준 (10-07)
 
-- 전 모델 공통: seq_len **96** (MCU 입력 버퍼 근거, 유일한 의도적 변경) · batch 32 · 50 epoch · patience 10 ·
-  Adam + CosineAnnealing · AMP off · **3시드 2025–2027** · best-val epoch 에서 test 1회 · 같은 split ·
-  **loss = MSE (FEATHer 포함)**.
-- 모델별: LTSF lr·구조 = 각 논문 공식 스크립트 (TFB 방식 `_DATASET_OVERRIDES`). mfg = 각 모델 default lr
-  (lr 서치는 중앙값 0.1% 개선뿐이라 폐기). 주기 관련 HP(period/cycle/period_len) = 데이터별 FFT 검출, 3모델 같은 규칙.
-  DLinear ETTh2 lr = 5e-3 (공식 5e-2 는 lradj=type1 짝이라 우리 스케줄러에서 발산; val 로만 재선택).
-  **통일되는 것 = 학습 조건, lr·구조는 모델별 공식값**(사용자 질문 10-06에 이렇게 설명함).
-- (10-06) 새 베이스라인: mfg = 공식 ETTh1 설정(SparseTSF 와 같은 규칙), LTSF = 공식 데이터별(CMoS·TimeBase 는 **H별**:
-  `get_dataset_overrides(name, data, pred_len)` 의 (모델, 데이터, H) 키, 오케스트레이터가 H 전달; 옛 모델 설정 불변 확인).
-  워커 훅: `model._aux_loss`(TimeBase 직교 손실) · SAMformer 만 SAM 2단계 업데이트. TimeBase mfg lr 은 검증으로 재선택 중.
+- 전 모델 공통: L **96**(입력 길이 실험 48·192·336) · batch 32 · 50 epoch · patience 10 · Adam + Cosine · clip 1.0 · AMP off ·
+  3시드 2025–2027 · best-val epoch 에서 test 1회 · loss = 관측값 MSE + 방법 고유 항.
+- 설정: LTSF = `baselines/__init__.py` `_DATASET_OVERRIDES`(10-07 수정 블록 포함, (모델, 데이터, H) 키) · mfg = `tools/results/protocol.py`
+  `CANDIDATES` + `resolve()`(후보 설정 + mfg 주기류 값) → 고른 설정 `results/chosen_mfg.json`.
+- 워커 훅: `_aux_loss`(TimeBase) · `_train_loss` / `_epoch_start` / `_test_start`(DiPE) · SAMformer SAM · `--result_model_name`.
+- 예외: DLinear ETTh2 lr 5e-3(공식 0.05 발산, 검증 재선택) · 공식 없는 데이터 = ETTh1 설정.
 - 결측: hold-last 채움 + `mask.csv` → loss/지표는 관측값만 (MetroPT3 17.7% · N2O 5.8% · WindSCADA 1.2%).
 
 ## Datasets
@@ -334,6 +286,12 @@ LiPFormer·LightMTS·FilterNet·TinyCast·RhyMix 등(10-06 조사, 메모리 `pr
 ## Common commands
 
 ```bash
+# 10-07 실험 관리 (EXPERIMENT_PROTOCOL.md)
+python run_plan.py --stage select --check            # ltsf / select / main / lookback; --check = 빠진 칸만 보기
+python run_plan.py --stage select --ngpu 1 --jobs_per_gpu 3
+python tools/results/merge_incoming.py               # _incoming 조각 -> raw_*.csv / select_mfg.csv (--archive 로 조각 보관)
+python tools/results/select_verdict.py --write       # 고르기 판정 -> results/chosen_mfg.json
+
 # 원고 빌드 (v5 를 씀; v1~v4 덮어쓰기 금지)
 python manuscript/version/_build/make.py
 

@@ -37,9 +37,10 @@ ON_CHIP = ["SparseTSF", "SparseTSF_MLP", "MixLinear", "DiPE_Linear", "FITS", "CM
 PERIOD_KEYS = {"period", "sparsetsf_period_len", "mixlinear_period_len", "cyclenet_cycle", "tqnet_cycle",
                "timebase_period_len", "phaseformer_period_len", "cmos_period", "fits_base_t"}
 
-# Industrial candidates (EXPERIMENT_PROTOCOL.md §4).  Distinct settings only; datasets whose setting
-# equals another's are listed once.  Chip filter (weights alone > 128 KB at D = 28, H = 720) removed:
-# CMoS ETTm1 / ETTm2 / Traffic, PhaseFormer ETTh1 (wide H720) / Electricity / Traffic.
+# Industrial candidates (EXPERIMENT_PROTOCOL.md §5).  Distinct settings only; datasets whose setting
+# equals another's are listed once.  No chip filter on candidates (10-07, after the Fable review): every
+# model is selected on accuracy alone, and a chosen setting that exceeds the chip in a cell is reported
+# as "does not fit" in that cell, the same treatment as DLinear / CycleNet / SAMformer.
 CANDIDATES = {
     "SparseTSF": ["ETTh1", "ETTh2"],                                   # lr 0.02 / 0.03
     "SparseTSF_MLP": ["ETTh1", "ETTh2", "Weather", "Electricity", "Traffic"],
@@ -48,9 +49,9 @@ CANDIDATES = {
     "DiPE_Linear": ["ETTh1", "ETTh2", "ETTm2", "Weather", "Electricity", "default"],
     "MixLinear": ["ETTh1", "ETTh2", "Electricity", "Traffic"],
     "FITS": ["ETTh1", "ETTm1", "Weather"],
-    "CMoS": ["ETTh1", "ETTh2", "Weather", "Electricity", "default"],
+    "CMoS": ["ETTh1", "ETTh2", "ETTm1", "ETTm2", "Weather", "Electricity", "Traffic", "default"],
     "TimeBase": ["ETTh1", "ETTh2", "ETTm1", "ETTm2", "Weather", "Electricity", "Traffic"],
-    "PhaseFormer": ["ETTh2", "ETTm1", "ETTm2", "Weather"],
+    "PhaseFormer": ["ETTh1", "ETTh2", "ETTm1", "ETTm2", "Weather", "Electricity", "Traffic"],
     "SAMformer": ["ETTh1", "Weather", "default"],
 }
 
@@ -62,14 +63,35 @@ for _d in MFG:
     _MFG_EXTRA[("CMoS", _d)] = {"cmos_period": _p}
     _MFG_EXTRA[("FITS", _d)] = {"fits_base_t": B.get_dataset_overrides("CycleNet", _d)["cyclenet_cycle"]}
 
+# LTSF cells whose authors left no final setting (EXPERIMENT_PROTOCOL.md §5.3, 10-07): no script for the
+# dataset, or only a sweep script.  These are chosen like the industrial data: the model's published
+# settings (CANDIDATES) compete on that dataset's validation loss.  Everything else on LTSF = "official".
+LTSF_NO_OFFICIAL = {
+    ("SparseTSF", "Exchange"), ("SparseTSF_MLP", "Exchange"), ("CycleNet", "Exchange"),
+    ("DiPE_Linear", "Exchange"), ("DiPE_Linear", "Traffic"),            # DiPE.sh has no Traffic run line
+    ("MixLinear", "Exchange"), ("MixLinear", "ETTm1"), ("MixLinear", "ETTm2"), ("MixLinear", "Weather"),
+    ("FITS", "Exchange"), ("FITS", "Electricity"), ("FITS", "Traffic"),
+    ("CMoS", "Exchange"), ("TimeBase", "Exchange"), ("PhaseFormer", "Exchange"),
+}
+
 CHOSEN_FILE = os.path.join(ROOT, "results", "chosen_mfg.json")
+CHOSEN_LTSF_FILE = os.path.join(ROOT, "results", "chosen_ltsf.json")
+
+
+def _load(path):
+    if os.path.exists(path):
+        return json.load(open(path, encoding="utf-8"))
+    return {}
 
 
 def chosen_mfg():
     """model -> config_id chosen on the industrial validation loss (written by the selection verdict)."""
-    if os.path.exists(CHOSEN_FILE):
-        return json.load(open(CHOSEN_FILE, encoding="utf-8"))
-    return {}
+    return _load(CHOSEN_FILE)
+
+
+def chosen_ltsf():
+    """"model|data" -> config_id chosen on that LTSF dataset's validation loss (no-official cells only)."""
+    return _load(CHOSEN_LTSF_FILE)
 
 
 def registry_name(model):
@@ -91,7 +113,8 @@ def resolve(model, group, data, H, config_id):
         if model == "FEATHer_mix" and group == "ltsf":
             s["channel_mode"] = "mix"
     elif config_id.startswith("cand:"):
-        assert group == "mfg", config_id
+        # a candidate = the model's setting for LTSF dataset <src> (every H); period-type keys always come
+        # from the dataset being trained (industrial: FFT / daily-cycle rule; LTSF: that dataset's entry)
         src = config_id.split(":", 1)[1]
         base = dict(B.get_method_defaults(m))
         if src != "default":
@@ -106,11 +129,22 @@ def resolve(model, group, data, H, config_id):
     return lr, loss, s
 
 
+def ltsf_candidates(model, data):
+    """Candidates for a no-official LTSF cell (empty list for an official cell)."""
+    if (model, data) not in LTSF_NO_OFFICIAL:
+        return []
+    return ["cand:" + c for c in CANDIDATES[model]]
+
+
 def ltsf_config_id(model, data):
+    """config_id of the main LTSF runs, or None while a no-official cell is not chosen yet."""
     if model in FEATHER:
         return "frozen"
     if model == "DLinear" and data == "ETTh2":
         return "official-exc"
+    cands = ltsf_candidates(model, data)
+    if cands:
+        return cands[0] if len(cands) == 1 else chosen_ltsf().get(f"{model}|{data}")
     return "official"
 
 

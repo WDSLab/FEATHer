@@ -56,7 +56,7 @@ def ltsf_config(model, data, H):
     if model in HEAVY:
         return "official"
     if model == "SparseTSF":
-        return "official"
+        return "cand:ETTh1" if data == "Exchange" else "official"     # no exchange script; lr 0.02 = ETTh1
     if model == "SparseTSF_MLP":
         return "official" if data == "Electricity" else None      # other datasets used the linear lr
     if model == "DLinear":
