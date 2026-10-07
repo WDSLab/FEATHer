@@ -25,8 +25,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "results")))
 from protocol import ABLATION_ARMS as _ARMS  # noqa: E402  (10-07: arm table moved out of the old orchestrator)
 
-# ablation rows (pre-10-07 file; new ablation runs land in results/raw_mfg.csv with role "ablation")
-ABLATION_CSV = "results/_archive/pre_raw_20261007/ablation.csv"
+RAW = "results/raw_mfg.csv"   # ablation rows: role "ablation"; baseline: FEATHer-mix main rows (config "frozen")
 _TIER = {"norevin": "standard", "noresid": "standard", "r2": "variant", "r8": "variant",
          "readd_dtk": "readd", "readd_inproj": "readd"}
 ABLATION_ARMS = {a: (_TIER.get(a, "design"), desc, None) for a, (desc, _f, _k) in _ARMS.items()}
@@ -34,31 +33,34 @@ ABLATION_ARMS = {a: (_TIER.get(a, "design"), desc, None) for a, (desc, _f, _k) i
 SIGNAL_PCT = 2.0
 
 
+def _paired(arm_rows, base_rows, metric):
+    """Per-dataset means of the arm and the baseline over the (dataset, horizon) cells the arm has."""
+    a = arm_rows.groupby(["data", "pred_len"])[metric].mean()
+    b = base_rows.groupby(["data", "pred_len"])[metric].mean()
+    cells = a.index.intersection(b.index)
+    return a[cells].groupby(level="data").mean(), b[cells].groupby(level="data").mean()
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--csv", default=ABLATION_CSV)
-    ap.add_argument("--baseline_csv", default="results/_archive/pre_raw_20261007/mfg_raw.csv")
-    ap.add_argument("--baseline_tag", default="main")
+    ap.add_argument("--csv", default=RAW)
     ap.add_argument("--metric", default="MSE")
     ap.add_argument("--per_dataset", action="store_true",
                     help="also break each arm down by dataset")
     args = ap.parse_args()
 
-    try:
-        abl = pd.read_csv(args.csv)
-    except FileNotFoundError:
-        print(f"no ablation results at {args.csv} — run "
-              f"`run_forecast.py --ablation_arm all` first")
+    raw = pd.read_csv(args.csv)
+    abl = raw[raw.role == "ablation"]
+    if abl.empty:
+        print(f"no ablation rows in {args.csv} - run `python run_plan.py --stage ablation` first")
         return 1
-
-    base = pd.read_csv(args.baseline_csv)
-    base = base[(base.model == "FEATHer") & (base.exp_tag == args.baseline_tag)]
+    base = raw[(raw.role == "main") & (raw.model == "FEATHer_mix") & (raw.config_id == "frozen")]
     if base.empty:
-        print(f"no baseline FEATHer/{args.baseline_tag} rows in {args.baseline_csv}")
+        print(f"no FEATHer-mix main rows in {args.csv}")
         return 1
 
     base_by_ds = base.groupby("data")[args.metric].mean()
-    print(f"baseline: FEATHer, exp_tag={args.baseline_tag}, "
+    print(f"baseline: FEATHer-mix (frozen), "
           f"{base.seed.nunique()} seed(s), {len(base_by_ds)} datasets, "
           f"{args.metric} {base_by_ds.mean():.4f}\n")
 
@@ -68,12 +70,14 @@ def main() -> int:
         arm = tag2arm.get(tag)
         if arm is None:
             continue
-        by_ds = grp.groupby("data")[args.metric].mean()
-        common = by_ds.index.intersection(base_by_ds.index)
+        # compare on the arm's own (dataset, horizon) cells only (most arms ran at H = 96 only);
+        # change = mean over datasets of the per-dataset % change (the paper's rule)
+        a_ds, b_ds = _paired(grp, base, args.metric)
+        common = a_ds.index
         if len(common) == 0:
             continue
-        a_mean, b_mean = by_ds[common].mean(), base_by_ds[common].mean()
-        delta = (a_mean - b_mean) / b_mean * 100
+        a_mean, b_mean = a_ds.mean(), b_ds.mean()
+        delta = ((a_ds / b_ds - 1) * 100).mean()
         tier, removed, _ = ABLATION_ARMS[arm]
         rows.append({
             "tier": tier,
@@ -115,13 +119,11 @@ def main() -> int:
 
     if args.per_dataset:
         for r in df.itertuples():
-            grp = abl[abl.exp_tag == f"abl_{r.arm}"].groupby("data")[args.metric].mean()
-            common = grp.index.intersection(base_by_ds.index)
+            a_ds, b_ds = _paired(abl[abl.exp_tag == f"abl_{r.arm}"], base, args.metric)
             per = pd.DataFrame({
-                "ablated": grp[common].round(4),
-                "baseline": base_by_ds[common].round(4),
-                "delta_%": ((grp[common] - base_by_ds[common])
-                            / base_by_ds[common] * 100).round(2),
+                "ablated": a_ds.round(4),
+                "baseline": b_ds.round(4),
+                "delta_%": ((a_ds / b_ds - 1) * 100).round(2),
             })
             print(f"\n--- {r.arm} ({r.removed}) ---")
             print(per.to_string())
