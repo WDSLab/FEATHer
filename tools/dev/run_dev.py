@@ -465,7 +465,7 @@ def main():
     # and the knobs remain available for a targeted re-check.
     p.add_argument("--num_epochs", type=int, default=50)
     p.add_argument("--patience", type=int, default=10)
-    p.add_argument("--csv", default="results/dev_loop.csv")
+    p.add_argument("--csv", default="results/dev/dev_loop.csv")
     p.add_argument("--prefix", default="dev")
     p.add_argument("--save_model", action="store_true",
                    help="Keep checkpoints, so the trained weights can be "

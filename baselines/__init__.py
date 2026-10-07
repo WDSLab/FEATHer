@@ -121,6 +121,31 @@ def _build_sparsetsf_mlp(args, n_features, seq_len, pred_len):
     return build(a, n_features, seq_len, pred_len)
 
 
+# 2026-10-06 control arms (user): upstream SparseTSF (linear / mlp head) + FEATHer's
+# channel-mixing bus only (D -> 4 -> D residual GELU MLP), with FEATHer's instance norm
+# ("_mix") or SparseTSF's own window-mean removal ("_mixM").  Answers "what does FEATHer
+# do better than SparseTSF plus a small channel mixer?" - plan and pre-declared rule in
+# manuscript/drafts/control_sparsetsf_mix_plan.md.  Recipe (lr, period) = SparseTSF's.
+def _build_sparsetsf_mix(args, n_features, seq_len, pred_len):
+    from baselines.SparseTSF.wrapper import build_mix
+    return build_mix(args, n_features, seq_len, pred_len, "linear", "revin")
+
+
+def _build_sparsetsf_mixm(args, n_features, seq_len, pred_len):
+    from baselines.SparseTSF.wrapper import build_mix
+    return build_mix(args, n_features, seq_len, pred_len, "linear", "mean")
+
+
+def _build_sparsetsf_mlp_mix(args, n_features, seq_len, pred_len):
+    from baselines.SparseTSF.wrapper import build_mix
+    return build_mix(args, n_features, seq_len, pred_len, "mlp", "revin")
+
+
+def _build_sparsetsf_mlp_mixm(args, n_features, seq_len, pred_len):
+    from baselines.SparseTSF.wrapper import build_mix
+    return build_mix(args, n_features, seq_len, pred_len, "mlp", "mean")
+
+
 def _build_timemixer(args, n_features, seq_len, pred_len):
     from baselines.TimeMixer.wrapper import build
     return build(args, n_features, seq_len, pred_len)
@@ -203,6 +228,11 @@ _BUILDERS: Dict[str, Callable] = {
     "FITS":         _build_fits,
     "SparseTSF":    _build_sparsetsf,
     "SparseTSF_MLP": _build_sparsetsf_mlp,  # same-size rival (~4.5K, MCU-fitting)
+    # 10-06 control arms: SparseTSF + FEATHer's mixing bus only (not benchmark baselines)
+    "SparseTSF_mix":      _build_sparsetsf_mix,
+    "SparseTSF_mixM":     _build_sparsetsf_mixm,
+    "SparseTSF_MLP_mix":  _build_sparsetsf_mlp_mix,
+    "SparseTSF_MLP_mixM": _build_sparsetsf_mlp_mixm,
     "TimeMixer":    _build_timemixer,
     "TimesNet":     _build_timesnet,
     "TQNet":        _build_tqnet,
@@ -270,6 +300,10 @@ _METHOD_DEFAULTS: Dict[str, Dict] = {
     "FITS":         {"lr": 5e-4, "loss": "mse"},
     "SparseTSF":    {"lr": 2e-2, "loss": "mse"},
     "SparseTSF_MLP": {"lr": 2e-2, "loss": "mse"},  # same recipe, mlp head
+    "SparseTSF_mix":      {"lr": 2e-2, "loss": "mse"},   # 10-06 control arms: host recipe
+    "SparseTSF_mixM":     {"lr": 2e-2, "loss": "mse"},
+    "SparseTSF_MLP_mix":  {"lr": 2e-2, "loss": "mse"},
+    "SparseTSF_MLP_mixM": {"lr": 2e-2, "loss": "mse"},
     "TimeMixer":    {"lr": 1e-2, "loss": "mse"},
     "TimesNet":     {"lr": 1e-4, "loss": "mse"},
     "TQNet":        {"lr": 1e-3, "loss": "mse"},
@@ -646,7 +680,10 @@ _DATASET_OVERRIDES: Dict = {
 # the linear entry's rows. Duplicating the 14 cells would let them drift apart,
 # and a silent drift here means the two variants are no longer the controlled
 # comparison the table claims.
-_OVERRIDE_ALIASES = {"SparseTSF_MLP": "SparseTSF"}
+_OVERRIDE_ALIASES = {"SparseTSF_MLP": "SparseTSF",
+                     # 10-06 control arms share SparseTSF's per-dataset period / lr
+                     "SparseTSF_mix": "SparseTSF", "SparseTSF_mixM": "SparseTSF",
+                     "SparseTSF_MLP_mix": "SparseTSF", "SparseTSF_MLP_mixM": "SparseTSF"}
 
 
 # ---- 2026-10-06 LTSF settings of the four added baselines (official scripts; L = 96 by protocol).
@@ -723,6 +760,91 @@ _DATASET_OVERRIDES.update({
     ("SAMformer", "Traffic"): {"samformer_rho": 0.7, "lr": 0.0001},
     ("SAMformer", "Exchange"): {"samformer_rho": 0.7, "lr": 0.001},
 })
+
+
+# ---- 2026-10-07 protocol corrections (EXPERIMENT_PROTOCOL.md; official scripts re-read line by line,
+# manuscript/drafts/baseline_official_configs.md).  Rules used below:
+#   * LTSF = each model's FINAL per-(dataset[, H]) script values; sweep-only or missing datasets
+#     take the model's ETTh1 setting (period-type keys stay the dataset's own value).
+#   * L = 96 scripts win where they exist (CycleNet Linear-Input-96: lr 0.01 everywhere).
+#   * training-procedure choices (Huber loss, epochs, lradj, FITS train_mode) stay unified.
+_MLP_LTSF = {"ETTh1": 2e-3, "ETTh2": 1e-3, "ETTm1": 1e-3, "ETTm2": 1e-3, "Weather": 5e-2,
+             "Electricity": 2e-2, "Traffic": 1e-2, "Exchange": 2e-3}      # mlp/<ds>.sh; Exchange = ETTh1
+_DIPE_LTSF = {  # scripts/DiPE.sh (num_experts, loss_alpha, use_revin); Traffic / Exchange = ETTh1
+    "ETTh1": (1, 1.0, True), "ETTh2": (3, 0.9, True), "ETTm1": (1, 1.0, True), "ETTm2": (1, 0.9, True),
+    "Weather": (4, 0.9, False), "Electricity": (4, 0.3, False), "Traffic": (1, 1.0, True),
+    "Exchange": (1, 1.0, True)}
+_MIX_LTSF = {   # *_best.sh: lr, (alpha, lpf) per H; ETTm1 / ETTm2 / Weather (sweep only) and Exchange = ETTh1
+    "ETTh1": (3e-2, {96: (0.95, 1), 192: (0.95, 5), 336: (0.99, 2), 720: (0.99, 19)}),
+    "ETTh2": (2e-2, {96: (0.5, 19), 192: (0.01, 19), 336: (0.01, 15), 720: (0.5, 19)}),
+    "Electricity": (3e-2, {96: (0.5, 19), 192: (0.99, 15), 336: (0.99, 15), 720: (0.5, 15)}),
+    "Traffic": (3e-2, {96: (0.5, 19), 192: (0.01, 15), 336: (0.5, 19), 720: (0.9, 19)})}
+for _d in ("ETTm1", "ETTm2", "Weather", "Exchange"):
+    _MIX_LTSF[_d] = _MIX_LTSF["ETTh1"]
+_FITS_LTSF = {  # *_best.sh: (H_order per H, base_T, individual); Electricity / Traffic (sweep only),
+    #             Exchange = ETTh1 values (base_T = the dataset's daily cycle where it has one)
+    "ETTh1": ({96: 6, 192: 6, 336: 6, 720: 6}, 24, False), "ETTh2": ({96: 6, 192: 6, 336: 6, 720: 6}, 24, False),
+    "ETTm1": ({96: 14, 192: 14, 336: 14, 720: 14}, 96, False),
+    "ETTm2": ({96: 14, 192: 14, 336: 14, 720: 14}, 96, False),
+    "Weather": ({96: 12, 192: 12, 336: 8, 720: 12}, 144, True),
+    "Electricity": ({96: 6, 192: 6, 336: 6, 720: 6}, 24, False),
+    "Traffic": ({96: 6, 192: 6, 336: 6, 720: 6}, 24, False),
+    "Exchange": ({96: 6, 192: 6, 336: 6, 720: 6}, 24, False)}
+# PhaseFormer original repo, run_<ds>.py get_best_config_for_horizon (via PhaseFormer_TSL lineage):
+# (layers, latent, enc_hidden, pred_hidden, routers, heads, lr, attn_dropout); Exchange = ETTh1.
+_PF = lambda L, lat, eh, ph, r, h, lr=1e-3, dr=0.1: dict(
+    phaseformer_layers=L, phaseformer_latent_dim=lat, phaseformer_enc_hidden=eh, phaseformer_pred_hidden=ph,
+    phaseformer_routers=r, phaseformer_heads=h, phaseformer_attn_dropout=dr, phaseformer_pos_embed=True, lr=lr)
+_PF_LTSF = {
+    "ETTh1": {96: _PF(3, 4, 16, 32, 8, 1), 192: _PF(3, 4, 16, 32, 8, 1), 336: _PF(3, 4, 16, 32, 8, 1),
+              720: _PF(3, 32, 128, 256, 16, 2, lr=1.5e-4, dr=0.0)},
+    "ETTh2": {96: _PF(1, 8, 32, 64, 8, 1), 192: _PF(1, 8, 32, 64, 8, 1), 336: _PF(1, 8, 32, 64, 8, 1),
+              720: _PF(1, 4, 8, 8, 4, 1)},
+    "ETTm1": {96: _PF(2, 8, 32, 64, 8, 1), 192: _PF(2, 8, 32, 64, 8, 1), 336: _PF(1, 8, 32, 64, 8, 1),
+              720: _PF(2, 8, 32, 64, 8, 1)},
+    "ETTm2": {96: _PF(2, 8, 32, 64, 8, 1), 192: _PF(1, 8, 32, 64, 8, 1), 336: _PF(1, 8, 32, 64, 8, 1),
+              720: _PF(1, 8, 32, 64, 8, 1)},
+    "Weather": {96: _PF(3, 8, 32, 64, 8, 1), 192: _PF(2, 8, 32, 64, 8, 1), 336: _PF(2, 8, 32, 64, 8, 1),
+                720: _PF(2, 8, 32, 64, 8, 1)},
+    "Electricity": {96: _PF(2, 8, 32, 64, 8, 1, lr=2e-3), 192: _PF(1, 128, 16, 32, 4, 4),
+                    336: _PF(2, 8, 32, 64, 8, 1), 720: _PF(1, 128, 16, 32, 4, 4)},
+    "Traffic": {96: _PF(2, 32, 64, 128, 1, 8), 192: _PF(1, 128, 16, 32, 4, 4), 336: _PF(1, 128, 16, 32, 4, 4),
+                720: _PF(1, 128, 16, 32, 4, 4)}}
+_PF_LTSF["Exchange"] = _PF_LTSF["ETTh1"]
+
+_P10 = {}
+for _d, _lr in _MLP_LTSF.items():
+    _per = _DATASET_OVERRIDES.get(("SparseTSF", _d), {}).get("sparsetsf_period_len", 24)
+    _P10[("SparseTSF_MLP", _d)] = {"sparsetsf_period_len": _per, "lr": _lr,
+                                   **({"sparsetsf_d_model": 512} if _d == "Traffic" else {})}
+for _key, _v in list(_DATASET_OVERRIDES.items()):        # MLP head: same mfg FFT period as SparseTSF
+    if len(_key) == 2 and _key[0] == "SparseTSF" and _key[1] not in _MLP_LTSF:
+        _P10[("SparseTSF_MLP", _key[1])] = {"sparsetsf_period_len": _v["sparsetsf_period_len"]}
+_P10[("DLinear", "Weather")] = {"lr": 1e-4}                   # weather.sh passes no lr -> argparse 1e-4
+_P10[("DLinear", "ETTm2", 336)] = {"lr": 1e-2}                # ettm2.sh:52
+_P10[("DLinear", "ETTm2", 720)] = {"lr": 1e-2}                # ettm2.sh:66
+for _d, (_e, _a, _rv) in _DIPE_LTSF.items():
+    _P10[("DiPE_Linear", _d)] = {"dipe_num_experts": _e, "dipe_loss_alpha": _a, "dipe_use_revin": _rv}
+for _d, (_lr, _byh) in _MIX_LTSF.items():
+    _P10[("MixLinear", _d)] = {**_DATASET_OVERRIDES.get(("MixLinear", _d), {}), "lr": _lr}
+    for _h, (_al, _lp) in _byh.items():
+        _P10[("MixLinear", _d, _h)] = {"mixlinear_alpha": _al, "mixlinear_lpf": _lp}
+for _d, (_ho, _bt, _ind) in _FITS_LTSF.items():
+    _P10[("FITS", _d)] = {"fits_base_t": _bt, "fits_individual": _ind}
+    for _h, _o in _ho.items():
+        _P10[("FITS", _d, _h)] = {"fits_h_order": _o}
+for _d, _byh in _PF_LTSF.items():
+    _P10[("PhaseFormer", _d)] = {"phaseformer_period_len": 24}
+    for _h, _cfg in _byh.items():
+        _P10[("PhaseFormer", _d, _h)] = dict(_cfg)
+# Exchange (no official setting in these repos) = the ETTh1 setting, dataset period 24
+_P10[("CMoS", "Exchange")] = {**_DATASET_OVERRIDES[("CMoS", "ETTh1")], "cmos_period": 24}
+for _h in (96, 192, 336, 720):
+    _P10[("CMoS", "Exchange", _h)] = dict(_DATASET_OVERRIDES[("CMoS", "ETTh1", _h)])
+    _P10[("TimeBase", "Exchange", _h)] = dict(_DATASET_OVERRIDES[("TimeBase", "ETTh1", _h)])
+_DATASET_OVERRIDES.update(_P10)
+_METHOD_DEFAULTS["CycleNet"] = {"lr": 1e-2, "loss": "mse"}    # Linear-Input-96 scripts (was 5e-3 = L336/720)
+_OVERRIDE_ALIASES.pop("SparseTSF_MLP", None)                  # MLP head now has its own official lr rows
 
 
 def get_dataset_overrides(name, data, pred_len=None):

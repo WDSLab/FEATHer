@@ -17,7 +17,7 @@
 "DLinear 가 H>=192 에서 flash 를 넘어 떨어져 나간다"는 핵심이 사라진다.
 
 입력
-    results/{group}_raw.csv                   정확도 (merge_raw.py)
+    results/_archive/pre_raw_20261007/{group}_raw.csv   정확도 (merge_raw.py; 10-07 이전 형식)
     analysis/deployment/deploy_cells.csv      칸별 배포 상태 (table_deploy.py)
 출력
     analysis/{group}/T_main.xlsx              시트: main(경량 9) / appendix(전체)
@@ -40,14 +40,20 @@ METRICS = ["MSE", "MAE"]
 
 # 경량 tier.  DLinear 는 H=96 에서 칩에 들어가고 우리보다 나은 칸이 있어 반드시
 # 남긴다 - 빼면 "숨겼다"가 된다 (table_mfg.py 와 같은 원칙).  우리 두 변종은 맨 아래.
-EDGE = ["SparseTSF", "MixLinear", "DiPE_Linear", "SparseTSF_MLP", "FITS",
-        "CycleNet", "DLinear", "FEATHer_CI", "FEATHer_mix"]
+# 10-06: + CMoS (ICML'25), TimeBase (ICML'25), PhaseFormer (ICLR'26), SAMformer (ICML'24);
+# order = parameters at MetroPT3 H = 96 (41 / 49 / 58 / 339 / 939 / 1,181 / 1,200 / 1,500 /
+# 9,480 / 18,624 / 21,742), ours last.
+EDGE = ["SparseTSF", "MixLinear", "TimeBase", "DiPE_Linear", "CMoS", "SparseTSF_MLP", "FITS",
+        "PhaseFormer", "CycleNet", "DLinear", "SAMformer", "FEATHer_CI", "FEATHer_mix"]
+NEW_EDGE = ["CMoS", "TimeBase", "PhaseFormer", "SAMformer"]       # added 10-06 (merge_raw.py)
 HEAVY = ["PatchTST", "TimeMixer", "TQNet", "LMS_AutoTSF", "TimesNet",
          "iTransformer", "MDMLP_EIA"]
 LABEL = {"SparseTSF": "SparseTSF", "MixLinear": "MixLinear", "DiPE_Linear": "DiPE-Linear",
          "SparseTSF_MLP": "SparseTSF-MLP", "FITS": "FITS", "CycleNet": "CycleNet",
          "DLinear": "DLinear", "FEATHer_CI": "FEATHer-CI (ours)",
-         "FEATHer_mix": "FEATHer-mix (ours)"}
+         "FEATHer_mix": "FEATHer-mix (ours)",
+         "CMoS": "CMoS", "TimeBase": "TimeBase", "PhaseFormer": "PhaseFormer",
+         "SAMformer": "SAMformer"}
 
 BOLD = Font(bold=True)
 BOLD_UL = Font(bold=False, underline="single")
@@ -59,7 +65,7 @@ OURS = PatternFill("solid", fgColor="FFF2CC")
 
 
 def load(group):
-    raw = pd.read_csv(f"results/{group}_raw.csv")
+    raw = pd.read_csv(f"results/_archive/pre_raw_20261007/{group}_raw.csv")
     acc = raw.groupby(["model", "data", "pred_len"])[METRICS].mean()
     p96 = (raw[raw.pred_len == 96].groupby(["model", "data"]).num_params.first()
            .groupby("model").agg(["min", "max"]))
@@ -102,8 +108,15 @@ def build_cells(models, datasets, acc, state, mark_deploy):
                 rank = (order.index(m) + 1) if m in order[:2] else 0
                 cells[(m, met, d, h)] = (t, rank)
         # 평균 열: 모든 데이터 x 호라이즌
-        avg = {m: acc.xs(met, axis=1).loc[m].loc[datasets].mean()
-               for m in models if m in acc.index.get_level_values(0)}
+        # 10-06: a model whose runs are still incomplete gets "-" instead of a partial average
+        avg = {}
+        for m in models:
+            if m not in acc.index.get_level_values(0):
+                continue
+            s = acc.xs(met, axis=1).loc[m]
+            s = s[s.index.get_level_values("data").isin(datasets)]
+            if len(s) == len(datasets) * len(HS):
+                avg[m] = s.mean()
         order = sorted(avg, key=avg.get)
         for m in models:
             if m in avg:

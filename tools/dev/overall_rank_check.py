@@ -17,7 +17,7 @@ REF = "FEATHer_mix"
 MODELS = ["SparseTSF", "MixLinear", "DiPE_Linear", "SparseTSF_MLP", "FITS", "CycleNet",
           "DLinear", "FEATHer_CI", "FEATHer_mix"]
 
-raw = pd.read_csv("results/mfg_raw.csv")
+raw = pd.read_csv("results/_archive/pre_raw_20261007/mfg_raw.csv")
 raw = raw[raw.model.isin(MODELS)]
 dep = pd.read_csv("analysis/deployment/deploy_cells.csv")
 fits = {(r.model, r.data, r.H): r.state == "FITS" for r in dep.itertuples()}

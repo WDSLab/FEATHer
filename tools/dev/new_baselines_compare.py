@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """New baselines (CMoS, TimeBase, PhaseFormer, SAMformer) vs FEATHer-mix and the T6 chip pool,
-seed-matched (seed 2025). 2026-10-06. Reads results/cmos_mfg.csv + results/new3_mfg.csv + results/mfg_raw.csv.
+seed-matched (seed 2025). 2026-10-06. Reads results/_archive/pre_raw_20261007/cmos_mfg.csv + results/_archive/pre_raw_20261007/new3_mfg.csv + results/_archive/pre_raw_20261007/mfg_raw.csv.
 
     python tools/dev/new_baselines_compare.py
 """
@@ -11,8 +11,8 @@ import pandas as pd
 from scipy.stats import wilcoxon
 
 os.chdir(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-raw = pd.read_csv("results/mfg_raw.csv")
-new = pd.concat([pd.read_csv(f) for f in ("results/cmos_mfg.csv", "results/new3_mfg.csv") if os.path.exists(f)])
+raw = pd.read_csv("results/_archive/pre_raw_20261007/mfg_raw.csv")
+new = pd.concat([pd.read_csv(f) for f in ("results/_archive/pre_raw_20261007/cmos_mfg.csv", "results/_archive/pre_raw_20261007/new3_mfg.csv") if os.path.exists(f)])
 new = new[new.seq_len == 96]
 NEW = [m for m in ("CMoS", "TimeBase", "PhaseFormer", "SAMformer") if m in set(new.model)]
 POOL = ["FEATHer_mix", "FEATHer_CI", "SparseTSF", "MixLinear", "DiPE_Linear", "SparseTSF_MLP", "FITS"]

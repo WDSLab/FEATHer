@@ -221,6 +221,7 @@ edge/onnx_models/
 
 # Results (generated)
 results/
+!tools/results/
 
 # Paper materials (optional)
 paper_materials/

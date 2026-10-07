@@ -91,7 +91,7 @@ for nm, v in rows:
 print()
 print("%-32s %10s" % ("실제 모델 (results/*_raw.csv, 3시드 평균)", "test MSE"))
 print("-" * 44)
-for csv_path in ("results/ltsf_raw.csv", "results/mfg_raw.csv"):
+for csv_path in ("results/_archive/pre_raw_20261007/ltsf_raw.csv", "results/_archive/pre_raw_20261007/mfg_raw.csv"):
     if not os.path.exists(csv_path):
         continue
     acc = {}

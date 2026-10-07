@@ -2,7 +2,7 @@
 """P1 shared-factor dev verdict (2026-10-06) — applies manuscript/drafts/p1_factor_plan.md as written.
 
 Per arm and (data, H) cell: lr chosen on VAL (seed-mean val_loss), then seed-mean test MSE/MAE.
-Baseline = frozen model, nf_L96_* rows of results/dev_nearfar.csv (same dev protocol, 10-04).
+Baseline = frozen model, nf_L96_* rows of results/dev/dev_nearfar.csv (same dev protocol, 10-04).
 Main rule: mean over the 12 cells of the % MSE change <= +0.5 % and no dataset worse than +5 %.
 Choice: among passing arms, p3 if within 0.3 %p of the best passing arm, else the best.
 
@@ -36,7 +36,7 @@ def cells(df, prefix):
     return out
 
 
-base = cells(pd.read_csv("results/dev_nearfar.csv"), "nf_L96_")
+base = cells(pd.read_csv("results/dev/dev_nearfar.csv"), "nf_L96_")
 p1 = pd.read_csv("results/dev_p1.csv") if os.path.exists("results/dev_p1.csv") else pd.DataFrame(columns=["exp_tag"])
 res = {}
 for arm in ("p1", "p2", "p3"):

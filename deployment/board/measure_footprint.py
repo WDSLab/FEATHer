@@ -150,7 +150,7 @@ def main() -> None:
     ap.add_argument("--horizons", default="96,192,336,720")
     ap.add_argument("--dims", default="7",
                     help="channel counts to sweep, e.g. 1,4,8,16,32")
-    ap.add_argument("--out", default="../../results/board_footprint.csv")
+    ap.add_argument("--out", default="../../results/board/board_footprint.csv")
     ap.add_argument("--stack_bytes", type=int, default=STACK_BYTES,
                     help="SRAM charged for the stack (see module docstring)")
     ap.add_argument("--models", default=None,

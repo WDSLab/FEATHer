@@ -9,10 +9,10 @@
 (안 들어가는 모델이 1등이다), 발자국 표만으로도 안 나온다.
 
 입력
-    results/board_footprint.csv   ARM 크로스컴파일 실측 (모델 x D x H)
-    results/complexity.csv        모델 x 데이터 x H 의 파라미터 (미포팅 모델 판정용)
-    results/mfg_raw.csv           정확도 (14 베이스라인 + FEATHer_mix + FEATHer_CI)
-    results/ltsf_raw.csv          정확도 (14 베이스라인 + FEATHer_CI (+ FEATHer_mix))
+    results/board/board_footprint.csv   ARM 크로스컴파일 실측 (모델 x D x H)
+    results/analysis/complexity.csv        모델 x 데이터 x H 의 파라미터 (미포팅 모델 판정용)
+    results/_archive/pre_raw_20261007/mfg_raw.csv           정확도 (14 베이스라인 + FEATHer_mix + FEATHer_CI)
+    results/_archive/pre_raw_20261007/ltsf_raw.csv          정확도 (14 베이스라인 + FEATHer_CI (+ FEATHer_mix))
 
 ★ 변종: 결과 CSV 는 두 변종을 이름으로 구분한다 (FEATHer_mix / FEATHer_CI).
   발자국 CSV 는 mix 를 "FEATHer" 로 기록하므로 FP_KEY 로 옮겨 찾는다.
@@ -62,12 +62,12 @@ _FP_INV = {v: k for k, v in FP_KEY.items()}
 # FEATHer_CI 행은 09-04 452p 모델(mlp_rank 16) 것이라, 같은 키를 이 파일로
 # 덮어쓴다.  mix 는 재계산 포트(feather2r_infer.c, 정규화+밴드를 센서마다 다시
 # 계산) 측정값이다 - 규칙 ④ 예외, 원고에 명시.
-FROZEN_FP = f"{R}/board_footprint_r4_frozen.csv"
+FROZEN_FP = f"{R}/board/board_footprint_r4_frozen.csv"
 FROZEN_KEY = {"FEATHer_recompute_r4": "FEATHer", "FEATHer_CI_r4": "FEATHer_CI"}
 
 
 def load_footprint():
-    fp = pd.read_csv(f"{R}/board_footprint.csv")
+    fp = pd.read_csv(f"{R}/board/board_footprint.csv")
     fz = pd.read_csv(FROZEN_FP)
     fz = fz[fz.model.isin(FROZEN_KEY)].assign(model=lambda d: d.model.map(FROZEN_KEY))
     fp = pd.concat([fp[~fp.model.isin(FROZEN_KEY.values())], fz], ignore_index=True)
@@ -83,7 +83,7 @@ def load_params():
     조합이 있고, LMS/MDMLP 는 상류가 .cuda() 하드코딩이라 CPU 스윕에서 빠진다).
     """
     par = {}
-    cx_path = f"{R}/complexity.csv"
+    cx_path = f"{R}/analysis/complexity.csv"
     dim = {}
     if os.path.exists(cx_path):
         cx = pd.read_csv(cx_path)
@@ -91,7 +91,7 @@ def load_params():
                     for r in cx.itertuples()})
         dim.update({r.data: int(r.D) for r in cx.itertuples()})
 
-    for path in (f"{R}/mfg_raw.csv", f"{R}/ltsf_raw.csv"):
+    for path in (f"{R}/_archive/pre_raw_20261007/mfg_raw.csv", f"{R}/_archive/pre_raw_20261007/ltsf_raw.csv"):
         if not os.path.exists(path):
             continue
         d = pd.read_csv(path)
@@ -102,7 +102,7 @@ def load_params():
 
 def load_accuracy(group):
     """(model, data, H) -> 시드평균 MSE."""
-    raw = pd.read_csv(f"{R}/{group}_raw.csv")
+    raw = pd.read_csv(f"{R}/_archive/pre_raw_20261007/{group}_raw.csv")
     acc = raw.groupby(["model", "data", "pred_len"]).MSE.mean().to_dict()
     return {(m, d, int(h)): v for (m, d, h), v in acc.items()}
 

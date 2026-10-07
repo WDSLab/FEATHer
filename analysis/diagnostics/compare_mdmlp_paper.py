@@ -1,6 +1,6 @@
 """MDMLP-EIA (AAAI'26) 논문 Table 과 우리 재현값 대조.
 
-논문 표의 숫자는 사용자가 제공한 것을 그대로 옮김. 우리 값은 results/ltsf_raw.csv
+논문 표의 숫자는 사용자가 제공한 것을 그대로 옮김. 우리 값은 results/_archive/pre_raw_20261007/ltsf_raw.csv
 (통일 프로토콜, 3시드 평균).
 
 목적: 우리 재현이 어긋난 것인지, 아니면 그 표의 특정 베이스라인이 깨진 것인지 구분.
@@ -41,7 +41,7 @@ SHARED = ["MDMLP_EIA", "TimeMixer", "CycleNet", "iTransformer", "FITS",
           "SparseTSF", "DLinear"]
 
 ours = {}
-for path in ("results/ltsf_raw.csv",):
+for path in ("results/_archive/pre_raw_20261007/ltsf_raw.csv",):
     with open(path, newline="", encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
             if r.get("exp_tag") not in ("main", "final"):

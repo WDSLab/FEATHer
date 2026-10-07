@@ -116,7 +116,7 @@ def main():
     ap.add_argument("--pred_len", default=",".join(str(h) for h in HS))
     ap.add_argument("--max_train", type=int, default=20000,
                     help="train 창 수 상한 (채널 접기 전 기준)")
-    ap.add_argument("--out", default="results/linear_ceiling.csv")
+    ap.add_argument("--out", default="results/analysis/linear_ceiling.csv")
     ap.add_argument("--validate", action="store_true",
                     help="기존 linear_ceiling.py 가 보고한 칸을 재현하는지 확인")
     a = ap.parse_args()

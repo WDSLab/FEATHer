@@ -7,7 +7,7 @@ Pre-declared rule: manuscript/drafts/coupling_plan.md (written before computing)
   G = mean over the 4 horizons of (FEATHer-CI MSE / FEATHer-mix MSE - 1) x 100, seed-mean per cell.
   Main rule: Spearman rho(C, G) >= 0.5 and one-sided p < 0.05 over the 14 datasets.
 
-    python tools/paper/coupling_vs_mixing.py      -> results/coupling_vs_mixing_20261006.csv
+    python tools/paper/coupling_vs_mixing.py      -> results/analysis/coupling_vs_mixing_20261006.csv
 """
 import contextlib
 import io
@@ -24,7 +24,7 @@ sys.path.insert(0, REPO)
 L = 96
 MFG = ["Steel", "WindSCADA", "BlastFurnace", "N2O", "MetroPT3", "EWELD"]
 LTSF = ["ETTh1", "ETTh2", "ETTm1", "ETTm2", "Weather", "Exchange", "Electricity", "Traffic"]
-OUT = "results/coupling_vs_mixing_20261006.csv"
+OUT = "results/analysis/coupling_vs_mixing_20261006.csv"
 
 
 def train_matrix(name):
@@ -60,8 +60,8 @@ def mixing_gain(raw):
     return g.groupby(level="data").mean()
 
 
-G = pd.concat([mixing_gain(pd.read_csv("results/mfg_raw.csv")),
-               mixing_gain(pd.read_csv("results/ltsf_raw.csv"))])
+G = pd.concat([mixing_gain(pd.read_csv("results/_archive/pre_raw_20261007/mfg_raw.csv")),
+               mixing_gain(pd.read_csv("results/_archive/pre_raw_20261007/ltsf_raw.csv"))])
 rows = []
 for name in MFG + LTSF:
     C, D, N = coupling(train_matrix(name))

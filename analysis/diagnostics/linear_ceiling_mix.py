@@ -302,7 +302,7 @@ def main():
     # 학습 데이터의 86% 를 버리고 센서가 아직 안 붙어 있던 초기 구간만 남겼다.
     # (--max_train 20000 이면 linear_ceiling_sweep.py 와 같은 조건 = 재현 검증용)
     ap.add_argument("--max_train", type=int, default=0)
-    ap.add_argument("--out", default="results/linear_ceiling_mix.csv")
+    ap.add_argument("--out", default="results/analysis/linear_ceiling_mix.csv")
     a = ap.parse_args()
 
     cols = ["data", "pred_len", "D", "ci", "mix", "ci_lam0", "mix_lam0",

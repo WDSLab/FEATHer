@@ -10,7 +10,7 @@ seq_len=96 을 강제하므로 같은 lr 이 과할 수 있다. 긴 룩백 네�
 (DLinear/FITS/SparseTSF/MixLinear/DiPE/CycleNet)이 특히 위험하다.
 
     python tools/audit/scan_divergence.py
-    python tools/audit/scan_divergence.py --csv results/mfg_raw.csv --max_epoch 3
+    python tools/audit/scan_divergence.py --csv results/_archive/pre_raw_20261007/mfg_raw.csv --max_epoch 3
 """
 import argparse
 import csv
@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--csv", default="results/ltsf_raw.csv,results/mfg_raw.csv")
+    p.add_argument("--csv", default="results/_archive/pre_raw_20261007/ltsf_raw.csv,results/_archive/pre_raw_20261007/mfg_raw.csv")
     p.add_argument("--max_epoch", type=int, default=2,
                    help="best_epoch <= this counts as a divergence suspect.")
     p.add_argument("--exp_tag", default="main,final")

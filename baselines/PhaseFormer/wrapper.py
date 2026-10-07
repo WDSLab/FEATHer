@@ -14,10 +14,10 @@ on its own with shared weights).
 Defaults = the official ETTh1 setting for H = 96/192/336 in the original repo's
 run_etth1.py (the ~1K lightweight configuration): 3 layers, latent_dim 4,
 8 routers, 1 attention head, attention dropout 0.1, phase positional embedding,
-RevIN without affine, lr 1e-3.  The paper switches to a 10x wider setting at
-ETTh1 H = 720; we keep the lightweight setting at every H (the comparison is
-among lightweight models).  The paper trains with a Huber loss; we use MSE like
-every other model (protocol).  period_len follows the SparseTSF FFT rule.
+RevIN without affine, lr 1e-3.  2026-10-07: every (dataset, H) now takes its own
+official setting (EXPERIMENT_PROTOCOL.md), including the wider ETTh1 H = 720
+setting; the widths are arguments.  The paper trains with a Huber loss; we use MSE
+like every other model (protocol).  period_len follows the SparseTSF FFT rule.
 """
 
 import argparse
@@ -50,13 +50,15 @@ def build(args, n_features, seq_len, pred_len):
         period_len=int(getattr(args, "phaseformer_period_len", 24)),
         phase_layers=int(getattr(args, "phaseformer_layers", 3)),
         latent_dim=int(getattr(args, "phaseformer_latent_dim", 4)),
-        phase_encoder_hidden=16,
-        predictor_hidden=32,
+        # 2026-10-07: widths per (dataset, H) as in the original repo's get_best_config_for_horizon
+        # (were fixed at the ETTh1 H<=336 values 16 / 32)
+        phase_encoder_hidden=int(getattr(args, "phaseformer_enc_hidden", 16)),
+        predictor_hidden=int(getattr(args, "phaseformer_pred_hidden", 32)),
         phase_num_routers=int(getattr(args, "phaseformer_routers", 8)),
         phase_attn_heads=int(getattr(args, "phaseformer_heads", 1)),
         phase_attn_dropout=float(getattr(args, "phaseformer_attn_dropout", 0.1)),
         phase_attn_use_relpos=True,
-        phase_use_pos_embed=bool(getattr(args, "phaseformer_pos_embed", True)),   # Traffic: False
+        phase_use_pos_embed=bool(getattr(args, "phaseformer_pos_embed", True)),   # official: True everywhere
         use_revin=True,
         revin_affine=False,
     )

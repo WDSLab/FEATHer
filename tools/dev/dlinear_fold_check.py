@@ -23,7 +23,7 @@ sys.path.insert(0, ROOT)
 from baselines import get_model  # noqa: E402
 
 L, D = 96, 7
-FIRMWARE_KB = 10.4  # measured persistence build, results/board_footprint.csv
+FIRMWARE_KB = 10.4  # measured persistence build, results/board/board_footprint.csv
 
 
 def moving_avg_matrix(model, L):

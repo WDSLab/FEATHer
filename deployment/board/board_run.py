@@ -40,7 +40,7 @@ CLI = Path(r"C:\ST\STM32CubeIDE_2.2.0\STM32CubeIDE\plugins"
            r"\com.st.stm32cube.ide.mcu.externaltools.cubeprogrammer.win32_2.2.500.202603051304\tools\bin"
            r"\STM32_Programmer_CLI.exe")
 GCC, SIZE = TOOLS / "arm-none-eabi-gcc.exe", TOOLS / "arm-none-eabi-size.exe"
-OUT = bp.ROOT / "results" / "board_latency_20260929.csv"
+OUT = bp.ROOT / "results" / "board" / "board_latency_20260929.csv"
 
 # = the CubeIDE project's Debug configuration (Debug/Core/Src/subdir.mk, Debug/makefile)
 CFLAGS = ["-mcpu=cortex-m3", "-std=gnu11", "-g3", "-DDEBUG", "-DUSE_HAL_DRIVER",

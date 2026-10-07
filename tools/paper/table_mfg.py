@@ -5,8 +5,8 @@
     python tools/paper/table_mfg.py --no_feather  # 베이스라인만
 
 입력은 2026-08-31 에 분리한 두 파일:
-    results/mfg_baselines.csv   확정 — 재실험 없음
-    results/feather_mfg.csv     모델이 확정되면 갱신됨
+    results/_archive/pre_raw_20261007/mfg_baselines.csv   확정 — 재실험 없음
+    results/_archive/pre_raw_20261007/feather_mfg.csv     모델이 확정되면 갱신됨
 
 2026-09-04 에 모델이 확정(452p)되어 기본이 FEATHer 포함으로 바뀌었다.  그 전에는
 옛 모델이 표에 박히는 것을 막으려고 `(pending)` 행으로 비워 두는 게 기본이었다.
@@ -38,8 +38,8 @@ HS = [96, 192, 336, 720]
 #   반드시 남긴다 — 빼면 "숨겼다"가 되어 즉살.
 #   ⚠ 천장 모델을 완전히 버리지도 않는다 — Related Work 에 "크기는 제외 기준이
 #   아니다(41~1.6M 스팬이 요점)"라고 써두었으므로 부록 시트에 남겨야 자기모순이 없다.
-EDGE = ["SparseTSF", "MixLinear", "DiPE_Linear", "SparseTSF_MLP", "FITS",
-        "CycleNet", "DLinear", "FEATHer_mix", "FEATHer_CI"]
+EDGE = ["SparseTSF", "MixLinear", "TimeBase", "DiPE_Linear", "CMoS", "SparseTSF_MLP", "FITS",
+        "PhaseFormer", "CycleNet", "DLinear", "SAMformer", "FEATHer_mix", "FEATHer_CI"]   # 10-06 +4
 # 우리 모델은 두 변종을 모두 싣는다 (merge_raw.py 참조).  도메인별로 나은 쪽만
 # 싣는 것은 선택 편향이다 - CI 가 mfg 에서 지는 것도 표에 그대로 보인다.
 OURS_PREFIX = "FEATHer"
@@ -57,9 +57,9 @@ PENDING = "FEATHer (pending)"
 
 
 def load(with_feather):
-    b = pd.read_csv(f"{R}/mfg_baselines.csv")
+    b = pd.read_csv(f"{R}/_archive/pre_raw_20261007/mfg_baselines.csv")
     if with_feather:
-        f = pd.read_csv(f"{R}/feather_mfg.csv")
+        f = pd.read_csv(f"{R}/_archive/pre_raw_20261007/feather_mfg.csv")
         b = pd.concat([b, f], ignore_index=True)
     return b[b.data.isin(MFG)]
 

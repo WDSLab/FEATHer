@@ -96,7 +96,7 @@ def full_matrix(df, metric):
 
 def main():
     p = argparse.ArgumentParser(description="Pairwise Wilcoxon signed-rank test")
-    p.add_argument("--csv", default="results/mfg_raw.csv")
+    p.add_argument("--csv", default="results/_archive/pre_raw_20261007/mfg_raw.csv")
     p.add_argument("--exp_tag", default="main")
     p.add_argument("--metric", default="MSE",
                    choices=["MSE", "MAE", "RMSE", "CORR", "R2"])

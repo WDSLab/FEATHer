@@ -53,7 +53,7 @@ from sensor_dropout import build_args        # noqa: E402  (same rebuild as the 
 SAMPLING_S = {"MetroPT3": 60, "Steel": 900, "EWELD": 900, "N2O": 300, "WindSCADA": 600,
               "BlastFurnace": 3600}           # Table 2 intervals
 CPU_HZ = 72_000_000
-V, I_ACTIVE_mA, I_SLEEP_mA = 3.3, 29.75, 10.38   # results/board_current_20260929.csv
+V, I_ACTIVE_mA, I_SLEEP_mA = 3.3, 29.75, 10.38   # results/board/board_current_20260929.csv
 L = 96
 
 
@@ -190,7 +190,7 @@ def main():
     print(f"  MSE board {mse_b:.6f} | PyTorch same windows {mse_t:.6f} | max |board - PyTorch| "
           f"{r.maxabs_vs_torch.max():.2e}")
     if a.every == 1 and steps == len(X):
-        ref = pd.read_csv("results/feather_mfg_candR4.csv")
+        ref = pd.read_csv("results/_archive/pre_raw_20261007/feather_mfg_candR4.csv")
         ref = ref[(ref.exp_tag == "candR4") & (ref.data == a.data) & (ref.pred_len == a.H) & (ref.seed == a.seed)]
         print(f"  all {n_win} windows: CSV test MSE {ref.MSE.iloc[0]:.6f}  (rel diff {abs(mse_b / ref.MSE.iloc[0] - 1):.1e})")
     if not a.sim:

@@ -21,7 +21,7 @@ M = ["SparseTSF", "MixLinear", "DiPE_Linear", "SparseTSF_MLP", "FITS", "CycleNet
      "DLinear", "FEATHer_CI", "FEATHer_mix"]
 CLEAN = ["Steel", "EWELD", "BlastFurnace"]
 
-raw = pd.read_csv("results/mfg_raw.csv")
+raw = pd.read_csv("results/_archive/pre_raw_20261007/mfg_raw.csv")
 raw = raw[raw.model.isin(M)]
 cell = raw.groupby(["model", "data", "pred_len"]).CORR.mean().unstack("model")[M]
 

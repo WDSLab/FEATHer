@@ -35,21 +35,39 @@ class _FITSWrap(nn.Module):
         return xy[:, -self.pred_len:, :]
 
 
+def _cut_freq(args, seq_len):
+    """Low-pass cut-off (number of rFFT bins kept).
+
+    2026-10-07: official rule (FITS-main/run_longExp_F.py:112-113, every script leaves --cut_freq 0):
+        cut_freq = (seq_len // base_T + 1) * H_order + 10
+    with H_order / base_T from the dataset's final script. The official values were tuned for
+    L = 360/720; when the formula exceeds what our input length allows it is set to that maximum
+    (protocol rule: an out-of-range length-dependent value -> the largest value the input length
+    allows).  The maximum is seq_len // 2, not seq_len // 2 + 1: FITS upsamples the kept bins by
+    (L + H) / L and the result must fit the (L + H) // 2 + 1 output bins (49 * 2 = 98 > 97 at
+    L = H = 96 crashes upstream as well). An explicit fits_cut_freq still wins; without
+    H_order the old seq_len // 4 default is kept (byte-identical to the pre-10-07 runs).
+    """
+    explicit = int(getattr(args, "fits_cut_freq", 0) or 0)
+    if explicit:
+        return explicit
+    h_order = getattr(args, "fits_h_order", None)
+    if h_order is None:
+        return max(1, seq_len // 4)
+    base_t = int(getattr(args, "fits_base_t", 24))
+    return min((seq_len // base_t + 1) * int(h_order) + 10, seq_len // 2)
+
+
 def build(args, n_features, seq_len, pred_len):
     mod = isolated_import(_REPO, "models.FITS")
     cfg = argparse.Namespace(
         seq_len=seq_len,
         pred_len=pred_len,
         enc_in=n_features,
-        # Individual freq upsampler per channel — paper Table 1 keeps the
-        # shared variant for compactness; ETT scripts use individual=True
-        # on long sequences. We default to shared for sub-1K parameter
-        # parity with our model.
-        individual=getattr(args, "fits_individual", False),
-        # Low-pass cut-off — paper §3.2 defines DCF "dominance frequency";
-        # ETT scripts use cut_freq tuned per (seq_len, pred_len). seq_len/4
-        # is the harmonic-centered default suggested in paper §4.1.
-        cut_freq=getattr(args, "fits_cut_freq", 0) or max(1, seq_len // 4),
+        # Individual freq upsampler per channel — the final scripts use it only for Weather
+        # (scripts/FITS/weather_best.sh); shared elsewhere.
+        individual=bool(getattr(args, "fits_individual", False)),
+        cut_freq=_cut_freq(args, seq_len),
     )
     inner = mod.Model(cfg)
     return _FITSWrap(inner, pred_len)

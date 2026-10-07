@@ -89,8 +89,8 @@ def _autosize(ws):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--csv", default="results/mfg_raw.csv")
-    ap.add_argument("--complexity", default="results/complexity.csv")
+    ap.add_argument("--csv", default="results/_archive/pre_raw_20261007/mfg_raw.csv")
+    ap.add_argument("--complexity", default="results/analysis/complexity.csv")
     ap.add_argument("--out", default="analysis/mfg/T2_cost.xlsx")
     args = ap.parse_args()
 

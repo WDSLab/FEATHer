@@ -57,3 +57,59 @@ def _default_period(seq_len, pred_len):
         if seq_len % p == 0 and pred_len % p == 0:
             return p
     return 1
+
+
+# ---------------------------------------------------------------------------
+# 2026-10-06 control arm (user): "what does FEATHer do better than SparseTSF plus a small
+# channel-mixing bus?"  This is the UNCHANGED upstream SparseTSF with FEATHer's residual
+# channel mixer in front of it and nothing else of FEATHer (no bands, no FFT gate, no
+# spectral loss, no SPK re-implementation).  Pre-declared rule and arms:
+# manuscript/drafts/control_sparsetsf_mix_plan.md.
+#
+#   norm = "revin"  FEATHer's instance norm (window mean detached, std not - the same
+#                   half-RevIN as FEATHer.py) -> mixer -> SparseTSF -> * std + mean
+#   norm = "mean"   SparseTSF's own window-mean removal only (no scale) -> mixer ->
+#                   SparseTSF -> + mean.  With the mixer zeroed this is byte-for-byte the
+#                   upstream model (SparseTSF subtracts the window mean itself, so the
+#                   second subtraction is a no-op).
+#   mixer           h <- h + W_up(GELU(W_down h)), W_down: D -> rank, W_up: rank -> D,
+#                   per time step over the channel axis = FEATHer.nl_down / nl_up (rank 4).
+# The upstream model is built FIRST so its initialisation is identical to the plain
+# SparseTSF run with the same seed; the mixer's weights are drawn afterwards.
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class SparseTSFMix(nn.Module):
+    def __init__(self, net, n_features, rank=4, norm="revin"):
+        super().__init__()
+        assert norm in ("revin", "mean"), norm
+        self.net = net
+        self.norm = norm
+        self.rank = rank
+        self.nl_down = nn.Linear(n_features, rank)
+        self.nl_up = nn.Linear(rank, n_features)
+
+    def forward(self, x):                                   # (B, L, D) -> (B, H, D)
+        if self.norm == "revin":
+            means = x.mean(1, keepdim=True).detach()
+            stdev = torch.sqrt(x.var(1, keepdim=True, unbiased=False) + 1e-5)
+            h = (x - means) / stdev
+        else:
+            means = x.mean(1, keepdim=True)
+            stdev = None
+            h = x - means
+        h = h + self.nl_up(F.gelu(self.nl_down(h)))         # the mixing bus
+        y = self.net(h)
+        if stdev is not None:
+            y = y * stdev
+        return y + means
+
+
+def build_mix(args, n_features, seq_len, pred_len, model_type="linear", norm="revin"):
+    import copy
+    a = copy.copy(args)
+    a.sparsetsf_model_type = model_type
+    net = build(a, n_features, seq_len, pred_len)
+    return SparseTSFMix(net, n_features, rank=getattr(args, "sparsetsf_mix_rank", 4), norm=norm)

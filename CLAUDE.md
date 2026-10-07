@@ -46,6 +46,25 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
     (끝나면 사용자가 로컬로 가져옴). TimeBase LTSF 도 공식 lr(0.01~0.4) 이라 같은 문제 가능 → 결과 보고 확인.
   - **보류(사용자 결정 대기)**: 4모델 mfg 시드 2026·2027(로컬 or 서버) · P1 실험(아래).
   - ⚠ 로컬 메모리 빠듯(커밋 ~70/76 GB; 사용자의 다른 실험 eval_anom·train.py 등 동시 실행) → 우리 실험은 동시 3개 이하.
+- **⚠ 10-06 늦저녁 최우선 — 대조군 실험 "SparseTSF + 섞기 통로 vs FEATHer-mix"** (철학 토론 결과: SparseTSF 는 아이디어 하나, 나머지는
+  조합이고 우리도 조합 → 핵심 질문 "SparseTSF 에 작은 섞기만 붙인 것보다 FEATHer 가 뭘 더 잘하나"에 정면으로 답해야 함).
+  모델 = 공식 SparseTSF(linear/mlp) + FEATHer 의 D→4→D 잔차 GELU 섞기만 (`baselines/SparseTSF/wrapper.py` `SparseTSFMix`; 레지스트리
+  `SparseTSF_mix`·`_mixM`(평균 정규화만)·`SparseTSF_MLP_mix`·`_mixM`; 섞기 0 이면 공식 모델과 바이트 동일 확인) + arm C `FEATHer --front none`
+  (밴드·게이트만 제거, 258p). 사전 규칙 `drafts/control_sparsetsf_mix_plan.md`, 판정 `tools/dev/control_verdict.py`: FEATHer-mix 가 최고
+  대조군보다 ≥1 %·p<0.05 좋으면 밴드·게이트 "작은 보정"으로 유지 / 그 안이면 핵심 주장에서 빼고 한 문장 = "SparseTSF + 가장 싼 섞기 통로,
+  칩당 43채널"(동결 해제는 사용자 결정) / 대조군이 더 좋으면 단순화 필수. 결과 `results/control_sparsetsf_mix.csv`(ctrl)·
+  `control_front_none.csv`(ctrl_frontnone). 로컬 대기열(TimeBase lr) 끝난 뒤 자동 실행(세션 7072e354 스크래치패드 `control_queue.cmd`,
+  로그 `control_queue.log`). 참고: 공식 SparseTSF 는 우리보다 +7.9 %, SparseTSF-MLP +4.2 % 나쁨. **C 포팅·표 문구는 이 판정 뒤.**
+- **10-06 늦저녁 (사용자 결정 + 빌더 준비)**: 결정 = 4모델 mfg 시드 2026·27 **보류** · T11/T12 에 CMoS·TimeBase·PhaseFormer
+  **셋 다** 넣음(L192/336 재학습 필요, 미실행) · C 포팅·보드 **넷 다**(SAMformer 는 H96 만; 미착수). 빌더 준비 완료: `merge_raw.py`
+  가 새 베이스라인 CSV(cmos_mfg·new3_mfg·new4_mfg_s2627·timebase_lr_mfg·new4_ltsf)를 `*_raw.csv` 에 합침(`TIMEBASE_MFG_LR_TAG`
+  로 lr 선택) · `table_main.EDGE` 13모델(파라미터 순) · `tables_cf.py` T1 행 4개, T4/T5 결측 "-"+노란 "runs incomplete",
+  T6 미포팅 모델은 풀 밖+노란 TODO, T13/T11 은 3시드 완성 모델만+노란 TODO, T11 은 `results/new4_mfg_lookback_L{192,336}.csv`
+  도 읽음. 새 도구 `tools/dev/timebase_lr_verdict.py`(검증 손실만). 서버 명령 전부 = `manuscript/notes/server_queue_1006.md`.
+  파이프라인 = merge_raw → **table_deploy(그룹 인자 없이)** → make.py. 시험 빌드 렌더 확인함, **v5 는 재빌드 안 함**(1시드 값).
+  확인된 사실: 섞기 프로브 SAMformer 만 섞음 · 파라미터 CMoS 939→6,009 / TimeBase 58→240 / PhaseFormer 1,500→1,630 /
+  SAMformer 21.7K→82K(H≥192 flash 초과) · 중간치 TimeBase(lr 0.1) 우리보다 +21 % MSE, PhaseFormer 13칸 +7.6 %.
+  T12(`sram_vs_lookback.py`)·Fig.1(`fig_pareto_board.py`) 은 아직 옛 9모델 — 포팅 후 확장.
 - **P1 공유 인자 예측 (10-06, 구현 후 보류)**: "공정은 하나로 예측" 구조. `FEATHer.py` 옵션 `factor_head`/`factor_src`/`front`
   (기본 꺼짐, 동결 모델 바이트 동일 확인), run_dev arm p1/p2/p3, 판정 규칙 `drafts/p1_factor_plan.md`, `tools/dev/p1_verdict.py`.
   철학 v2 에는 필요 없어 실험은 대기열에서 뺐다. 외부 비판 반영: 하게 되면 "빼지 않고 더하기" 대조군·서로 다른 예측 규칙 arm 추가.
@@ -136,6 +155,9 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
   "어디에 쓰이는지"는 글로 설명, "나아졌다"는 한계점/향후 과제.
 - 게이트 표현(10-04 사용자): 숫자와 함께 "평균 오차를 0.3% 줄인다"(약간)로 씀 — "크게 개선" 금지. 긴 H 부호는 −0.5/+1.3/−0.4 다 적음.
   밴드·스펙트럼 손실은 "정확도를 ±1% 안에서 유지" — **"효과 없음" 이라고 쓰지 말고 기여 순위로**(섞기 5.9 · MLP 3.8 > 게이트 0.3 > 밴드).
+- **(10-07 사용자 결정) 밴드 + 게이트 = "한 묶음, 네 H 모두 약 1 %"** 로 주장(대조군: front-none 대비 +0.99 %, 17/24, p<0.001, H별 1.6/0.5/0.7/1.2).
+  따로따로 숫자 금지(부호가 뒤집힘) · 메커니즘 주장 금지 · 2장 빈틈으로 세우지 않음(1장 기여 ② 둘째 문장 + 3장/T9–T10 만) ⇒ **동결 유지, 재포팅·재실험 없음**.
+  문구 = `drafts/sec1_intro_outline.md` P8-②. 2장 = 안내 문단 + 2.4 Positioning(G1 칩 실측 없음 · G2 섞는 경량 모델 없음 · G3 제조 전 채널 실측 없음).
   밴드 3개 > 2개는 6/6 데이터(+1.0%, p 0.03). 밴드·게이트는 **해석 도구로도 주장 금지**(게이트 비중이 시드마다 바뀜).
 - "섞기가 센서 고장에 강하다" — 반대(고장을 퍼뜨림). "보드 재생 = 실설비 설치" 아님(저장 데이터 재현).
 - 모양 지표(CORR 등) 주장 — 사전 규칙으로 기각, MSE/MAE 만.
@@ -164,6 +186,8 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
 
 ### 용어
 **channel** (feature 금지). 제목·키워드의 "multi-sensor" 는 유지. SPK 헤드는 **SparseTSF에 귀속** 명시(방법 절).
+(10-07) **forecast 계열만** (predict 는 predictive maintenance·RUL prediction·참고문헌 제목·"파라미터가 지연을 맞힌다"는 통계적 의미에만).
+전체 통일표 = `manuscript/drafts/terminology.md` (새 용어 쌍은 거기에 추가).
 
 ## Architecture (FEATHer) — FROZEN (09-04 구조, 09-23 mlp_rank 4 재동결)
 

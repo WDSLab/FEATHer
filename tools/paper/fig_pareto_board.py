@@ -6,11 +6,11 @@
 
 Up and to the right is better (user, 2026-09-30):
   x: forecasts per second = 1000 / latency of one forecast for all 7 channels of the
-     MetroPT3 cell, measured on the NUCLEO-F103RB (results/board_latency_20260929.csv;
+     MetroPT3 cell, measured on the NUCLEO-F103RB (results/board/board_latency_20260929.csv;
      ports without a streaming API are measured at D = 1 and scaled by 7 at H = 720 -
      linear, checked at H = 96).  Energy per forecast is 3.3 V x ~30 mA x latency, so
      the ordering is the same in energy.
-  y: test MSE averaged over the six manufacturing datasets (results/mfg_raw.csv),
+  y: test MSE averaged over the six manufacturing datasets (results/_archive/pre_raw_20261007/mfg_raw.csv),
      drawn with the axis inverted so that better (lower) is up; the unit stays MSE so
      the values can be read against Tables 3-4.
 Only models with a C port are placed (CycleNet ported 2026-09-30); at H = 720 DLinear
@@ -138,11 +138,11 @@ def panel(ax, tag, H, acc, lat, fits):
 
 
 def main():
-    raw = pd.read_csv("results/mfg_raw.csv")
+    raw = pd.read_csv("results/_archive/pre_raw_20261007/mfg_raw.csv")
     per = raw.groupby(["model", "data", "pred_len"]).MSE.mean()
     acc = {(m, H): sum(per[(m, d, H)] for d in DS) / len(DS)
            for m in BOARD for H in (96, 720)}
-    lat = pd.read_csv("results/board_latency_20260929.csv")
+    lat = pd.read_csv("results/board/board_latency_20260929.csv")
     dep = pd.read_csv("analysis/deployment/deploy_cells.csv")
     dep = dep[dep.data == "MetroPT3"]
     state = {(r.model, int(r.H)): r.state for r in dep.itertuples()}

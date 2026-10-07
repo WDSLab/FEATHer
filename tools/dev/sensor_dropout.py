@@ -22,7 +22,7 @@ PRE-DECLARED RULE (written before any run):
   >= 5 of 6 datasets, AND the healthy sensors of the mix model lose <= 2 % on average
   (corruption must not spread).  Otherwise the idea is dropped.  k=96 is reported only.
 
-    python tools/dev/sensor_dropout.py            -> results/dev_sensor_dropout.csv
+    python tools/dev/sensor_dropout.py            -> results/dev/dev_sensor_dropout.csv
 """
 import os
 import sys
@@ -41,10 +41,10 @@ from baselines import get_method_defaults, get_dataset_overrides  # noqa: E402
 DATA = ["Steel", "WindSCADA", "BlastFurnace", "N2O", "MetroPT3", "EWELD"]
 HS = [96, 192, 336, 720]
 SEEDS = [2025, 2026, 2027]
-ARMS = {"mix": ("candR4", "results/feather_mfg_candR4.csv", []),
-        "ci": ("candR4ci", "results/feather_mfg_candR4_ci.csv", ["--channel_mode", "ci_full"])}
+ARMS = {"mix": ("candR4", "results/_archive/pre_raw_20261007/feather_mfg_candR4.csv", []),
+        "ci": ("candR4ci", "results/_archive/pre_raw_20261007/feather_mfg_candR4_ci.csv", ["--channel_mode", "ci_full"])}
 KS = [48, 96]
-OUT = "results/dev_sensor_dropout.csv"
+OUT = "results/dev/dev_sensor_dropout.csv"
 
 
 def build_args(worker, arm, data, H, seed):

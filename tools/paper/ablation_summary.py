@@ -30,7 +30,7 @@ SIGNAL_PCT = 2.0
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--csv", default=ABLATION_CSV)
-    ap.add_argument("--baseline_csv", default="results/mfg_raw.csv")
+    ap.add_argument("--baseline_csv", default="results/_archive/pre_raw_20261007/mfg_raw.csv")
     ap.add_argument("--baseline_tag", default="main")
     ap.add_argument("--metric", default="MSE")
     ap.add_argument("--per_dataset", action="store_true",

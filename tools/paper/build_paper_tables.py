@@ -174,7 +174,7 @@ def load_acc():
     """
     parts = []
     for name in ("mfg", "ltsf"):
-        p = f"{R}/{name}_raw.csv"
+        p = f"{R}/_archive/pre_raw_20261007/{name}_raw.csv"
         if not os.path.exists(p):
             raise SystemExit(f"[merge 필요] {p} 없음 — python tools/paper/merge_raw.py")
         parts.append(pd.read_csv(p))

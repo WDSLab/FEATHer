@@ -102,7 +102,7 @@ def main() -> int:
     p.add_argument("--dumps", default="results/preds_steel")
     p.add_argument("--channel", default="Usage_kWh")
     p.add_argument("--k", default="4,8,12")
-    p.add_argument("--mse_csv", default="results/kpi_steel.csv")
+    p.add_argument("--mse_csv", default="results/analysis/kpi_steel.csv")
     args = p.parse_args()
 
     ks = [int(x) for x in args.k.split(",")]

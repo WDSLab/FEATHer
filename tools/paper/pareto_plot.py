@@ -45,7 +45,7 @@ def frontier(points):
 
 def main():
     p = argparse.ArgumentParser(description="Accuracy-vs-params Pareto plot")
-    p.add_argument("--csv", default="results/mfg_raw.csv")
+    p.add_argument("--csv", default="results/_archive/pre_raw_20261007/mfg_raw.csv")
     p.add_argument("--exp_tag", default="main")
     p.add_argument("--metric", default="MSE", choices=["MSE", "MAE", "RMSE"])
     p.add_argument("--data", default=",".join(MFG),

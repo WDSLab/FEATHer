@@ -26,7 +26,7 @@ shipping model; see ABLATION_ARMS below):
     python run_forecast.py --check --ablation_arm all --group mfg --num_seeds 1
                                                          # count first
     python tools/paper/ablation_summary.py --per_dataset # verdict (>=2% = signal)
-Rows are tagged abl_<arm> and routed to results/ablation.csv, so the headline
+Rows are tagged abl_<arm> and routed to results/_archive/pre_raw_20261007/ablation.csv, so the headline
 CSV stays clean; the main sweep is the baseline and is never re-run.
 
 Multi-GPU: `--ngpu N` runs a CF-JEPA-style dynamic queue ??one worker
@@ -315,7 +315,7 @@ _ARM_ALIAS = {
     "no_revin":        {"use_norm"},
 }
 
-ABLATION_CSV = "results/ablation.csv"
+ABLATION_CSV = "results/_archive/pre_raw_20261007/ablation.csv"
 
 
 def enumerate_combos(args):

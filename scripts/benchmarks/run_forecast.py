@@ -246,7 +246,15 @@ def train_single(args, data_name, pred_len, device, seed):
     oracle_mae = float("nan")
     oracle_epoch = -1
 
+    # 2026-10-07: optional per-model hooks for a baseline's own training recipe (DiPE: router
+    # temperature schedule + time/frequency loss mix). Models without them are untouched.
+    _epoch_hook = getattr(model, "_epoch_start", None)
+    _train_loss = getattr(model, "_train_loss", None)
+    _test_hook = getattr(model, "_test_start", None)
+
     for epoch in range(args.num_epochs):
+        if _epoch_hook is not None:
+            _epoch_hook(epoch)
         # ---------- Train ----------
         model.train()
         total_loss = 0.0
@@ -266,6 +274,8 @@ def train_single(args, data_name, pred_len, device, seed):
 
             # MASK-FIX (2026-07-15): observed-only loss (see _masked_loss).
             main_loss = _masked_loss(output, target, args.loss)
+            if _train_loss is not None:
+                main_loss = _train_loss(output, target, main_loss)
             if use_spec_loss:
                 loss = main_loss + args.lambda_spec * losses.spectral_separation_loss_scales(H)
             else:
@@ -388,6 +398,8 @@ def train_single(args, data_name, pred_len, device, seed):
             f"run (diverged/NaN); refusing to report last-epoch metrics")
     model.load_state_dict(best_state)
     model.eval()
+    if _test_hook is not None:
+        _test_hook()
     # AUDIT-FIX (2026-07-19, #3): MSE/MAE are a GLOBAL observed-cell mean
     # (nansum of squared/abs error over finite cells / finite-cell count),
     # NOT a batch-size-weighted mean of per-batch nanmeans. On unmasked data
@@ -496,7 +508,7 @@ def train_single(args, data_name, pred_len, device, seed):
     timestamp = now.strftime("%Y%m%d_%H%M%S")
     row = {
         "exp_tag":   args.exp_tag,
-        "model":     args.model,
+        "model":     getattr(args, "result_model_name", None) or args.model,
         "data":      data_name,
         "pred_len":  pred_len,
         "seq_len":   args.seq_len,
@@ -598,6 +610,8 @@ def parse_args():
     p.add_argument("--features",  type=str, default="M")
 
     # Model
+    p.add_argument("--result_model_name", type=str, default=None,
+                   help="name written to the results row (run_plan.py: FEATHer_mix / FEATHer_CI); default = --model")
     p.add_argument("--model", type=str, default="FEATHer",
                    choices=list_models())
     p.add_argument("--seq_len",   type=int, default=96)

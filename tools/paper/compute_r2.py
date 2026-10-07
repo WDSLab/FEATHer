@@ -22,8 +22,8 @@ matching the worker's global nansum/finite-count estimator.
 
 Usage
 -----
-    python tools/paper/compute_r2.py --csv results/mfg_raw.csv --out results/mfg_r2.csv
-    python tools/paper/compute_r2.py --csv results/ltsf_raw.csv --variance_only
+    python tools/paper/compute_r2.py --csv results/_archive/pre_raw_20261007/mfg_raw.csv --out results/analysis/mfg_r2.csv
+    python tools/paper/compute_r2.py --csv results/_archive/pre_raw_20261007/ltsf_raw.csv --variance_only
 """
 from __future__ import annotations
 

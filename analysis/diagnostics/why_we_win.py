@@ -8,10 +8,10 @@
   (나) 센서끼리의 관계 때문인가.
 
 재료
-  results/linear_ceiling_mix.csv   데이터만으로 구한 두 선형 천장
+  results/analysis/linear_ceiling_mix.csv   데이터만으로 구한 두 선형 천장
       ci   센서 따로 곱해서 더하기의 최선 (val 로 규제 선택, test 1회)
       mix  센서 섞어서 곱해서 더하기의 최선 (CI 쪽으로 당기는 규제)
-  results/mfg_raw.csv              모든 모델의 test MSE (3시드 평균)
+  results/_archive/pre_raw_20261007/mfg_raw.csv              모든 모델의 test MSE (3시드 평균)
 
 지표 (칸마다, 전부 우리 모델과 무관하게 정의되는 것과 우리 성적을 분리)
   lin_mix_gain   (ci - mix) / ci          센서를 섞어서 선형으로 얻는 이득
@@ -44,11 +44,11 @@ HEAVY = ["TimesNet", "PatchTST", "LMS_AutoTSF", "iTransformer", "TimeMixer",
 
 
 def main():
-    cpath = "results/linear_ceiling_mix.csv"
+    cpath = "results/analysis/linear_ceiling_mix.csv"
     if not os.path.exists(cpath):
         sys.exit(f"{cpath} 없음 - linear_ceiling_mix.py 먼저")
     c = pd.read_csv(cpath, on_bad_lines="skip")
-    acc = (pd.read_csv("results/mfg_raw.csv")
+    acc = (pd.read_csv("results/_archive/pre_raw_20261007/mfg_raw.csv")
            .groupby(["model", "data", "pred_len"]).MSE.mean().unstack(0))
 
     rows = []

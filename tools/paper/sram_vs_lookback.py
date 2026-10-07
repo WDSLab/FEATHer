@@ -15,7 +15,7 @@ Per model and horizon H (MetroPT3 cell, D = 7, NUCLEO-F103RB 128 KB / 20 KB):
          to the measured L = 96 image: flash(L, H) = flash_96(H) + 4 * (params(L, H) - params(96, H)).
          Fits if <= 128 KB (firmware floor included in flash_96).
 
-    python tools/paper/sram_vs_lookback.py      -> results/sram_vs_lookback_20261006.csv
+    python tools/paper/sram_vs_lookback.py      -> results/analysis/sram_vs_lookback_20261006.csv
 """
 import contextlib
 import io
@@ -35,7 +35,7 @@ MODELS = ["SparseTSF", "MixLinear", "DiPE_Linear", "SparseTSF_MLP", "FITS", "Cyc
           "FEATHer_CI", "FEATHer_mix"]
 LS, HS = (96, 192, 336, 720), (96, 720)
 SRAM, FLASH, STACK = 20 * 1024, 128 * 1024, 552
-OUT = "results/sram_vs_lookback_20261006.csv"
+OUT = "results/analysis/sram_vs_lookback_20261006.csv"
 
 
 def params(m, L, H):

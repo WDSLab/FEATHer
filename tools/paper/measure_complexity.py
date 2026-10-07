@@ -44,7 +44,7 @@ Both the raw per-bucket counts and the weighted total are written, so a reader
 who disagrees with the weights can re-weight from the same measurements.
 
 Usage:
-    python tools/paper/measure_complexity.py --out results/complexity.csv
+    python tools/paper/measure_complexity.py --out results/analysis/complexity.csv
     python tools/paper/measure_complexity.py --validate
 """
 import argparse
@@ -322,7 +322,7 @@ def main():
     p.add_argument("--models", default=None)
     p.add_argument("--data", default=None)
     p.add_argument("--pred_len", default="96,192,336,720")
-    p.add_argument("--out", default="results/complexity.csv")
+    p.add_argument("--out", default="results/analysis/complexity.csv")
     p.add_argument("--validate", action="store_true",
                    help="regress the weighted count against board latency")
     args = p.parse_args()

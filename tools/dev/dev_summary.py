@@ -39,7 +39,7 @@ def _median(xs):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--csv", default="results/dev_loop.csv")
+    p.add_argument("--csv", default="results/dev/dev_loop.csv")
     p.add_argument("--prefix", default="dev",
                    help="Only exp_tags starting with this are considered.")
     p.add_argument("--ref", default="canon",

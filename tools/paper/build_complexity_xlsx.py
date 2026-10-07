@@ -1,4 +1,4 @@
-"""Build analysis/04_complexity.xlsx from results/complexity.csv (paper Table-5 style).
+"""Build analysis/04_complexity.xlsx from results/analysis/complexity.csv (paper Table-5 style).
 
 Layout: for each representative dataset, a block of 4 horizon columns; each model
 has a Parameters row and a MACs row. FEATHer = FINAL frozen cells
@@ -9,7 +9,7 @@ import os
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 
-CSV = "results/complexity.csv"
+CSV = "results/analysis/complexity.csv"
 OUT = "analysis/deployment/complexity.xlsx"
 
 # representative datasets: small / mid / high-channel

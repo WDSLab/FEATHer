@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Manufacturing main tables — accuracy and cost — from the single-source CSVs.
 
-Reads results/mfg_raw.csv (14 models x 6 datasets x 4 horizons x 3 seeds) and
-results/complexity.csv (FFT-aware MACs), and writes analysis/mfg/:
+Reads results/_archive/pre_raw_20261007/mfg_raw.csv (14 models x 6 datasets x 4 horizons x 3 seeds) and
+results/analysis/complexity.csv (FFT-aware MACs), and writes analysis/mfg/:
 
     T1_accuracy.xlsx    per-model MSE and MAE, mean+-std over seeds
                         sheets: avg (horizon-averaged + OVERALL), per_horizon
@@ -242,8 +242,8 @@ def build_cost(df: pd.DataFrame, cx: pd.DataFrame, deployable: dict, out: str) -
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--csv", default="results/mfg_raw.csv")
-    ap.add_argument("--complexity", default="results/complexity.csv")
+    ap.add_argument("--csv", default="results/_archive/pre_raw_20261007/mfg_raw.csv")
+    ap.add_argument("--complexity", default="results/analysis/complexity.csv")
     ap.add_argument("--out_dir", default="analysis/mfg")
     args = ap.parse_args()
 
