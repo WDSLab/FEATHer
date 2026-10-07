@@ -1,3 +1,6 @@
+> **10-07**: dev 루프(`run_dev.py`, `dev_summary.py`, `dev_cost.py`)와 끝난 진단 도구는 `tools/dev/_archive/` 로 옮김.
+> 남은 것: control_verdict · gate_swap(보드 replay 가 씀) · sensor_dropout · sensor_lag · sensor_mixing_probe.
+
 # Fast dev loop (2026-08-26)
 
 A screening protocol for FEATHer architecture work. It exists because the

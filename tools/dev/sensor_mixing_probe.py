@@ -30,7 +30,7 @@ def build(name):
         sys.argv = ["x"]
         import importlib.util
         spec = importlib.util.spec_from_file_location(
-            "worker", os.path.join(ROOT, "scripts", "benchmarks", "run_forecast.py"))
+            "worker", os.path.join(ROOT, "scripts", "train.py"))
         w = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(w)
         sys.argv = ["x", "--model", "FEATHer", "--data", "MetroPT3", "--pred_len", "96"]

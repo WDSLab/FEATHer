@@ -122,7 +122,7 @@ def main():
 
     # ---- industrial: ablation and control arms
     d = load("ablation.csv")
-    mfg.append(tag(d, "ablation", lambda r: f"abl:{r.exp_tag}"))
+    mfg.append(tag(d, "ablation", lambda r: "abl:" + r.exp_tag.replace("abl_", "", 1)))
     d = load("control_sparsetsf_mix.csv")
     mfg.append(tag(d, "control", lambda r: f"ctrl:{r.model}"))
     d = load("control_front_none.csv")

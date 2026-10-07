@@ -15,7 +15,7 @@ would be double-counted and bias the mean/std. This tool surfaces those
 duplicates before they reach a table, and `--fix` rewrites a deduped CSV
 (keeping the LATEST timestamp per key) after backing up the original.
 
-Resume key (matches run_forecast.py load_done_set):
+Resume key (matched the old orchestrator's load_done_set, _archive/run_forecast_orchestrator.py):
     exp_tag, model, data, pred_len, seq_len, seed
 
 AUDIT-FIX (2026-07-14, P2-3): robust_results.csv rows are keyed PER

@@ -189,7 +189,7 @@ RAM 은 밴드 수·커널과 무관(버퍼가 >1 이면 동일).
 | `--band_dilations` | 밴드 conv 팽창률. 기각됐으나 도구는 보존 |
 
 수정: `FEATHer.py`(HIGH=3/MID=5 하드코딩 해제) · `run_forecast.py` ·
-`scripts/benchmarks/run_forecast.py` · `baselines/__init__.py`
+`scripts/train.py` · `baselines/__init__.py`
 
 ## 9. 남은 작업
 

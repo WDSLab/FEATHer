@@ -22,7 +22,14 @@ import pandas as pd
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from run_forecast import ABLATION_ARMS, ABLATION_CSV  # noqa: E402
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "results")))
+from protocol import ABLATION_ARMS as _ARMS  # noqa: E402  (10-07: arm table moved out of the old orchestrator)
+
+# ablation rows (pre-10-07 file; new ablation runs land in results/raw_mfg.csv with role "ablation")
+ABLATION_CSV = "results/_archive/pre_raw_20261007/ablation.csv"
+_TIER = {"norevin": "standard", "noresid": "standard", "r2": "variant", "r8": "variant",
+         "readd_dtk": "readd", "readd_inproj": "readd"}
+ABLATION_ARMS = {a: (_TIER.get(a, "design"), desc, None) for a, (desc, _f, _k) in _ARMS.items()}
 
 SIGNAL_PCT = 2.0
 

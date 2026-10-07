@@ -42,7 +42,7 @@ batch 32 · 최대 50 epoch · patience 10 · Adam + CosineAnnealing(T_max 50) �
 - **방법 고유의 학습 항은 유지**: FEATHer 스펙트럼 항(λ 0.01) · TimeBase 직교 항 · DiPE 시간/주파수 손실 비율과
   전문가 라우터 온도 일정 · SAMformer 의 SAM 최적화.
 - **학습 방법 선택은 통일(공식과 달라도)**: Huber 손실(PhaseFormer), 에폭 수·lradj·batch, FITS train_mode 2 등.
-- 코드: `scripts/benchmarks/run_forecast.py` (모델 연결 지점 `_epoch_start` / `_train_loss` / `_test_start`).
+- 코드: `scripts/train.py` (모델 연결 지점 `_epoch_start` / `_train_loss` / `_test_start`).
 
 ## 4. 모델과 역할
 

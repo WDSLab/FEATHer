@@ -48,7 +48,7 @@ BRANCH = ["POINT(k3)", "MID(k5)", "LOW(pool)"]
 
 
 def load_worker():
-    path = os.path.join(REPO, "scripts", "benchmarks", "run_forecast.py")
+    path = os.path.join(REPO, "scripts", "train.py")
     spec = importlib.util.spec_from_file_location("fcst_worker", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -58,7 +58,7 @@ def load_worker():
 def worker_argv(log_prefix, arm, data):
     """Worker argument lists for this (arm, data), one per learning rate, read
     from the dev logs.  A log can hold several datasets, so match --data."""
-    pat = os.path.join(REPO, "results", "_devlogs", f"{log_prefix}_{arm}_*_h*.log")
+    pat = os.path.join(REPO, "results", "_archive", "_devlogs", f"{log_prefix}_{arm}_*_h*.log")
     found = []
     # The glob also matches arms that merely START with this name
     # (mx_in1_r4_gsensor_* catches _oct/_ter/_ters) - keep "<arm>_<lr>_h<H>.log" only.
@@ -68,10 +68,12 @@ def worker_argv(log_prefix, arm, data):
             continue
         with open(log, encoding="utf-8", errors="replace") as f:
             for line in f:
-                if "CMD:" not in line or "scripts/benchmarks/run_forecast.py" not in line:
+                # dev logs written before 10-07 name the worker scripts/benchmarks/run_forecast.py
+                wk = next((w for w in ("scripts/train.py", "scripts/benchmarks/run_forecast.py") if w in line), None)
+                if "CMD:" not in line or wk is None:
                     continue
                 toks = line.split("CMD:", 1)[1].split()
-                argv = toks[toks.index("scripts/benchmarks/run_forecast.py") + 1:]
+                argv = toks[toks.index(wk) + 1:]
                 if argv[argv.index("--data") + 1] == data:
                     found.append(argv)
                     break

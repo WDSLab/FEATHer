@@ -204,11 +204,12 @@ RevIN -> 3 bands: conv k=3 | conv k=5 | AvgPool(4)+interp -> banded FFT gate -> 
 `utils/` = 데이터·학습 기계, `tools/` = 사람이 돌려 산출물을 만드는 것 (학습 경로에서 import 안 함).
 
 ```
-run_forecast.py                   오케스트레이터 (--check, resume, --ngpu/--jobs_per_gpu, --ablation_arm)
-run_plan.py                       (10-07) 계획 기반 실행기 — 프로토콜이 요구하는 칸 중 결과에 없는 것만 실행
-tools/results/                    (10-07) protocol(후보·설정 해석) · build_raw · merge_incoming · select_verdict
-docs/EXPERIMENT_PROTOCOL.md            (10-07) 실험 규칙 확정본 (데이터·L/H·학습 절차·설정 규칙·모델별 후보)
-scripts/benchmarks/run_forecast.py 워커 (모델 × 데이터 × H × N시드)
+run_plan.py                       유일한 실행 입구 — 프로토콜이 요구하는 칸 중 결과에 없는 것만 실행
+                                  (--stage ltsf / ltsf_select / select / main / lookback / ablation / control, --save_model)
+scripts/train.py                  학습 코드 (모델 × 데이터 × H × 시드들 → 결과 행). run_plan 이 부름 (10-07 이름 변경)
+tools/results/                    protocol(후보·설정·ablation·대조군 정의) · build_raw · merge_incoming · select_verdict
+docs/                             EXPERIMENT_PROTOCOL.md (실험 규칙) · MODEL_FINAL.md (FEATHer 동결 구조)
+_archive/run_forecast_orchestrator.py   옛 실행기 (10-07 은퇴; run_plan 이 같은 명령을 만드는 것 61칸 대조 확인)
 baselines/__init__.py             레지스트리(15) + _METHOD_DEFAULTS + _DATASET_OVERRIDES + _FEATHER_FROZEN
 baselines/<Name>/wrapper.py       upstream Model 을 forward(x)->(B,H,D) 로 감쌈
 utils/                            prep_manufacturing (raw -> data.csv + mask.csv) · data_factory · data_loader
@@ -311,12 +312,12 @@ python manuscript/version/_build/make.py
 python tools/paper/merge_raw.py
 python tools/paper/table_deploy.py
 python tools/paper/fig_pareto_board.py
-python tools/paper/ablation_summary.py --per_dataset
+python tools/paper/ablation_summary.py --per_dataset   # (옛 ablation.csv 기준)
 
-# 스윕 (resume; 재실험 필요할 때만)
-python run_forecast.py --check --exp_tag main
-python run_forecast.py --model FEATHer --group mfg --exp_tag main --ngpu 1 --jobs_per_gpu 2
-python run_forecast.py --ablation_arm gateuni,band1 --group mfg --num_seeds 3
+# ablation · 대조군 · 보드용 체크포인트 (run_plan 에 통합, 10-07)
+python run_plan.py --stage ablation --check
+python run_plan.py --stage control --ngpu 1 --jobs_per_gpu 3
+python run_plan.py --stage main --models FEATHer_mix --data MetroPT3 --save_model   # 보드 export 용 저장
 
 # 보드 / C
 cd deployment/board && make test                    # WSL, 골든 전부
@@ -329,9 +330,6 @@ python deployment/board/replay.py --data MetroPT3 --H 96 --port COM3 --every 60 
 python tools/audit/check_progress.py --exp_tag main
 python tools/audit/check_duplicates.py
 
-# 10-06 추가: 새 베이스라인 비교 · P1 판정(보류 중) · 연동 강도 분석
-python tools/dev/_archive/new_baselines_compare.py
-python tools/dev/_archive/p1_verdict.py
+# 연동 강도 분석 (10-06, 사전 규칙 실패 기록)
 python tools/paper/coupling_vs_mixing.py
-python run_forecast.py --model CMoS --group ltsf --num_seeds 3 --exp_tag main --results_csv results/new4_ltsf.csv --ngpu 2 --jobs_per_gpu 3
 ```

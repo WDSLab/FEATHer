@@ -74,6 +74,55 @@ LTSF_NO_OFFICIAL = {
     ("CMoS", "Exchange"), ("TimeBase", "Exchange"), ("PhaseFormer", "Exchange"),
 }
 
+# ---- FEATHer ablation arms (moved from the old orchestrator's ABLATION_ARMS, 10-07) -------------------
+# arm -> (what it removes, worker CLI flags, frozen-setting keys the flags displace).  Applied on top of
+# the frozen industrial FEATHer-mix.  Rows: role "ablation", config_id "abl:<arm>", model "FEATHer",
+# exp_tag "abl_<arm>" for the pre-10-07 rows.
+ABLATION_ARMS = {
+    "band1":      ("single-scale (1 band)",            ["--num_bands", "1"], {"num_bands"}),
+    "band2":      ("dual-scale (2 bands)",             ["--num_bands", "2"], {"num_bands"}),
+    "gatenone":   ("w/o gating (unweighted sum)",      ["--gate_mode", "none"], {"gate_mode"}),
+    "gateuni":    ("uniform gating (1/S)",             ["--gate_uniform"], {"gate_uniform", "use_gate"}),
+    "gatesm":     ("softmax gating (no FFT)",          ["--gate_mode", "softmax"], {"gate_mode"}),
+    "gatestatic": ("static learned mixture (no FFT)",  ["--gate_mode", "static"], {"gate_mode"}),
+    "headmlp":    ("SPK -> 2-layer MLP head",          ["--head_mode", "mlp"], {"head_mode"}),
+    "headconv":   ("SPK -> depthwise conv head",       ["--head_mode", "conv"], {"head_mode"}),
+    "headlin":    ("SPK -> dense linear head",         ["--head_mode", "linear"], {"head_mode"}),
+    "norevin":    ("RevIN off",                        ["--no_revin"], {"no_revin", "use_norm"}),
+    "spec0":      ("spectral loss off (lambda 0)",     ["--lambda_spec", "0.0"], {"lambda_spec"}),
+    "specHi":     ("spectral loss lambda 0.1",         ["--lambda_spec", "0.1"], {"lambda_spec"}),
+    "noresid":    ("residual MLP off",                 [], {"use_residual_mlp", "mlp_rank"}),   # worker default = off
+    "r2":         ("mixing width R = 2",               ["--mlp_rank", "2"], {"mlp_rank"}),
+    "r8":         ("mixing width R = 8",               ["--mlp_rank", "8"], {"mlp_rank"}),
+    "readd_dtk":  ("DTK back (mlp variant)",           ["--dtk_mode", "mlp"], {"dtk_mode"}),
+    "readd_inproj": ("linear channel mixer back",      [], {"no_in_proj"}),
+}
+# the arms and horizons that the paper's ablation tables use (3 seeds each)
+ABLATION_PLAN = {"band1": HS, "gatenone": HS, "headlin": HS, "band2": [96], "gatestatic": [96], "gateuni": [96],
+                 "noresid": [96], "norevin": [96], "r2": [96], "r8": [96], "spec0": [96]}
+
+# ---- control arms: SparseTSF(+MLP) + FEATHer's mixing bus, FEATHer without bands/gate ---------------
+# result model name -> (registry model, extra worker flags).  Settings = the host model's industrial row.
+CONTROL_ARMS = {
+    "SparseTSF_mix": ("SparseTSF_mix", []), "SparseTSF_mixM": ("SparseTSF_mixM", []),
+    "SparseTSF_MLP_mix": ("SparseTSF_MLP_mix", []), "SparseTSF_MLP_mixM": ("SparseTSF_MLP_mixM", []),
+    "FEATHer_frontnone": ("FEATHer", ["--front", "none"]),
+}
+
+
+def control_row_model(arm):
+    """Model name written in the results rows (the FEATHer arm keeps the pre-10-07 name "FEATHer")."""
+    return "FEATHer" if arm == "FEATHer_frontnone" else arm
+
+
+def cli_flags(model, config_id):
+    """Extra worker CLI flags for a cell (ablation / control arms); [] otherwise."""
+    if config_id.startswith("abl:"):
+        return list(ABLATION_ARMS[config_id[4:]][1])
+    if config_id.startswith("ctrl:"):
+        return list(CONTROL_ARMS[config_id[5:]][1])
+    return []
+
 CHOSEN_FILE = os.path.join(ROOT, "results", "chosen_mfg.json")
 CHOSEN_LTSF_FILE = os.path.join(ROOT, "results", "chosen_ltsf.json")
 
@@ -94,20 +143,27 @@ def chosen_ltsf():
     return _load(CHOSEN_LTSF_FILE)
 
 
-def registry_name(model):
+def registry_name(model, config_id=""):
+    if config_id.startswith("ctrl:"):
+        return CONTROL_ARMS[config_id[5:]][0]
     return "FEATHer" if model in FEATHER else model
 
 
-def _merge(model, data, H):
-    m = registry_name(model)
+def _merge(model, data, H, config_id=""):
+    m = registry_name(model, config_id)
     return {**B.get_method_defaults(m), **B.get_dataset_overrides(m, data, H)}
 
 
 def resolve(model, group, data, H, config_id):
     """Worker settings for one cell: (lr, loss, overrides dict)."""
-    m = registry_name(model)
-    if config_id in ("frozen", "official", "official-exc", "ref-default") or config_id.startswith("ctrl:"):
-        s = _merge(model, data, H)
+    m = registry_name(model, config_id)
+    if config_id.startswith("abl:"):
+        # frozen industrial FEATHer-mix minus the keys the arm's flags replace (old orchestrator logic)
+        s = _merge("FEATHer", data, H)
+        for k in ABLATION_ARMS[config_id[4:]][2]:
+            s.pop(k, None)
+    elif config_id in ("frozen", "official", "official-exc", "ref-default") or config_id.startswith("ctrl:"):
+        s = _merge(model, data, H, config_id)
         if model == "FEATHer_CI" and group == "mfg":
             s["channel_mode"] = "ci_full"
         if model == "FEATHer_mix" and group == "ltsf":

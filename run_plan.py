@@ -13,6 +13,8 @@ Stages (docs/EXPERIMENT_PROTOCOL.md):
     main      industrial chosen setting x 3 seeds, L 96 (models without a choice are skipped) -> raw_mfg.csv
     lookback  industrial chosen setting x 3 seeds, L 48 / 192 / 336 (FEATHer + chip models + DLinear,
               CycleNet as in the earlier Table 11 pool) -> raw_mfg.csv
+    ablation  FEATHer arms (protocol.ABLATION_PLAN: arm x horizons) x 6 datasets x 3 seeds          -> raw_mfg.csv
+    control   SparseTSF(+MLP) + mixing bus, FEATHer without bands/gate x 6 x 4 H x 3 seeds          -> raw_mfg.csv
 
 A cell is done when raw_*.csv, select_mfg.csv or a not-yet-merged shard in results/_incoming/ holds a row
 with the same (role, config_id, model, data, pred_len, seq_len, seed).  New rows are written to
@@ -75,6 +77,24 @@ def plan(stage, models=None):
                     for h in P.HS:
                         add(role="select", config_id="cand:" + c, model=m, group="mfg", data=d, pred_len=h,
                             seq_len=96, seed=P.SELECT_SEED)
+    elif stage == "ablation":
+        for arm, hs in P.ABLATION_PLAN.items():
+            if models and arm not in models:
+                continue
+            for d in P.MFG:
+                for h in hs:
+                    for s in P.SEEDS:
+                        add(role="ablation", config_id="abl:" + arm, model="FEATHer", group="mfg", data=d,
+                            pred_len=h, seq_len=96, seed=s)
+    elif stage == "control":
+        for arm in P.CONTROL_ARMS:
+            if models and arm not in models:
+                continue
+            for d in P.MFG:
+                for h in P.HS:
+                    for s in P.SEEDS:
+                        add(role="control", config_id="ctrl:" + arm, model=P.control_row_model(arm), group="mfg",
+                            data=d, pred_len=h, seq_len=96, seed=s)
     elif stage in ("main", "lookback"):
         pool = models or (P.FEATHER + P.LIGHT + P.HEAVY if stage == "main" else P.FEATHER + P.ON_CHIP + ["CycleNet", "DLinear"])
         Ls = [96] if stage == "main" else [48, 192, 336]
@@ -126,24 +146,29 @@ def jobs_for(missing, args, out_csv):
     for (role, cfg, m, g, d, h, L), seeds in sorted(groups.items(), key=lambda kv: (kv[0][4] != "MetroPT3", kv[0])):
         lr, loss, ov = P.resolve(m, g, d, h, cfg)
         ovs = ";".join(f"{k}={v}" for k, v in sorted(ov.items()))
-        cmd = [sys.executable, "scripts/benchmarks/run_forecast.py", "--model", P.registry_name(m),
+        cmd = [sys.executable, "scripts/train.py", "--model", P.registry_name(m, cfg),
                "--data", d, "--pred_len", str(h), "--seq_len", str(L),
                "--seeds", ",".join(str(s) for s in sorted(seeds)), "--exp_tag", f"{role}|{cfg}",
                "--results_csv", out_csv, "--num_epochs", "50", "--patience", "10", "--batch_size", "32",
                "--lr", str(lr), "--loss", loss, "--result_model_name", m]
         if ovs:
             cmd += ["--model_overrides", ovs]
+        cmd += P.cli_flags(m, cfg)
+        if args.save_model:
+            cmd += ["--save_model"]
         jobs.append((f"{role}|{cfg} | {m} | {d} | H={h} | L={L} | seeds={sorted(seeds)} | lr={lr}", cmd))
     return jobs
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", required=True, choices=["ltsf", "ltsf_select", "select", "main", "lookback"])
+    ap.add_argument("--stage", required=True, choices=["ltsf", "ltsf_select", "select", "main", "lookback", "ablation", "control"])
     ap.add_argument("--models", default="", help="comma list (default: the stage's pool)")
     ap.add_argument("--data", default="", help="comma list of datasets (default: all of the stage)")
     ap.add_argument("--configs", default="", help="comma list of config_ids (default: all)")
     ap.add_argument("--limit", type=int, default=0, help="run only the first N worker invocations (testing)")
+    ap.add_argument("--save_model", action="store_true", help="also save each trained state dict "
+                    "(results/checkpoints/<exp_tag>/<model>/...; needed for board export and replay)")
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--ngpu", type=int, default=1)
     ap.add_argument("--gpu", type=int, default=0)

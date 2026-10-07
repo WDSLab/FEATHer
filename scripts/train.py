@@ -10,7 +10,7 @@ top-level `run_forecast.py` orchestrator dispatch missing combos
 automatically.
 
 Usage:
-    python scripts/benchmarks/run_forecast.py \
+    python scripts/train.py \
         --model FEATHer --data ETTh1 --pred_len 96 \
         --seeds "2025,2026,2027,2028,2029" --exp_tag main
 """
@@ -30,7 +30,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 # Project root on path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # repo root (scripts/train.py)
 
 from baselines import get_model, list_models
 from utils import data_factory
@@ -78,8 +78,11 @@ def checkpoint_path(exp_tag, model_name, data_name, pred_len, seq_len, seed):
         results/checkpoints/<exp_tag>/<model>/<data>_H<h>_L<L>_s<seed>.pth
     (os.makedirs on dirname at save time creates the model subfolder.)
     """
+    # run_plan.py exp_tags look like "main|cand:ETTh1"; '|' and ':' are not legal in Windows paths
+    # (older tags such as "candR4" contain neither, so their checkpoint paths are unchanged).
+    folder = exp_tag.replace("|", "__").replace(":", "-")
     return os.path.join(
-        "results", "checkpoints", exp_tag, model_name,
+        "results", "checkpoints", folder, model_name,
         f"{data_name}_H{pred_len}_L{seq_len}_s{seed}.pth",
     )
 
@@ -751,7 +754,7 @@ def parse_args():
 
     # Experiment grouping
     p.add_argument("--exp_tag",    type=str, default="default")
-    p.add_argument("--results_csv", type=str, default="results/fcst_results.csv")
+    p.add_argument("--results_csv", type=str, default="results/_incoming/train.csv")
 
     # Generic per-(model, dataset) HP injection ??orchestrator passes
     # "key=val;key2=val2" pairs derived from get_dataset_overrides(); each

@@ -27,7 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from utils.dispatch_queue import run_on_gpus          # noqa: E402
 from baselines import get_dataset_overrides           # noqa: E402
 
-WORKER = os.path.join("scripts", "benchmarks", "run_forecast.py")
+WORKER = os.path.join("scripts", "train.py")
 
 GRID = {
     "d_state":     [4, 8, 16],

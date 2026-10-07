@@ -58,7 +58,7 @@ def build_args(worker, arm, data, H, seed):
     argv = ["--model", "FEATHer", "--data", data, "--pred_len", str(H), "--seq_len", "96",
             "--seeds", str(seed), "--exp_tag", tag, "--results_csv", csv,
             "--lr", str(lr), "--loss", "mse", "--model_overrides", ovr] + extra
-    sys.argv = ["run_forecast.py"] + argv
+    sys.argv = ["train.py"] + argv
     args = worker.parse_args()
     worker._apply_overrides(args)
     args.label_len = min(args.label_len, args.seq_len)

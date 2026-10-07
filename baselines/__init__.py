@@ -263,7 +263,7 @@ _BUILDERS: Dict[str, Callable] = {
 # architecture. Running them would have ablated a model that is not the one in
 # the main table, and the deltas would have been meaningless.
 #
-# Ablation now runs as `run_forecast.py --ablation_arm <arm>`: one switch off
+# Ablation now runs as `run_plan.py --stage ablation` (arms in tools/results/protocol.py): one switch off
 # per arm on the shipping model, using the flags the worker already exposes.
 # See ABLATION_ARMS there. Head/DTK-variant ablations are the one thing that
 # did not survive the move ??they need the archived modules updated to accept
@@ -393,7 +393,7 @@ def get_method_defaults(name):
 # FEATHer FINAL canonical mfg config ("N" cell) ??shared across all 6 mfg
 # datasets (one-config protocol); merged with a per-dataset `period` below.
 # FROZEN 2026-09-04 (docs/MODEL_FINAL.md).  Until now these dicts still held the
-# pre-freeze 938p config, so `run_forecast.py --model FEATHer` silently built
+# pre-freeze 938p config, so `--model FEATHer` silently built
 # the OLD model -- the shipping sweeps only got the frozen one because they
 # were launched with explicit CLI flags.  The two variants differ in exactly
 # one key (channel_mode); everything else is shared, and only `period` is
