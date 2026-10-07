@@ -98,6 +98,9 @@ MODELS = {
                              lambda H, D: _geom("FEA2")(H, D) + ["-DFEA2_MLP_R=2"], True),
     "FEATHer_recompute_r8": (["feather2r_infer"], "feather2",
                              lambda H, D: _geom("FEA2")(H, D) + ["-DFEA2_MLP_R=8"], True),
+    # 10-07: the shipping recompute port without bands + FFT gate (FEATHer_frontnone)
+    "FEATHer_frontnone":    (["feather2r_infer"], "feather2fn",
+                             lambda H, D: _geom("FEA2")(H, D) + ["-DFEA2_MLP_R=4", "-DFEA2_FRONT_NONE"], True),
     # CI variant of the re-frozen model (2026-09-23, mlp_rank 4)
     "FEATHer_CI_r4":        (["feather2_infer", "feather2ci_infer"], "feather2ci",
                              lambda H, D: _ci_geom(H, D) + ["-DFEA2_MLP_R=4"], True),
@@ -142,7 +145,8 @@ def sections(obj: str) -> dict[str, int]:
 EXPORT_EXTRA = {"FEATHer_recompute_r2": ["--mlp_rank", "2"],
                 "FEATHer_recompute_r8": ["--mlp_rank", "8"],
                 "FEATHer_recompute_r4": ["--mlp_rank", "4"],
-                "FEATHer_CI_r4": ["--mlp_rank", "4"]}
+                "FEATHer_CI_r4": ["--mlp_rank", "4"],
+                "FEATHer_frontnone": ["--mlp_rank", "4"]}
 
 
 def export(stem: str, H: int, D: int, extra=()) -> tuple[bool, str]:

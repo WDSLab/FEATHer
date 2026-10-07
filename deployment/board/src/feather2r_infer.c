@@ -29,7 +29,16 @@
 
 #include "feather2_infer.h"
 #include "feather2r_infer.h"
+/* FEA2_FRONT_NONE (2026-10-07): the control arm without the band bank and the
+ * FFT gate (FEATHer.py front="none": hidden = x_norm), to measure what bands +
+ * gate cost on the chip.  Everything else - residual mixer, SPK head, this
+ * recompute schedule - is the frozen model's.  Off = byte-identical port. */
+#ifdef FEA2_FRONT_NONE
+#include "feather2fn_weights.h"
+_Static_assert(FEA2_FN_GEN == 1, "feather2fn_weights.h was not exported with front=none");
+#else
 #include "feather2_weights.h"
+#endif
 
 _Static_assert(FEA2_H == FEA2_H_GEN,
                "FEA2_H does not match the horizon the weights were exported at - re-run export_golden_*.py --pred_len");
@@ -38,7 +47,9 @@ _Static_assert(FEA2_MLP_R == FEA2_R_GEN,
 
 static const float *s_x;                   /* caller's (L, D) window, read only */
 static float s_mean[FEA2_D], s_stdev[FEA2_D];
+#ifndef FEA2_FRONT_NONE
 static float s_g[FEA2_NB];
+#endif
 static float s_U[FEA2_L * FEA2_MLP_R];     /* the only buffer that scales with R  */
 static float s_row[FEA2_L];                /* one sensor's x_norm                  */
 static float s_col[FEA2_L];                /* one sensor's hidden -> h_agg         */
@@ -53,6 +64,16 @@ static void norm_row(int d)
     for (int t = 0; t < FEA2_L; ++t)
         s_row[t] = (s_x[t * FEA2_D + d] - s_mean[d]) / s_stdev[d];
 }
+
+#ifdef FEA2_FRONT_NONE
+/* no bands, no gate: the hidden row of sensor d is its x_norm row */
+static void gated_bands(int d)
+{
+    (void)d;
+    for (int t = 0; t < FEA2_L; ++t)
+        s_col[t] = s_row[t];
+}
+#else
 
 /* col[t] += scale * (sum_j w[d][j] row[t+j-pad] + b[d]), 'same' zero padding */
 static void dwconv_acc(const float *row, float *col, int d,
@@ -136,13 +157,16 @@ static void banded_gate(void)
     }
     fea_softmax(z, s_g, FEA2_NB);
 }
+#endif /* FEA2_FRONT_NONE */
 
 void fea2r_begin(const float *x)
 {
     s_x = x;
     s_cur = -1;
     fea_instnorm_stats(x, FEA2_L, FEA2_D, s_mean, s_stdev);
+#ifndef FEA2_FRONT_NONE
     banded_gate();                                   /* pass 0 */
+#endif
 
     for (int t = 0; t < FEA2_L; ++t)                 /* pass 1 */
         for (int r = 0; r < FEA2_MLP_R; ++r)

@@ -49,6 +49,9 @@ RAM_BYTES = 20 * 1024
 MODELS = {
     "feather_mix": ("RUN_FEATHER_MIX", "FEATHer-mix", "feather2",   ["--mlp_rank", "4"], False),
     "feather_ci":  ("RUN_FEATHER_CI",  "FEATHer-CI",  "feather2ci", ["--mlp_rank", "4"], False),
+    # 10-07: FEATHer-mix without bands + FFT gate (control arm FEATHer_frontnone) - the
+    # chip cost of the ~1 % the band/gate front end buys; same recompute schedule
+    "feather_fn":  ("RUN_FEATHER_FN",  "FEATHer-frontnone", "feather2fn", ["--mlp_rank", "4"], False),
     "dlinear":     ("RUN_DLINEAR",     "DLinear",     "dlinear",    [], False),
     "cyclenet":    ("RUN_CYCLENET",    "CycleNet",    "cyclenet",   [], False),
     "stsf":        ("RUN_STSF",        "SparseTSF",   "stsf",       [], True),
@@ -92,6 +95,8 @@ EXTRA_PLAN = [("cyclenet", 96, 7)]
 EXTRA_PLAN += ([(m, 96, 7) for m in ("cmos", "timebase", "phaseformer", "samformer")]
                + [(m, 96, 1) for m in ("cmos", "timebase", "phaseformer")]
                + [(m, 720, 1) for m in ("cmos", "timebase", "phaseformer")])
+# 10-07 (later): band + gate cost - FEATHer-mix without them, same cells as FEATHer-mix
+EXTRA_PLAN += [("feather_fn", 96, 7), ("feather_fn", 720, 7)]
 
 # The measurement list.  Channel-independent ports that only expose a full
 # (H x D) output buffer run at D = 1 when H = 720 (a 720 x 7 buffer alone is
@@ -121,9 +126,11 @@ def cfg_header(model: str, H: int, D: int, power: str, direct_dft: bool = False,
              "#ifndef BOARD_CFG_H", "#define BOARD_CFG_H",
              f"#define {run}", f'#define BOARD_NAME "{name}"',
              f"#define BOARD_H {H}", f"#define BOARD_D {D}"]
-    if model == "feather_mix":
+    if model in ("feather_mix", "feather_fn"):
         lines += [f"#define FEA2_H {H}", f"#define FEA2_D {D}", "#define FEA2_MLP_R 4",
                   "#define BOARD_SKIP_CI"]
+        if model == "feather_fn":
+            lines.append("#define FEA2_FRONT_NONE")
     elif model == "feather_ci":
         lines += [f"#define FEA2_H {H}", "#define FEA2_D 1", f"#define FEA2CI_D {D}",
                   "#define FEA2_MLP_R 4"]
@@ -193,6 +200,12 @@ def export(model: str, H: int, D: int, ckpt: str | None = None, config: str | No
                        env={**__import__("os").environ, "PYTHONUTF8": "1"})
     if r.returncode != 0:
         raise SystemExit("export failed:\n" + (r.stdout + r.stderr)[-2000:])
+    if model == "feather_fn":
+        # board_cfg.h sets FEA2_H / FEA2_D / FEA2_MLP_R for the whole image, and every
+        # Core/Src file is compiled - so the frozen ports' feather2 golden must match
+        # them too, or feather2_infer.c fails its static asserts.  Not linked in the
+        # measured image (gc-sections); only has to compile.
+        export("feather_mix", H, D)
 
 
 def install(project: Path, model: str, H: int, D: int, power: str,

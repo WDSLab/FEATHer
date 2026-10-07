@@ -111,6 +111,16 @@ $(BUILD)/test_realcheck_r: src/feather2r_infer.c test/test_realcheck.c src/feath
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -DREALCHECK_RECOMPUTE $(FEA2_GEOM) src/fea_kernels.c src/feather2r_infer.c test/test_realcheck.c -o $@ $(LDLIBS)
 
+# FEATHer without bands + gate (2026-10-07 cost check, control arm FEATHer_frontnone).
+# Own golden (feather2fn_*.h), so `make test` keeps the frozen model's golden:
+#   python deployment/board/export_golden_feather2fn.py [--pred_len H --d_model D]
+FN_GEOM ?=
+$(BUILD)/test_feather2fn: src/feather2r_infer.c test/test_feather2fn.c src/feather2r_infer.h \
+                    src/feather2_infer.h $(KERN) golden/feather2fn_weights.h golden/feather2fn_vectors.h
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -DFEA2_FRONT_NONE -DFEA2_MLP_R=4 $(FN_GEOM) src/fea_kernels.c \
+	      src/feather2r_infer.c test/test_feather2fn.c -o $@ $(LDLIBS)
+
 $(BUILD)/test_stsf: src/stsf_infer.c test/test_stsf.c \
                     src/stsf_infer.h $(KERN) \
                     golden/stsf_weights.h golden/stsf_vectors.h
@@ -162,7 +172,7 @@ $(BUILD)/test_batch: test/test_batch.c $(KERN) \
 	      src/stsf_infer.c src/dipe_infer.c src/fits_infer.c \
 	      test/test_batch.c -o $@ $(LDLIBS)
 
-.PHONY: test clean feather2 feather2r feather2ci feather2in dlinear cyclenet cmos timebase phaseformer samformer realcheck realcheck_r
+.PHONY: test clean feather2 feather2r feather2ci feather2in dlinear cyclenet feather2fn cmos timebase phaseformer samformer realcheck realcheck_r
 feather2in: $(BUILD)/test_feather2in $(BUILD)/test_feather2in_strict
 	./$(BUILD)/test_feather2in
 	./$(BUILD)/test_feather2in_strict
@@ -182,6 +192,9 @@ dlinear: $(BUILD)/test_dlinear
 cyclenet: $(BUILD)/test_cyclenet
 	./$(BUILD)/test_cyclenet
 
+feather2fn: $(BUILD)/test_feather2fn
+	./$(BUILD)/test_feather2fn
+
 cmos: $(BUILD)/test_cmos
 	./$(BUILD)/test_cmos
 
@@ -200,11 +213,12 @@ feather2: $(BUILD)/test_feather2
 feather2ci: $(BUILD)/test_feather2ci
 	./$(BUILD)/test_feather2ci
 
-test: $(BUILD)/test_feather2 $(BUILD)/test_feather2r $(BUILD)/test_dlinear $(BUILD)/test_cyclenet $(BUILD)/test_cmos $(BUILD)/test_timebase $(BUILD)/test_phaseformer $(BUILD)/test_samformer $(BUILD)/test_golden $(BUILD)/test_stsf $(BUILD)/test_stsf_mlp \
+test: $(BUILD)/test_feather2 $(BUILD)/test_feather2r $(BUILD)/test_feather2fn $(BUILD)/test_dlinear $(BUILD)/test_cyclenet $(BUILD)/test_cmos $(BUILD)/test_timebase $(BUILD)/test_phaseformer $(BUILD)/test_samformer $(BUILD)/test_golden $(BUILD)/test_stsf $(BUILD)/test_stsf_mlp \
       $(BUILD)/test_mixlinear $(BUILD)/test_dipe $(BUILD)/test_pers \
       $(BUILD)/test_fits $(BUILD)/test_batch
 	./$(BUILD)/test_feather2
 	./$(BUILD)/test_feather2r
+	./$(BUILD)/test_feather2fn
 	./$(BUILD)/test_dlinear
 	./$(BUILD)/test_cyclenet
 	./$(BUILD)/test_cmos

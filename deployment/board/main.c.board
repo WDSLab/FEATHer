@@ -52,6 +52,11 @@
   #include "feather2_vectors.h"      /* G2_X / G2_Y */
   #define GOLD_X G2_X
   #define GOLD_Y G2_Y
+#elif defined(RUN_FEATHER_FN)           /* front=none control arm (10-07) */
+  #include "feather2r_infer.h"
+  #include "feather2fn_vectors.h"    /* G2_X / G2_Y */
+  #define GOLD_X G2_X
+  #define GOLD_Y G2_Y
 #elif defined(RUN_FEATHER_CI)
   #include "feather2ci_infer.h"
   #include "feather2ci_vectors.h"    /* GCI_X / GCI_Y */
@@ -209,7 +214,7 @@ static inline void check(float got, float ref)
 /* one inference; check = 0 -> timed sink, check = 1 -> compare to golden */
 static void infer(int check_it)
 {
-#if defined(RUN_FEATHER_MIX)
+#if defined(RUN_FEATHER_MIX) || defined(RUN_FEATHER_FN)
   fea2r_begin(s_x);
   for (int d = 0; d < BOARD_D; ++d) {
     fea2r_channel(d);
