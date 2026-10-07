@@ -9,6 +9,9 @@
 ```
 export_golden_<m>.py     PyTorch 모델 → golden/ 헤더 (가중치 · 스테이지 골든 벡터 · DFT 트위들)
                          m = feather2 · feather2ci · dlinear · stsf · stsf_mlp · mixlinear · dipe · fits
+                         · cyclenet · cmos · timebase · phaseformer · samformer
+                         (10-07 의 4개는 --config/--data 로 후보 설정을 받음 = protocol.resolve 와 같은 해석;
+                          구조값(seg·num_map·period·latent …)은 가중치 헤더에 찍혀 C 가 그대로 씀)
                          (export_golden.py = 08-24 의 938p FEATHer, 기록용)
 export_batch.py          100윈도우 배치 MSE 기준값 → golden/batch_ref.h
 verify_deployed_accuracy.py  학습 체크포인트 → 실제 테스트 창 200개 PyTorch 예측 (make realcheck 입력)
@@ -31,6 +34,11 @@ make -C deployment/board realcheck       # 먼저 export_golden_feather2.py --ck
 # 발자국 실측
 python deployment/board/measure_footprint.py --dims 1,4,6,7,8,14,16,21,28,32 --horizons 96,192,336,720
 ```
+
+**10-07 추가 포트 메모.** 넓은 PhaseFormer 설정(latent 32·128, 헤드 2·4)과 CMoS L336 은 랜덤 골든에서
+허용오차를 조금 넘는다 — float64 기준으로 C 오차가 PyTorch float32 오차와 같은 크기(1e-4~1e-3)임을 확인
+(`export_golden_phaseformer.py --f64`), 즉 float32 덧셈 순서 한계. 기본 골든(make test)은 모두 통과.
+CMoS 원본은 채널 1개에서 오류(squeeze) → D = 1 골든은 2채널 모델의 0번 채널(채널 독립이라 정확히 같음).
 
 ## 공통 C 구현 규칙 (규칙 ①, 2026-09-14)
 

@@ -239,8 +239,9 @@ deployment/board/ (10-06 추가)    main.c.stream(실시간 재생 펌웨어) ·
 _archive/                         은퇴 코드: robustness · ablation_v1 · grids · classic_baselines · lr/hp search
 ```
 
-**C 포트 9종**: feather2 / feather2r (mix, 보드는 재계산 스케줄 feather2r) · feather2ci · dlinear · cyclenet ·
-stsf · stsf_mlp · mixlinear · dipe · fits. **공통 규칙 ①**("원래 계산은 그대로, 메모리는 정리만"): 안 섞는 모델은
+**C 포트 13종**: feather2 / feather2r (mix, 보드는 재계산 스케줄 feather2r) · feather2ci · dlinear · cyclenet ·
+stsf · stsf_mlp · mixlinear · dipe · fits · (10-07) cmos · timebase · phaseformer · samformer(섞는 모델; 새 4개는
+고른 설정 `docs/chosen_mfg.json` 을 board_prep 이 자동으로 읽음, 보드 계획 28~37번). **공통 규칙 ①**("원래 계산은 그대로, 메모리는 정리만"): 안 섞는 모델은
 채널 하나씩 · 출력은 끊을 수 있는 단위로 바로 방출 · 작업공간 공유 · 재계산 금지(FEATHer-mix 의 정규화+밴드
 재계산만 명시적 예외). 96점 FFT 는 전 모델 같은 빠른 커널(`fea_rfft96_fast`). export 가 `<PFX>_H_GEN`·
 `FEA2_R_GEN` 을 가중치 헤더에 스탬프 → `.c` 가 `_Static_assert` (호라이즌/랭크 불일치 = 컴파일 실패).

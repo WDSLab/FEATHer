@@ -48,7 +48,9 @@
  * capture arrays. */
 #define ML_XT_N (ML_SQY * ML_SQY * ML_P)
 #define ML_XF_N (ML_SEGY * ML_P)
-#define ML_LPF 4                      /* kept FFT bins (= seg_x) */
+#ifndef ML_LPF                        /* kept FFT bins: mixlinear_geom.h (10-07) */
+#define ML_LPF 4
+#endif
 #define ML_K (ML_P + 1)               /* conv kernel = 25        */
 
 /* x: (ML_L, ML_D) time-major -> y: (ML_H, ML_D) time-major */

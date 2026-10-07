@@ -19,6 +19,8 @@
  * return a plausible, wrong forecast, so refuse it at compile time. */
 _Static_assert(SMLP_H == SMLP_H_GEN,
                "SMLP_H does not match the horizon the weights were exported at - re-run export_golden_*.py --pred_len");
+_Static_assert(SMLP_DM == SMLP_DM_GEN,
+               "stsf_mlp_geom.h does not match the hidden width of the exported weights - re-run export_golden_stsf_mlp.py");
 
 /* PER-CHANNEL WORKING SET (2026-09-14) - equal-effort rule, see
  * deployment/board/README.md.  Identical front end to stsf_infer.c and the

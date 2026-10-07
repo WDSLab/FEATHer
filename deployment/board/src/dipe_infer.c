@@ -25,8 +25,30 @@ _Static_assert(DIPE_PAD == DIPE_PAD_GEN,
                "DIPE_PAD does not match the padding the weights were exported at - re-run export_golden_dipe.py --pred_len");
 _Static_assert(sizeof(DIPE_COS193) / sizeof(DIPE_COS193[0]) == DIPE_TN,
                "dipe_twiddle.h was generated for a different expert length (DIPE_TN)");
-_Static_assert(sizeof(DIPE_W_EXP_RE) / sizeof(DIPE_W_EXP_RE[0]) == DIPE_TF,
+_Static_assert(sizeof(DIPE_W_EXP_RE) / sizeof(DIPE_W_EXP_RE[0]) == DIPE_E * DIPE_TF,
                "dipe_weights.h expert size does not match DIPE_TF");
+_Static_assert(DIPE_E == DIPE_E_GEN && DIPE_REVIN == DIPE_REVIN_GEN,
+               "dipe_geom.h does not match the exported weights - re-run export_golden_dipe.py");
+_Static_assert(DIPE_E == 1 || DIPE_D == DIPE_RD_GEN,
+               "DIPE_D does not match the width the router was exported at");
+
+/* Static router (num_experts > 1).  Upstream mixes every weight per channel on
+ * every forward: w_c = sum_e softmax_e(route[:, c] / T) * w_e, T = 1 at test.
+ * The mix is evaluated where each weight is read (each is read once per
+ * channel), so it needs no buffer and nothing is computed twice. */
+#if DIPE_E > 1
+static float s_r[DIPE_E];
+#define DIPE_MIX(arr, n, i) dipe_mix((arr), (n), (i))
+static inline float dipe_mix(const float *w, int n, int i)
+{
+    float acc = 0.0f;
+    for (int e = 0; e < DIPE_E; ++e)
+        acc += w[e * n + i] * s_r[e];
+    return acc;
+}
+#else
+#define DIPE_MIX(arr, n, i) ((arr)[i])
+#endif
 
 /* PER-CHANNEL WORKING SET (2026-09-04) - equal-effort rule, see
  * deployment/board/README.md.  DiPE is channel-independent, so nothing is
@@ -59,6 +81,20 @@ float dipe_st_xt[DIPE_D * DIPE_L];
 void dipe_forward(const float *x, float *y)
 {
     for (int d = 0; d < DIPE_D; ++d) {
+#if DIPE_E > 1
+        {   /* this channel's expert weights: softmax over the router logits */
+            float mx = -INFINITY, se = 0.0f;
+            for (int e = 0; e < DIPE_E; ++e)
+                if (DIPE_ROUTE[e * DIPE_D + d] > mx) mx = DIPE_ROUTE[e * DIPE_D + d];
+            for (int e = 0; e < DIPE_E; ++e) {
+                s_r[e] = expf(DIPE_ROUTE[e * DIPE_D + d] - mx);
+                se += s_r[e];
+            }
+            for (int e = 0; e < DIPE_E; ++e)
+                s_r[e] /= se;
+        }
+#endif
+#if DIPE_REVIN
         /* RevIN stats: UNBIASED std (n-1), no eps, clamp min 1e-7 */
         float m = 0.0f;
         for (int t = 0; t < DIPE_L; ++t)
@@ -78,6 +114,14 @@ void dipe_forward(const float *x, float *y)
 
         for (int t = 0; t < DIPE_L; ++t)
             s_x[t] = (x[t * DIPE_D + d] - m) / sd;
+#else   /* no RevIN (official Weather / Electricity scripts) */
+#ifdef DIPE_CAPTURE_STAGES
+        dipe_st_mean[d] = 0.0f;
+        dipe_st_std[d] = 1.0f;
+#endif
+        for (int t = 0; t < DIPE_L; ++t)
+            s_x[t] = x[t * DIPE_D + d];
+#endif
 #ifdef DIPE_CAPTURE_STAGES
         for (int t = 0; t < DIPE_L; ++t)
             dipe_st_xn[d * DIPE_L + t] = s_x[t];
@@ -87,8 +131,9 @@ void dipe_forward(const float *x, float *y)
         fea_rfft96_fast(s_x, 1, FEA_DFT_BINS, s_re, s_im,
                         s_re + FEA_DFT_BINS, s_im + FEA_DFT_BINS);   /* free tail */
         for (int f = 0; f < FEA_DFT_BINS; ++f) {
-            s_re[f] *= DIPE_W_FREQ[f];
-            s_im[f] *= DIPE_W_FREQ[f];
+            const float w = DIPE_MIX(DIPE_W_FREQ, FEA_DFT_BINS, f);
+            s_re[f] *= w;
+            s_im[f] *= w;
         }
         fea_irfft96_fast(s_re, s_im, s_x, s_re + FEA_DFT_BINS, s_im + FEA_DFT_BINS);
 #ifdef DIPE_CAPTURE_STAGES
@@ -98,7 +143,7 @@ void dipe_forward(const float *x, float *y)
 
         /* static time weight */
         for (int t = 0; t < DIPE_L; ++t)
-            s_x[t] = s_x[t] * DIPE_W_TIME[t];
+            s_x[t] = s_x[t] * DIPE_MIX(DIPE_W_TIME, DIPE_L, t);
 #ifdef DIPE_CAPTURE_STAGES
         for (int t = 0; t < DIPE_L; ++t)
             dipe_st_xt[d * DIPE_L + t] = s_x[t];
@@ -111,10 +156,10 @@ void dipe_forward(const float *x, float *y)
                      DIPE_COS193, DIPE_SIN193, s_re, s_im);
         for (int f = 0; f < DIPE_TF; ++f) {
             float ar = s_re[f], ai = s_im[f];
-            s_re[f] = ar * DIPE_W_EXP_RE[f] - ai * DIPE_W_EXP_IM[f]
-                    + DIPE_B_EXP_RE[f];
-            s_im[f] = ar * DIPE_W_EXP_IM[f] + ai * DIPE_W_EXP_RE[f]
-                    + DIPE_B_EXP_IM[f];
+            const float wr = DIPE_MIX(DIPE_W_EXP_RE, DIPE_TF, f);
+            const float wi = DIPE_MIX(DIPE_W_EXP_IM, DIPE_TF, f);
+            s_re[f] = ar * wr - ai * wi + DIPE_MIX(DIPE_B_EXP_RE, DIPE_TF, f);
+            s_im[f] = ar * wi + ai * wr + DIPE_MIX(DIPE_B_EXP_IM, DIPE_TF, f);
         }
 
         /* the kept slice only, denormalized straight into y */
@@ -122,7 +167,11 @@ void dipe_forward(const float *x, float *y)
             float s = fea_idft_half_at(s_re, s_im, DIPE_TN, DIPE_TF,
                                        DIPE_COS193, DIPE_SIN193,
                                        DIPE_TN - DIPE_H - DIPE_PAD + j);
+#if DIPE_REVIN
             y[j * DIPE_D + d] = s * sd + m;
+#else
+            y[j * DIPE_D + d] = s;
+#endif
         }
     }
 }

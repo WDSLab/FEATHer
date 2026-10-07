@@ -17,6 +17,11 @@ _Static_assert(FITS_H == FITS_H_GEN,
  * including fea_twiddle.h here put a second 768 B copy into this object. */
 #include "fits_twiddle.h"      /* TN-point tables (synthesis)      */
 
+_Static_assert(FITS_CUT == FITS_CUT_GEN && FITS_IND == FITS_IND_GEN,
+               "fits_geom.h does not match the exported weights - re-run export_golden_fits.py");
+_Static_assert(!FITS_IND || FITS_D == FITS_WD_GEN,
+               "FITS_D does not match the width the per-channel weights were exported at");
+
 /* PER-CHANNEL WORKING SET (2026-09-04).  FITS computes each channel
  * independently, so nothing needs to be held for all D at once.  The arrays
  * below are one channel wide; the full-width copies exist only in the test
@@ -101,12 +106,15 @@ void fits_forward(const float *x, float *y)
         /* analysis rfft96, only the FITS_CUT bins the low-pass keeps */
         fea_rfft96_fast(s_xn, 1, FITS_CUT, s_lo_re, s_lo_im, s_fftw, s_fftw + 32);
 
-        /* complex Linear(cut -> up): out = W in + b */
+        /* complex Linear(cut -> up): out = W in + b (one per channel when
+         * individual, as the official Weather script) */
+        const int wo = FITS_IND ? d * FITS_UP * FITS_CUT : 0;
+        const int bo = FITS_IND ? d * FITS_UP : 0;
         for (int o = 0; o < FITS_UP; ++o) {
-            float ar = FITS_B_RE[o], ai = FITS_B_IM[o];
+            float ar = FITS_B_RE[bo + o], ai = FITS_B_IM[bo + o];
             for (int i = 0; i < FITS_CUT; ++i) {
-                float wr = FITS_W_RE[o * FITS_CUT + i];
-                float wi = FITS_W_IM[o * FITS_CUT + i];
+                float wr = FITS_W_RE[wo + o * FITS_CUT + i];
+                float wi = FITS_W_IM[wo + o * FITS_CUT + i];
                 ar += wr * s_lo_re[i] - wi * s_lo_im[i];
                 ai += wr * s_lo_im[i] + wi * s_lo_re[i];
             }

@@ -11,7 +11,13 @@ Uses the real upstream model via the benchmark wrapper; staged replication
 is asserted equal to model(x) before writing. Also emits the 192-point DFT
 twiddle tables (irfft length = seq_len + pred_len).
 
-Run:  python deployment/board/export_golden_fits.py
+2026-10-07: --config / --data export one of the industrial candidate settings
+(resolved by tools/results/protocol.resolve, as the experiments do): cut_freq from
+the official formula and the shared / per-channel upsampler.  The structural values
+go to golden/fits_geom.h (FITS_CUT, FITS_IND), which the port includes.  Without
+--config the export is the old benchmark default, byte-identical to before.
+
+Run:  python deployment/board/export_golden_fits.py [--config Weather] [--data MetroPT3]
 """
 from __future__ import annotations
 
@@ -27,6 +33,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from baselines.FITS.wrapper import build  # noqa: E402
+from tools.results.protocol import resolve  # noqa: E402
 from export_golden import emit_array      # noqa: E402
 
 SEQ_LEN = 96
@@ -51,10 +58,12 @@ def randomize_golden_weights(model) -> None:
     """
     inner = model.inner
     gw = torch.Generator().manual_seed(WEIGHT_SEED + 1)
+    ups = inner.freq_upsampler if inner.individual else [inner.freq_upsampler]
     with torch.no_grad():
-        for p in (inner.freq_upsampler.weight, inner.freq_upsampler.bias):
-            im = torch.randn(p.shape, generator=gw) * p.real.std()
-            p.copy_(torch.complex(p.real.clone(), im))
+        for up in ups:
+            for p in (up.weight, up.bias):
+                im = torch.randn(p.shape, generator=gw) * p.real.std()
+                p.copy_(torch.complex(p.real.clone(), im))
 
 
 def main() -> None:
@@ -65,10 +74,17 @@ def main() -> None:
                       help="board horizon; the C header takes -D<PFX>_H to match")
     _cli.add_argument("--d_model", type=int, default=D_MODEL,
                       help="channel count; the C header takes -D<PFX>_D to match")
+    _cli.add_argument("--data", default="MetroPT3", help="industrial dataset (daily-cycle base_T)")
+    _cli.add_argument("--config", default=None,
+                      help="industrial candidate (ETTh1 / ETTm1 / Weather); omitted = old benchmark default")
     _a = _cli.parse_args()
     PRED_LEN, D_MODEL = _a.pred_len, _a.d_model
+    ns = argparse.Namespace()
+    if _a.config:
+        _, _, ov = resolve("FITS", "mfg", _a.data, PRED_LEN, "cand:" + _a.config)
+        ns = argparse.Namespace(**ov)
     torch.manual_seed(WEIGHT_SEED)
-    model = build(argparse.Namespace(), D_MODEL, SEQ_LEN, PRED_LEN).eval()
+    model = build(ns, D_MODEL, SEQ_LEN, PRED_LEN).eval()
     randomize_golden_weights(model)
     inner = model.inner
 
@@ -76,13 +92,15 @@ def main() -> None:
     print(f"params = {n_params} (complex -> {2 * n_params} floats)")
 
     cut = inner.dominance_freq
-    up = inner.freq_upsampler.out_features
+    ind = bool(inner.individual)
+    up = int(cut * inner.length_ratio)
+    print(f"config={_a.config or 'benchmark default'} cut={cut} up={up} individual={ind}")
     tn = SEQ_LEN + PRED_LEN
     # geometry guard: these constants describe the FROZEN H=96 cell
     # (the reference the 08-24 board numbers were taken at).  At other
     # horizons the geometry legitimately changes - print it instead, and
     # the C header must be given matching -D overrides.
-    if PRED_LEN == 96:
+    if PRED_LEN == 96 and not _a.config:
         assert (cut, up) == (24, 48), f"unexpected FITS geometry {cut}/{up}"
 
     g = torch.Generator().manual_seed(INPUT_SEED)
@@ -97,8 +115,12 @@ def main() -> None:
 
         spec = torch.fft.rfft(xn, dim=1)                 # (1,49,D)
         low = spec[:, 0:cut, :]                          # (1,24,D)
-        upspec = inner.freq_upsampler(
-            low.permute(0, 2, 1)).permute(0, 2, 1)       # (1,48,D)
+        if ind:
+            upspec = torch.stack([inner.freq_upsampler[i](low[:, :, i])
+                                  for i in range(D_MODEL)], dim=-1)   # (1,UP,D)
+        else:
+            upspec = inner.freq_upsampler(
+                low.permute(0, 2, 1)).permute(0, 2, 1)   # (1,48,D)
         padded = torch.zeros(
             [1, tn // 2 + 1, D_MODEL], dtype=upspec.dtype)
         padded[:, 0:up, :] = upspec
@@ -112,8 +134,19 @@ def main() -> None:
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    W = inner.freq_upsampler.weight                      # (48,24) cfloat
-    B = inner.freq_upsampler.bias                        # (48,)   cfloat
+    if ind:                                              # per channel: (D,UP,CUT) / (D,UP)
+        W = torch.stack([u.weight for u in inner.freq_upsampler])
+        B = torch.stack([u.bias for u in inner.freq_upsampler])
+    else:
+        W = inner.freq_upsampler.weight                  # (48,24) cfloat
+        B = inner.freq_upsampler.bias                    # (48,)   cfloat
+
+    with (OUT_DIR / "fits_geom.h").open("w", newline="\n") as f:
+        f.write("/* Auto-generated by deployment/board/export_golden_fits.py - do not edit. */\n")
+        f.write(f"/* config={_a.config or 'benchmark default'} */\n")
+        f.write("#ifndef FITS_GEOM_H\n#define FITS_GEOM_H\n")
+        f.write(f"#define FITS_CUT {cut}\n#define FITS_IND {int(ind)}\n")
+        f.write("#endif /* FITS_GEOM_H */\n")
 
     with (OUT_DIR / "fits_weights.h").open("w", newline="\n") as f:
         f.write("/* Auto-generated by deployment/board/export_golden_fits.py"
@@ -126,7 +159,8 @@ def main() -> None:
         # static-asserts against it, so a stale golden header (weights
         # from one H, code built for another) fails to COMPILE instead of
         # silently producing a plausible wrong forecast.
-        f.write(f"#define FITS_H_GEN {PRED_LEN}\n\n")
+        f.write(f"#define FITS_H_GEN {PRED_LEN}\n#define FITS_CUT_GEN {cut}\n"
+                f"#define FITS_IND_GEN {int(ind)}\n#define FITS_WD_GEN {D_MODEL if ind else 1}\n\n")
         emit_array(f, "FITS_W_RE", W.real)               # (48,24)
         emit_array(f, "FITS_W_IM", W.imag)
         emit_array(f, "FITS_B_RE", B.real)               # (48,)

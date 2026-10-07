@@ -18,6 +18,21 @@
 
 #include "fea_kernels.h"
 
+/* experts (static router) and RevIN on/off: written by the export into
+ * golden/dipe_geom.h (2026-10-07, candidate settings); the fallback is the
+ * single-expert default this port was written at */
+#if defined(__has_include)
+#if __has_include("dipe_geom.h")
+#include "dipe_geom.h"
+#endif
+#endif
+#ifndef DIPE_E
+#define DIPE_E 1
+#endif
+#ifndef DIPE_REVIN
+#define DIPE_REVIN 1
+#endif
+
 #ifndef DIPE_L
 #define DIPE_L 96
 #endif

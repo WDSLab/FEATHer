@@ -65,6 +65,31 @@ $(BUILD)/test_cyclenet: src/cyclenet_infer.c test/test_cyclenet.c src/cyclenet_i
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) -DCN_CAPTURE_STAGES $(CN_GEOM) src/cyclenet_infer.c test/test_cyclenet.c -o $@ $(LDLIBS)
 
+# CMoS (2026-10-07): structural values (seg, num_map, kernel, stride) come from the
+# exported weights header; regenerate with export_golden_cmos.py --config <setting>
+CMOS_GEOM ?=
+$(BUILD)/test_cmos: src/cmos_infer.c test/test_cmos.c src/cmos_infer.h golden/cmos_weights.h golden/cmos_vectors.h
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -DCMOS_CAPTURE_STAGES $(CMOS_GEOM) src/cmos_infer.c test/test_cmos.c -o $@ $(LDLIBS)
+
+# TimeBase (2026-10-07): period / basis / individual come from the exported weights header
+TB_GEOM ?=
+$(BUILD)/test_timebase: src/timebase_infer.c test/test_timebase.c src/timebase_infer.h golden/timebase_weights.h golden/timebase_vectors.h
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -DTB_CAPTURE_STAGES $(TB_GEOM) src/timebase_infer.c test/test_timebase.c -o $@ $(LDLIBS)
+
+# PhaseFormer (2026-10-07): widths come from the exported weights header
+PF_GEOM ?=
+$(BUILD)/test_phaseformer: src/phaseformer_infer.c test/test_phaseformer.c src/phaseformer_infer.h golden/phaseformer_weights.h golden/phaseformer_vectors.h
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -DPF_CAPTURE_STAGES $(PF_GEOM) src/phaseformer_infer.c test/test_phaseformer.c -o $@ $(LDLIBS)
+
+# SAMformer (2026-10-07): the channel-mixing reference; hid_dim comes from the weights header
+SAM_GEOM ?=
+$(BUILD)/test_samformer: src/samformer_infer.c test/test_samformer.c src/samformer_infer.h golden/samformer_weights.h golden/samformer_vectors.h
+	@mkdir -p $(BUILD)
+	$(CC) $(CFLAGS) -DSAM_CAPTURE_STAGES $(SAM_GEOM) src/samformer_infer.c test/test_samformer.c -o $@ $(LDLIBS)
+
 $(BUILD)/test_realcheck: src/feather2_infer.c test/test_realcheck.c src/feather2_infer.h $(KERN) golden/feather2_weights.h golden/real_ref.h
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) $(FEA2_GEOM) src/fea_kernels.c src/feather2_infer.c test/test_realcheck.c -o $@ $(LDLIBS)
@@ -137,7 +162,7 @@ $(BUILD)/test_batch: test/test_batch.c $(KERN) \
 	      src/stsf_infer.c src/dipe_infer.c src/fits_infer.c \
 	      test/test_batch.c -o $@ $(LDLIBS)
 
-.PHONY: test clean feather2 feather2r feather2ci feather2in dlinear cyclenet realcheck realcheck_r
+.PHONY: test clean feather2 feather2r feather2ci feather2in dlinear cyclenet cmos timebase phaseformer samformer realcheck realcheck_r
 feather2in: $(BUILD)/test_feather2in $(BUILD)/test_feather2in_strict
 	./$(BUILD)/test_feather2in
 	./$(BUILD)/test_feather2in_strict
@@ -157,19 +182,35 @@ dlinear: $(BUILD)/test_dlinear
 cyclenet: $(BUILD)/test_cyclenet
 	./$(BUILD)/test_cyclenet
 
+cmos: $(BUILD)/test_cmos
+	./$(BUILD)/test_cmos
+
+timebase: $(BUILD)/test_timebase
+	./$(BUILD)/test_timebase
+
+phaseformer: $(BUILD)/test_phaseformer
+	./$(BUILD)/test_phaseformer
+
+samformer: $(BUILD)/test_samformer
+	./$(BUILD)/test_samformer
+
 feather2: $(BUILD)/test_feather2
 	./$(BUILD)/test_feather2
 
 feather2ci: $(BUILD)/test_feather2ci
 	./$(BUILD)/test_feather2ci
 
-test: $(BUILD)/test_feather2 $(BUILD)/test_feather2r $(BUILD)/test_dlinear $(BUILD)/test_cyclenet $(BUILD)/test_golden $(BUILD)/test_stsf $(BUILD)/test_stsf_mlp \
+test: $(BUILD)/test_feather2 $(BUILD)/test_feather2r $(BUILD)/test_dlinear $(BUILD)/test_cyclenet $(BUILD)/test_cmos $(BUILD)/test_timebase $(BUILD)/test_phaseformer $(BUILD)/test_samformer $(BUILD)/test_golden $(BUILD)/test_stsf $(BUILD)/test_stsf_mlp \
       $(BUILD)/test_mixlinear $(BUILD)/test_dipe $(BUILD)/test_pers \
       $(BUILD)/test_fits $(BUILD)/test_batch
 	./$(BUILD)/test_feather2
 	./$(BUILD)/test_feather2r
 	./$(BUILD)/test_dlinear
 	./$(BUILD)/test_cyclenet
+	./$(BUILD)/test_cmos
+	./$(BUILD)/test_timebase
+	./$(BUILD)/test_phaseformer
+	./$(BUILD)/test_samformer
 	./$(BUILD)/test_golden
 	./$(BUILD)/test_stsf
 	./$(BUILD)/test_stsf_mlp

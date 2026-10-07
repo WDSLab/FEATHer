@@ -1,0 +1,135 @@
+# -*- coding: utf-8 -*-
+"""Export golden vectors + weights for the CMoS port (src/cmos_infer.c).
+
+CMoS (ICML 2025) joined the chip pool on 2026-10-06.  Its structure depends on
+which of the authors' per-dataset settings is used (seg_size, num_map, kernel,
+stride), so --config picks one candidate, resolved exactly as the experiments
+resolve it (tools/results/protocol.resolve, industrial group, --data): a dataset
+name of the authors' settings, or "default" = the repository's model default
+(seg 8, num_map 4, kernel 8, stride 4).  The structural values are written into cmos_weights.h, so the C
+port is built from the same header and cannot disagree with the weights.
+
+Uses the real upstream model via the benchmark wrapper; every weight is
+re-drawn at random (README: blind-golden rule) and the staged replication is
+asserted equal to model(x) before writing.  The spare (num_map+1)-th mapping
+that upstream builds but never uses is not exported.
+
+Run:  python deployment/board/export_golden_cmos.py [--config ETTm2] [--pred_len H] [--d_model D]
+"""
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+import torch
+import torch.nn.functional as F
+
+_ROOT = Path(__file__).resolve().parents[2]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+from tools.results.protocol import resolve     # noqa: E402
+from baselines.CMoS.wrapper import build       # noqa: E402
+from export_golden import emit_array           # noqa: E402  (same dir)
+
+WEIGHT_SEED = 2025
+INPUT_SEED = 7
+# wrapper defaults (baselines/CMoS/wrapper.py) for keys a setting leaves unset
+KEYS = {"cmos_seg_size": 8, "cmos_num_map": 4, "cmos_kernel_size": 8, "cmos_conv_stride": 4}
+
+OUT_DIR = Path(__file__).resolve().parent / "golden"
+
+
+def geometry(config: str, H: int, data: str = "MetroPT3") -> dict:
+    """Structural keys of candidate `config` for (data, H), as the experiments resolve them."""
+    _, _, ov = resolve("CMoS", "mfg", data, H, "cand:" + config)
+    return {k: int(ov.get(k, v)) for k, v in KEYS.items()}
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--pred_len", type=int, default=96)
+    ap.add_argument("--seq_len", type=int, default=96)
+    ap.add_argument("--d_model", type=int, default=7)
+    ap.add_argument("--data", default="MetroPT3", help="industrial dataset (period-type keys)")
+    ap.add_argument("--config", default="default",
+                    help='"default" or a dataset name of the authors\' settings (e.g. ETTh1)')
+    a = ap.parse_args()
+    L, H, D = a.seq_len, a.pred_len, a.d_model
+    geo = geometry(a.config, H, a.data)
+    seg, nmap = geo["cmos_seg_size"], geo["cmos_num_map"]
+    K, S = geo["cmos_kernel_size"], geo["cmos_conv_stride"]
+    print(f"config={a.config} L={L} H={H} D={D} seg={seg} num_map={nmap} kernel={K} stride={S}")
+
+    # Upstream CMoS crashes at one channel (conv_out.squeeze(1) drops the channel
+    # axis before the einsum).  CMoS is channel-independent, so a D = 1 golden is
+    # channel 0 of a two-channel model - exact, not an approximation.
+    DM = max(D, 2)
+    torch.manual_seed(WEIGHT_SEED)
+    args = argparse.Namespace(**geo, cmos_dropout=0.0, cmos_use_pi=False)
+    model = build(args, DM, L, H).eval()
+    with torch.no_grad():                       # blind-golden rule: all weights random
+        for p in model.parameters():
+            p.normal_(0.0, 0.5)
+
+    conv_dim = (L - K) // S + 1
+    deployed = nmap * (H // seg) * (L // seg + 1) + D * (K + 1) + nmap * (conv_dim + 1)
+    print(f"params = {sum(p.numel() for p in model.parameters())} (deployed {deployed})")
+
+    g = torch.Generator().manual_seed(INPUT_SEED)
+    x = (torch.randn(1, L, DM, generator=g) * 3.0
+         + torch.linspace(-5.0, 5.0, DM).view(1, 1, DM))
+
+    with torch.no_grad():
+        xt = x.transpose(-2, -1)                                       # (1,D,L)
+        mean = xt.mean(2, keepdim=True)
+        xc = xt - mean
+        std = torch.sqrt(torch.var(xc, dim=2, keepdim=True, unbiased=False) + 1e-10)
+        xn = xc / std
+        conv = torch.cat([model.ds_convs[i](xn[:, i, :].unsqueeze(1)) for i in range(DM)], dim=1)
+        gate = F.softmax(model.gates(conv.squeeze(1)), dim=-1)          # (1,DM,nmap)
+        y_ref = model(x)
+        assert y_ref.shape == (1, H, DM)
+        x, mean, std, conv, gate, y_ref = (x[..., :D], mean[:, :D], std[:, :D], conv[:, :D],
+                                           gate[:, :D], y_ref[..., :D])
+
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    w_map = torch.stack([model.mappings[n].weight for n in range(nmap)])   # (nmap, H/seg, L/seg)
+    b_map = torch.stack([model.mappings[n].bias for n in range(nmap)])     # (nmap, H/seg)
+    w_conv = torch.cat([c.weight.reshape(1, K) for c in model.ds_convs[:D]])   # (D, K)
+    b_conv = torch.cat([c.bias for c in model.ds_convs[:D]])                   # (D,)
+
+    with (OUT_DIR / "cmos_weights.h").open("w", newline="\n") as f:
+        f.write("/* Auto-generated by deployment/board/export_golden_cmos.py - do not edit. */\n")
+        f.write(f"/* config={a.config}, seed={WEIGHT_SEED}, deployed params={deployed} */\n")
+        f.write("#ifndef CMOS_WEIGHTS_H\n#define CMOS_WEIGHTS_H\n\n")
+        f.write(f"#define CMOS_H_GEN {H}\n#define CMOS_L_GEN {L}\n#define CMOS_D_GEN {D}\n")
+        f.write(f"#define CMOS_SEG {seg}\n#define CMOS_NMAP {nmap}\n")
+        f.write(f"#define CMOS_K {K}\n#define CMOS_STRIDE {S}\n#define CMOS_CONV_DIM {conv_dim}\n\n")
+        emit_array(f, "CMOS_W_MAP", w_map)
+        emit_array(f, "CMOS_B_MAP", b_map)
+        emit_array(f, "CMOS_W_CONV", w_conv)
+        emit_array(f, "CMOS_B_CONV", b_conv)
+        emit_array(f, "CMOS_W_GATE", model.gates.weight)    # (nmap, conv_dim)
+        emit_array(f, "CMOS_B_GATE", model.gates.bias)
+        f.write("#endif /* CMOS_WEIGHTS_H */\n")
+
+    with (OUT_DIR / "cmos_vectors.h").open("w", newline="\n") as f:
+        f.write("/* Auto-generated by deployment/board/export_golden_cmos.py - do not edit. */\n")
+        f.write(f"/* weight_seed={WEIGHT_SEED}, input_seed={INPUT_SEED} */\n")
+        f.write("#ifndef CMOS_VECTORS_H\n#define CMOS_VECTORS_H\n\n")
+        emit_array(f, "CG_X", x[0])                  # (L,D) time-major
+        emit_array(f, "CG_MEAN", mean[0, :, 0])
+        emit_array(f, "CG_STD", std[0, :, 0])
+        emit_array(f, "CG_CONV", conv[0])            # (D,conv_dim)
+        emit_array(f, "CG_GATE", gate[0])            # (D,nmap)
+        emit_array(f, "CG_Y", y_ref[0])              # (H,D)
+        f.write("#endif /* CMOS_VECTORS_H */\n")
+
+    print(f"wrote {OUT_DIR / 'cmos_weights.h'}")
+    print(f"wrote {OUT_DIR / 'cmos_vectors.h'}")
+
+
+if __name__ == "__main__":
+    main()

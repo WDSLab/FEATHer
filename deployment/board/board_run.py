@@ -19,6 +19,8 @@ need the multimeter in JP6 and stay manual (BOARD_RUNBOOK.md section 3).
     python deployment/board/board_run.py                 # all cells, resumable
     python deployment/board/board_run.py --only 9,21     # plan numbers (see --plan)
     python deployment/board/board_run.py --plan
+    python deployment/board/board_run.py --candidates --plan   # 10-07: every candidate setting
+    python deployment/board/board_run.py --candidates          # of CMoS / TimeBase / PhaseFormer
 """
 from __future__ import annotations
 
@@ -41,6 +43,41 @@ CLI = Path(r"C:\ST\STM32CubeIDE_2.2.0\STM32CubeIDE\plugins"
            r"\STM32_Programmer_CLI.exe")
 GCC, SIZE = TOOLS / "arm-none-eabi-gcc.exe", TOOLS / "arm-none-eabi-size.exe"
 OUT = bp.ROOT / "results" / "board" / "board_latency_20260929.csv"
+# 10-07: CMoS / TimeBase / PhaseFormer change structure with the author setting, and the
+# industrial setting is chosen on validation later.  Every candidate is measured up front
+# (at the MetroPT3 deployment cell, whose period rule gives period 24), so the chosen one is
+# read off this file without another board session.  Candidates with the same structure at
+# a horizon build the same firmware: measured once, the others listed in `same_as`.
+OUT_CAND = bp.ROOT / "results" / "board" / "board_latency_candidates_20261007.csv"
+CAND_MODELS = {"cmos": "CMoS", "timebase": "TimeBase", "phaseformer": "PhaseFormer",
+               # 10-07 (second pass): older ports whose candidates differ in structure
+               "stsf_mlp": "SparseTSF_MLP", "dipe": "DiPE_Linear", "mixlinear": "MixLinear",
+               "fits": "FITS"}
+
+
+def _struct_key(m, reg, cfg, H):
+    """What decides the firmware of one candidate at horizon H (MetroPT3 cell)."""
+    import importlib
+    if m in ("cmos", "timebase", "phaseformer"):
+        return tuple(sorted(importlib.import_module(
+            f"export_golden_{bp.MODELS[m][2]}").geometry(cfg, H, "MetroPT3").items()))
+    from tools.results.protocol import resolve
+    _, _, ov = resolve(reg, "mfg", "MetroPT3", H, "cand:" + cfg)
+    if m == "stsf_mlp":
+        return (ov.get("sparsetsf_d_model", 128),)
+    if m == "dipe":
+        return (ov.get("dipe_num_experts", 1), bool(ov.get("dipe_use_revin", True)))
+    if m == "mixlinear":                       # lpf is clamped to the input segments (96 / 24);
+        return (min(int(ov.get("mixlinear_lpf", 15)), 96 // 24),)   # alpha is a constant only
+    if m == "fits":
+        import argparse
+        sys.path.insert(0, str(bp.ROOT))
+        from baselines.FITS.wrapper import _cut_freq
+        return (_cut_freq(argparse.Namespace(**ov), 96), bool(ov.get("fits_individual", False)))
+    raise KeyError(m)
+CAND_CELLS = [(96, 7), (96, 1), (720, 1)]
+CAND_COLS = ["model", "config", "same_as", "H", "D", "status", "bad", "maxabs_e6", "cycles",
+             "latency_us", "latency_ms", "stack_B", "flash_B", "ram_B", "gcc", "timestamp"]
 
 # = the CubeIDE project's Debug configuration (Debug/Core/Src/subdir.mk, Debug/makefile)
 CFLAGS = ["-mcpu=cortex-m3", "-std=gnu11", "-g3", "-DDEBUG", "-DUSE_HAL_DRIVER",
@@ -138,6 +175,89 @@ def read_lines(port: str, name: str, H: int, D: int, want: int, max_s: int) -> l
     return rows
 
 
+def candidate_cells() -> list[tuple]:
+    """(model, H, D, config, same_as) - one per distinct structure; same_as lists the other
+    candidates that resolve to the same structure at that horizon."""
+    sys.path.insert(0, str(bp.ROOT))
+    from tools.results.protocol import CANDIDATES
+    cells = []
+    for m, reg in CAND_MODELS.items():
+        for H, D in CAND_CELLS:
+            groups = {}
+            for cfg in CANDIDATES[reg]:
+                groups.setdefault(_struct_key(m, reg, cfg, H), []).append(cfg)
+            for cfgs in groups.values():
+                cells.append((m, H, D, cfgs[0], ";".join(cfgs[1:])))
+    return cells
+
+
+def run_candidates(a) -> None:
+    cells = candidate_cells()
+    if a.plan:
+        for i, (m, H, D, cfg, same) in enumerate(cells, 1):
+            print(f"{i:2d}. {m:<11} H={H:<3} D={D}  {cfg}{'  (= ' + same + ')' if same else ''}")
+        return
+    pick = set(int(x) for x in a.only.split(",")) if a.only else None
+    done = set()
+    if a.out_cand.exists():
+        with a.out_cand.open(encoding="utf-8") as f:
+            done = {(r["model"], int(r["H"]), int(r["D"]), r["config"])
+                    for r in csv.DictReader(f) if r["status"] in ("PASS", "NOFIT")}
+    gcc_ver = run([GCC, "--version"]).splitlines()[0]
+
+    def write(row):
+        new = not a.out_cand.exists()
+        with a.out_cand.open("a", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=CAND_COLS)
+            if new:
+                w.writeheader()
+            w.writerow(row)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        proj = Path(tmp) / "proj"
+        shutil.copytree(a.project, proj, ignore=shutil.ignore_patterns("Debug", "Release"))
+        hal = Path(tmp) / "hal"
+        for i, (m, H, D, cfg, same) in enumerate(cells, 1):
+            if (pick and i not in pick) or (m, H, D, cfg) in done:
+                continue
+            tag = f"{i:2d}. {m:<11} H={H:<3} D={D} {cfg:<11}"
+            base = dict(model=m, config=cfg, same_as=same, H=H, D=D, gcc=gcc_ver,
+                        timestamp=dt.datetime.now().isoformat(timespec="seconds"))
+            try:
+                bp.check_cell(m, H, D)
+                bp.install(proj, m, H, D, "none", config=cfg)
+                elf, fl, ram = build(proj, hal)
+            except Exception as e:
+                msg = str(e)
+                if "overflow" in msg or "will not fit" in msg:
+                    write({**base, "status": "NOFIT"})     # the part's flash / RAM is too small
+                    print(f"{tag}  does not fit the chip", flush=True)
+                else:
+                    print(f"{tag}  ERROR  {msg.splitlines()[0][:120]}", flush=True)
+                continue
+            if fl > bp.FLASH_BYTES or ram > bp.RAM_BYTES:
+                write({**base, "status": "NOFIT", "flash_B": fl, "ram_B": ram})
+                print(f"{tag}  does not fit the chip  flash {fl / 1024:.1f} KB  RAM {ram / 1024:.2f} KB",
+                      flush=True)
+                continue
+            try:
+                flash_board(elf)
+                lines = read_lines(a.port, f"{bp.MODELS[m][1]}[{cfg}]", H, D, 2, a.max_s)
+            except Exception as e:
+                print(f"{tag}  ERROR  {str(e).splitlines()[0][:120]}", flush=True)
+                continue
+            if len(lines) < 2 or lines[0]["cycles"] != lines[1]["cycles"]:
+                print(f"{tag}  UNSTABLE/NO OUTPUT  {lines}", flush=True)
+                continue
+            r = lines[0]
+            write({**base, "status": r["status"], "bad": r["bad"], "maxabs_e6": r["maxabs"],
+                   "cycles": r["cycles"], "latency_us": r["lat"],
+                   "latency_ms": f"{int(r['lat']) / 1000:.2f}", "stack_B": r["stack"],
+                   "flash_B": fl, "ram_B": ram})
+            print(f"{tag}  {r['status']}  {int(r['lat']) / 1000:9.2f} ms  stack {r['stack']} B  "
+                  f"flash {fl / 1024:.1f} KB  RAM {ram / 1024:.2f} KB", flush=True)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -146,12 +266,18 @@ def main() -> None:
     ap.add_argument("--port", default="COM3")
     ap.add_argument("--max_s", type=int, default=120, help="serial wait per cell")
     ap.add_argument("--out", type=Path, default=OUT)
+    ap.add_argument("--candidates", action="store_true",
+                    help="measure every candidate setting of CMoS / TimeBase / PhaseFormer (10-07)")
+    ap.add_argument("--out_cand", type=Path, default=OUT_CAND)
     ap.add_argument("--project", type=Path, default=bp.DEFAULT_PROJECT)
     ap.add_argument("--power", choices=["active", "idle", "max"], default=None,
                     help="flash ONE cell (--only N) in a power mode and stop: the harness "
                          "prints nothing, read the current on the multimeter in JP6")
     a = ap.parse_args()
 
+    if a.candidates:
+        run_candidates(a)
+        return
     if a.power:
         cells = ([(m, H, D, False) for m, H, D in bp.PLAN] + [(m, H, D, True) for m, H, D in bp.AB_PLAN]
                  + [(m, H, D, False) for m, H, D in bp.EXTRA_PLAN])

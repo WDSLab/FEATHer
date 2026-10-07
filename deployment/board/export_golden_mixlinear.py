@@ -27,6 +27,7 @@ _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
+from tools.results.protocol import resolve  # noqa: E402
 from baselines.MixLinear.wrapper import build   # noqa: E402
 from export_golden import emit_array             # noqa: E402
 
@@ -48,10 +49,20 @@ def main() -> None:
                       help="board horizon; the C header takes -D<PFX>_H to match")
     _cli.add_argument("--d_model", type=int, default=D_MODEL,
                       help="channel count; the C header takes -D<PFX>_D to match")
+    # 2026-10-07: one of the industrial candidate settings (resolved as the experiments
+    # do); lpf and alpha then go to mixlinear_geom.h.  Omitted = the old default.
+    _cli.add_argument("--data", default="MetroPT3")
+    _cli.add_argument("--config", default=None,
+                      help="industrial candidate (ETTh1 / ETTh2 / Electricity / Traffic)")
     _a = _cli.parse_args()
     PRED_LEN, D_MODEL = _a.pred_len, _a.d_model
+    ns = argparse.Namespace()
+    if _a.config:
+        _, _, ov = resolve("MixLinear", "mfg", _a.data, PRED_LEN, "cand:" + _a.config)
+        ns = argparse.Namespace(**ov)
+        assert int(ov.get("mixlinear_period_len", 24)) == PERIOD_LEN, "the port is written for period 24"
     torch.manual_seed(WEIGHT_SEED)
-    wrapped = build(argparse.Namespace(), D_MODEL, SEQ_LEN, PRED_LEN).eval()
+    wrapped = build(ns, D_MODEL, SEQ_LEN, PRED_LEN).eval()
     m = wrapped.model  # raw upstream Model (weights live here)
 
     # Golden weights must exercise every arithmetic path of the port.  The
@@ -78,7 +89,7 @@ def main() -> None:
     # (the reference the 08-24 board numbers were taken at).  At other
     # horizons the geometry legitimately changes - print it instead, and
     # the C header must be given matching -D overrides.
-    if PRED_LEN == 96:
+    if PRED_LEN == 96 and not _a.config:
         assert (seg_x, seg_y, sq_x, sq_y, lpf) == (4, 4, 2, 2, 4), \
             f"unexpected geometry {(seg_x, seg_y, sq_x, sq_y, lpf)}"
 
@@ -94,6 +105,9 @@ def main() -> None:
         f"#define ML_SEGY_G {seg_y}",
         f"#define ML_SQX {sq_x}   /* ceil(sqrt(L/P)) */",
         f"#define ML_SQY {sq_y}   /* ceil(sqrt(H/P)) */",
+        f"#define ML_LPF {lpf}   /* kept FFT bins (<= seg_x) */",
+        f"#define ML_ALPHA {m.alpha:.9e}f   /* time / frequency mix */",
+        f"/* config={_a.config or 'default'} */",
         "#endif", "",
     ]
     (OUT_DIR / "mixlinear_geom.h").write_text(chr(10).join(_geom), encoding="utf-8")

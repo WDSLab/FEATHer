@@ -97,6 +97,30 @@
   #define GOLD_X FG_X
   #define GOLD_Y FG_Y
   #define FULL_FORWARD fits_forward
+#elif defined(RUN_CMOS)
+  #include "cmos_infer.h"
+  #include "cmos_vectors.h"
+  #define GOLD_X CG_X
+  #define GOLD_Y CG_Y
+  #define FULL_FORWARD cmos_forward
+#elif defined(RUN_TIMEBASE)
+  #include "timebase_infer.h"
+  #include "timebase_vectors.h"
+  #define GOLD_X TG_X
+  #define GOLD_Y TG_Y
+  #define FULL_FORWARD timebase_forward
+#elif defined(RUN_PHASEFORMER)
+  #include "phaseformer_infer.h"
+  #include "phaseformer_vectors.h"
+  #define GOLD_X PG_X
+  #define GOLD_Y PG_Y
+  #define FULL_FORWARD phaseformer_forward
+#elif defined(RUN_SAMFORMER)
+  #include "samformer_infer.h"
+  #include "samformer_vectors.h"
+  #define GOLD_X SFG_X
+  #define GOLD_Y SFG_Y
+  #define FULL_FORWARD samformer_forward
 #elif defined(RUN_PERS)
   #include "pers_infer.h"
   #include "stsf_vectors.h"          /* any (L, D) window will do */

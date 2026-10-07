@@ -41,7 +41,15 @@
 #define SMLP_N (SMLP_L / SMLP_P)        /* input segments  = 4        */
 #define SMLP_M (SMLP_H / SMLP_P)        /* output segments = 4        */
 #define SMLP_K (1 + 2 * (SMLP_P / 2))   /* agg conv kernel = 25       */
+/* hidden width: golden/stsf_mlp_geom.h (2026-10-07 candidates, Traffic = 512) */
+#if defined(__has_include)
+#if __has_include("stsf_mlp_geom.h")
+#include "stsf_mlp_geom.h"
+#endif
+#endif
+#ifndef SMLP_DM
 #define SMLP_DM 128                     /* d_model, upstream default  */
+#endif
 
 /* x: (SMLP_L, SMLP_D) time-major -> y: (SMLP_H, SMLP_D) time-major */
 void stsf_mlp_forward(const float *x, float *y);

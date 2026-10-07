@@ -75,6 +75,12 @@ MODELS = {
     "MixLinear":     (["mixlinear_infer"], "mixlinear", _geom("ML"),   True),
     "DiPE_Linear":   (["dipe_infer"],      "dipe",      _geom("DIPE"), True),
     "FITS":          (["fits_infer"],      "fits",      _geom("FITS"), True),
+    # 2026-10-07 chip-pool additions.  Their structure depends on which author
+    # setting is used: --config / --data pick it (resolved as the experiments do).
+    "CMoS":          (["cmos_infer"],      "cmos",      _geom("CMOS"), False),
+    "TimeBase":      (["timebase_infer"],  "timebase",  _geom("TB"),   False),
+    "PhaseFormer":   (["phaseformer_infer"], "phaseformer", _geom("PF"), False),
+    "SAMformer":     (["samformer_infer"], "samformer", _geom("SAM"),  False),
     # in1 candidate (2026-09-15, not the frozen model): mixer reads the input,
     # sensors finish one at a time.  Two schedules, see src/feather2in_infer.h:
     # _strict keeps x_norm (rule 4), plain recomputes it per sensor.
@@ -99,6 +105,12 @@ MODELS = {
                              lambda H, D: _geom("FEA2I")(H, D)
                              + ["-DFEA2I_RECOMPUTE_NORM=0"], True),
 }
+
+# models whose export takes --config / --data (structure depends on the chosen setting)
+CONFIG_MODELS = {"CMoS", "TimeBase", "PhaseFormer", "SAMformer",
+                 # 10-07: older ports whose candidates change the structure (no --config =
+                 # the 09-29 setting, as before)
+                 "SparseTSF_MLP", "DiPE_Linear", "MixLinear", "FITS"}
 
 CC = "arm-none-eabi-gcc"
 SIZE = "arm-none-eabi-size"
@@ -153,6 +165,11 @@ def main() -> None:
     ap.add_argument("--out", default="../../results/board/board_footprint.csv")
     ap.add_argument("--stack_bytes", type=int, default=STACK_BYTES,
                     help="SRAM charged for the stack (see module docstring)")
+    ap.add_argument("--config", default=None,
+                    help="author setting for the 10-07 models (CONFIG_MODELS), e.g. ETTh1 / default; "
+                         "omitted = each export script's default")
+    ap.add_argument("--data", default="MetroPT3",
+                    help="industrial dataset whose period rule the 10-07 models use")
     ap.add_argument("--models", default=None,
                     help="comma list of MODELS keys (default: all); use with "
                          "--out so a partial run does not replace the main CSV")
@@ -181,7 +198,10 @@ def main() -> None:
     for name, (srcs, stem, geom, uses_kern) in run_models.items():
       for D in DS:
         for H in HS:
-            ok, why = export(stem, H, D, EXPORT_EXTRA.get(name, ()))
+            extra = list(EXPORT_EXTRA.get(name, ()))
+            if name in CONFIG_MODELS:
+                extra += ["--data", a.data] + (["--config", a.config] if a.config else [])
+            ok, why = export(stem, H, D, extra)
             if not ok:
                 rows.append(dict(model=name, H=H, D=D, flash=None, sram=None,
                                  fits="NO", note=why[:110]))
@@ -212,7 +232,8 @@ def main() -> None:
             total_sram = sram + SEQ_LEN * D * 4 + a.stack_bytes
             fits = ("YES" if (total_flash <= FLASH_BYTES
                               and total_sram <= SRAM_BYTES) else "NO")
-            rows.append(dict(model=name, H=H, D=D, flash=flash, sram=sram,
+            label = f"{name}[{a.config or 'default'}@{a.data}]" if name in CONFIG_MODELS else name
+            rows.append(dict(model=label, H=H, D=D, flash=flash, sram=sram,
                              total_flash=total_flash, total_sram=total_sram,
                              stack=a.stack_bytes,
                              sram_headroom=SRAM_BYTES - total_sram,

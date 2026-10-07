@@ -20,7 +20,9 @@
 #include "mixlinear_weights.h"
 #include "mixlinear_twiddle.h"
 
+#ifndef ML_ALPHA                      /* mixlinear_geom.h writes it (10-07 candidates) */
 #define ML_ALPHA 0.5f
+#endif
 #define ML_PAD (ML_P / 2)             /* conv padding = 12 */
 
 /* Output step s = k*P + p is emitted as (segment k, phase p).  That covers

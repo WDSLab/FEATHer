@@ -29,7 +29,20 @@
 #ifndef FITS_D
 #define FITS_D 7
 #endif
-#define FITS_CUT 24                        /* kept low-freq bins       */
+/* kept low-freq bins and shared / per-channel upsampler: written by the
+ * export into golden/fits_geom.h (2026-10-07, candidate settings); the
+ * fallback is the benchmark default this port was written at */
+#if defined(__has_include)
+#if __has_include("fits_geom.h")
+#include "fits_geom.h"
+#endif
+#endif
+#ifndef FITS_CUT
+#define FITS_CUT 24
+#endif
+#ifndef FITS_IND
+#define FITS_IND 0
+#endif
 /* Upsampled bin count.  FITS scales the kept low-frequency block by the
  * same ratio the sequence grows: up = cut * (L+H) / L.  At H=96 that is
  * 24*192/96 = 48 (the frozen value this port was written at); at H=720 it
