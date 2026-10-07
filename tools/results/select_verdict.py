@@ -1,9 +1,9 @@
 """Choose baseline settings from the selection runs (docs/EXPERIMENT_PROTOCOL.md §5.3-5.4, rule 6).
 
     python tools/results/select_verdict.py                  # industrial: report only
-    python tools/results/select_verdict.py --write          # + results/chosen_mfg.json
+    python tools/results/select_verdict.py --write          # + docs/chosen_mfg.json (commit it)
     python tools/results/select_verdict.py --group ltsf     # LTSF cells without an official setting
-    python tools/results/select_verdict.py --group ltsf --write   # + results/chosen_ltsf.json
+    python tools/results/select_verdict.py --group ltsf --write   # + docs/chosen_ltsf.json (commit it)
 
 Industrial: per dataset, rank a model's candidates by validation loss (mean over the 4 horizons, seed 2025,
 L 96); the best mean rank over the 6 datasets wins and is used everywhere.  LTSF (no-official cells): one
@@ -27,7 +27,7 @@ RES = os.path.join(ROOT, "results")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import protocol as P   # noqa: E402
 
-KEY = ["role", "config_id", "model", "data", "pred_len", "seq_len", "seed"]
+KEY = P.KEY
 
 
 def selection_rows(group):
@@ -102,7 +102,7 @@ def main(group, write):
         r = pd.read_csv(rp)
         allr = pd.concat([r, add[r.columns.intersection(add.columns)]], ignore_index=True)
         allr = allr.sort_values("timestamp").drop_duplicates(KEY, keep="last").sort_values(KEY)
-        allr.to_csv(rp, index=False)
+        P.write_csv_safely(allr, rp)
         print(f"raw_{group}.csv: {len(r)} -> {len(allr)} rows (chosen seed-{P.SELECT_SEED} selection rows reused as main)")
 
 

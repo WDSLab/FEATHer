@@ -15,6 +15,7 @@ concurrent workers interleave — same as running two terminals by hand.
 
 import os
 import queue
+import shlex
 import subprocess
 import sys
 import threading
@@ -86,7 +87,7 @@ def run_on_gpus(jobs, ngpu, base_gpu=0, jobs_per_gpu=1):
             full_cmd = list(cmd) + ["--gpu", str(gpu_id)]
             with print_lock:
                 print(f"\n>>> [gpu{gpu_id}] {label}", flush=True)
-                print("  CMD:", " ".join(full_cmd), flush=True)
+                print("  CMD:", " ".join(shlex.quote(c) for c in full_cmd), flush=True)   # quoted: exp_tag contains "|"
             # Guard the launch+wait: if Popen itself raises (fd exhaustion,
             # ENOMEM, exec failure under high jobs_per_gpu) the worker thread
             # would otherwise die and its already-dequeued job would vanish —

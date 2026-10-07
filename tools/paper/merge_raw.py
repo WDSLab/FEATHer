@@ -75,6 +75,8 @@ def load_baselines(datasets):
 # with the frozen 14 so every table reads one file.  Seeds may be incomplete while the runs
 # are in progress - the report below says so, and the manuscript builder marks such models.
 NEW_MODELS = ["CMoS", "TimeBase", "PhaseFormer", "SAMformer"]
+# 10-07: legacy builder of the pre-raw *_raw.csv the manuscript still reads; new runs are merged into
+# results/raw_*.csv by tools/results/merge_incoming.py instead (the new4_* files below never existed).
 NEW_FILES = {
     "mfg": [f"{R}/_archive/pre_raw_20261007/cmos_mfg.csv", f"{R}/_archive/pre_raw_20261007/new3_mfg.csv", f"{R}/new4_mfg_s2627.csv",
             f"{R}/_archive/pre_raw_20261007/timebase_lr_mfg.csv"],

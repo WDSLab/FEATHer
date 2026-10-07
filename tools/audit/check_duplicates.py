@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """
+(10-07: default file is results/raw_mfg.csv; the old fcst_results.csv no longer exists.)
+
 Duplicate / overlap audit for the append-only results CSVs.
 
 `results/fcst_results.csv` is append-only: the orchestrator resumes by
@@ -179,7 +181,7 @@ def do_fix(df, key_present, csv_path):
 
 def main():
     p = argparse.ArgumentParser(description="Duplicate/overlap audit for results CSVs")
-    p.add_argument("--csv",     type=str, default="results/fcst_results.csv")
+    p.add_argument("--csv",     type=str, default="results/raw_mfg.csv")
     p.add_argument("--exp_tag", type=str, default=None,
                    help="Restrict the audit to one exp_tag.")
     p.add_argument("--model",   type=str, default=None)

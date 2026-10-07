@@ -33,6 +33,13 @@ matplotlib>=3.4.0
 # Time series datasets (auto-downloads ETT, Weather, etc.)
 darts>=0.24.0
 
+# Baseline imports / analysis (10-07)
+einops>=0.6
+reformer_pytorch==1.4.4
+toml>=0.10
+scipy>=1.10
+openpyxl>=3.0   # BlastFurnace raw .xlsx (utils/prep_manufacturing.py)
+
 # Progress bar
 tqdm>=4.62.0
 

@@ -21,7 +21,7 @@ RES = os.path.join(ROOT, "results")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import protocol as P   # noqa: E402
 
-KEY = ["role", "config_id", "model", "data", "pred_len", "seq_len", "seed"]
+KEY = P.KEY
 
 
 def main(archive):
@@ -34,16 +34,26 @@ def main(archive):
         d = pd.read_csv(p, on_bad_lines="skip")
         if d.empty:
             continue
-        sp = d.exp_tag.astype(str).str.split("|", n=1, expand=True)
-        if sp.shape[1] != 2 or sp[1].isna().any():
-            print(f"  skip {os.path.basename(p)}: exp_tag is not '<role>|<config_id>'")
-            continue
-        d["role"], d["config_id"], d["source"] = sp[0], sp[1], os.path.basename(p)
+        rc = [P.split_exp_tag(t) for t in d.exp_tag]
+        d["role"], d["config_id"], d["source"] = [r for r, _ in rc], [c for _, c in rc], os.path.basename(p)
+        bad = d.role.isna()
+        if bad.any():
+            print(f"  {os.path.basename(p)}: {int(bad.sum())} row(s) without '<role>|<config_id>' exp_tag skipped")
+        # a row cut off by a writer that was still running has NaN key fields -> drop it (the cell stays
+        # missing and the next run.py fills it); failed runs (MSE NaN, best_epoch -1) are complete rows
+        cut = d[~bad][KEY + ["timestamp"]].isna().any(axis=1)
+        if cut.any():
+            print(f"  {os.path.basename(p)}: {int(cut.sum())} incomplete row(s) dropped")
+        d = d[~bad][~cut.values]
         new.append(d)
         print(f"  {os.path.basename(p)}: {len(d)} rows")
     if not new:
         return
     new = pd.concat(new, ignore_index=True)
+    stray = ~new.data.isin(P.MFG + P.LTSF)
+    if stray.any():
+        print(f"  [WARN] {int(stray.sum())} row(s) of datasets outside the protocol are not merged:",
+              sorted(new[stray].data.unique()))
     # guard: one setting per cell -> the parameter count must not differ between seeds of a cell
     g = new.groupby(["role", "config_id", "model", "data", "pred_len", "seq_len"]).num_params.nunique()
     if (g > 1).any():
@@ -64,7 +74,7 @@ def main(archive):
         n0 = len(old)
         allr = allr.sort_values("timestamp").drop_duplicates(KEY, keep="last")
         cols = ["role", "config_id"] + [c for c in allr.columns if c not in ("role", "config_id", "source")] + ["source"]
-        allr[cols].sort_values(KEY).to_csv(path, index=False)
+        P.write_csv_safely(allr[cols].sort_values(KEY), path)
         print(f"{name}: {n0} -> {len(allr)} rows")
     if archive:
         dst = os.path.join(RES, "_archive", "incoming_merged")

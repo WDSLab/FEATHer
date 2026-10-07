@@ -102,12 +102,26 @@ ABLATION_PLAN = {"band1": HS, "gatenone": HS, "headlin": HS, "band2": [96], "gat
                  "noresid": [96], "norevin": [96], "r2": [96], "r8": [96], "spec0": [96]}
 
 # ---- control arms: SparseTSF(+MLP) + FEATHer's mixing bus, FEATHer without bands/gate ---------------
-# result model name -> (registry model, extra worker flags).  Settings = the host model's industrial row.
+# arm -> (registry model, extra worker flags, host model).  An arm trains with its HOST's industrial
+# setting (the chosen candidate / frozen), and its config_id carries it: "ctrl:<arm>@<host config_id>",
+# so a host whose chosen setting changes makes the arm's cells missing again (10-07, Fable review).
 CONTROL_ARMS = {
-    "SparseTSF_mix": ("SparseTSF_mix", []), "SparseTSF_mixM": ("SparseTSF_mixM", []),
-    "SparseTSF_MLP_mix": ("SparseTSF_MLP_mix", []), "SparseTSF_MLP_mixM": ("SparseTSF_MLP_mixM", []),
-    "FEATHer_frontnone": ("FEATHer", ["--front", "none"]),
+    "SparseTSF_mix": ("SparseTSF_mix", [], "SparseTSF"), "SparseTSF_mixM": ("SparseTSF_mixM", [], "SparseTSF"),
+    "SparseTSF_MLP_mix": ("SparseTSF_MLP_mix", [], "SparseTSF_MLP"),
+    "SparseTSF_MLP_mixM": ("SparseTSF_MLP_mixM", [], "SparseTSF_MLP"),
+    "FEATHer_frontnone": ("FEATHer", ["--front", "none"], "FEATHer_mix"),
 }
+
+
+def control_config_id(arm):
+    """"ctrl:<arm>@<host config>" or None while the host's industrial setting is not chosen."""
+    host_cfg = mfg_main_config_id(CONTROL_ARMS[arm][2])
+    return None if host_cfg is None else f"ctrl:{arm}@{host_cfg}"
+
+
+def _ctrl(config_id):
+    arm, host_cfg = config_id[5:].split("@", 1)
+    return arm, host_cfg
 
 
 def control_row_model(arm):
@@ -120,11 +134,12 @@ def cli_flags(model, config_id):
     if config_id.startswith("abl:"):
         return list(ABLATION_ARMS[config_id[4:]][1])
     if config_id.startswith("ctrl:"):
-        return list(CONTROL_ARMS[config_id[5:]][1])
+        return list(CONTROL_ARMS[_ctrl(config_id)[0]][1])
     return []
 
-CHOSEN_FILE = os.path.join(ROOT, "results", "chosen_mfg.json")
-CHOSEN_LTSF_FILE = os.path.join(ROOT, "results", "chosen_ltsf.json")
+# chosen settings live in docs/ (committed) so that the public repository reproduces the main runs
+CHOSEN_FILE = os.path.join(ROOT, "docs", "chosen_mfg.json")
+CHOSEN_LTSF_FILE = os.path.join(ROOT, "docs", "chosen_ltsf.json")
 
 
 def _load(path):
@@ -145,7 +160,7 @@ def chosen_ltsf():
 
 def registry_name(model, config_id=""):
     if config_id.startswith("ctrl:"):
-        return CONTROL_ARMS[config_id[5:]][0]
+        return CONTROL_ARMS[_ctrl(config_id)[0]][0]
     return "FEATHer" if model in FEATHER else model
 
 
@@ -162,7 +177,12 @@ def resolve(model, group, data, H, config_id):
         s = _merge("FEATHer", data, H)
         for k in ABLATION_ARMS[config_id[4:]][2]:
             s.pop(k, None)
-    elif config_id in ("frozen", "official", "official-exc", "ref-default") or config_id.startswith("ctrl:"):
+    elif config_id.startswith("ctrl:"):
+        # the host's setting (its periods / lr / widths), trained under the arm's registry model
+        arm, host_cfg = _ctrl(config_id)
+        lr, loss, ov = resolve(CONTROL_ARMS[arm][2], group, data, H, host_cfg)
+        return lr, loss, ov
+    elif config_id in ("frozen", "official", "official-exc", "ref-default"):
         s = _merge(model, data, H, config_id)
         if model == "FEATHer_CI" and group == "mfg":
             s["channel_mode"] = "ci_full"
@@ -213,3 +233,40 @@ def mfg_main_config_id(model):
     if len(CANDIDATES.get(model, [])) == 1:
         return "cand:" + CANDIDATES[model][0]
     return chosen_mfg().get(model)
+
+
+# ---- shared helpers for result files ---------------------------------------------------------------
+KEY = ["role", "config_id", "model", "data", "pred_len", "seq_len", "seed"]
+
+
+def split_exp_tag(exp_tag):
+    """"<role>|<config_id>" (run.py) -> (role, config_id); (None, None) for other tags."""
+    parts = str(exp_tag).split("|", 1)
+    return (parts[0], parts[1]) if len(parts) == 2 else (None, None)
+
+
+def main_rows(df, group, seq_len=96, finite=True, roles=("main", "reference")):
+    """The rows a results table should use: role main/reference, each model's protocol setting only
+    (FEATHer frozen; LTSF official / chosen; industrial chosen / single candidate; reference defaults),
+    optionally dropping failed (non-finite) runs.  Rows of settings that were not chosen stay in the
+    raw file for provenance but never reach a table through this function."""
+    d = df[df.role.isin(list(roles)) & (df.seq_len == seq_len)]
+    if group == "mfg":
+        want = {m: mfg_main_config_id(m) for m in d.model.unique()}
+        keep = [want.get(m) == c for m, c in zip(d.model, d.config_id)]
+    else:
+        keep = [ltsf_config_id(m, x) == c for m, x, c in zip(d.model, d.data, d.config_id)]
+    d = d[keep]
+    if finite:
+        d = d[d.MSE.notna() & d.val_loss.notna()]
+    return d
+
+
+def write_csv_safely(df, path):
+    """Write a managed result file atomically: temp file -> os.replace, previous version kept as <path>.bak."""
+    import shutil
+    tmp = path + ".tmp"
+    df.to_csv(tmp, index=False)
+    if os.path.exists(path):
+        shutil.copyfile(path, path + ".bak")
+    os.replace(tmp, path)

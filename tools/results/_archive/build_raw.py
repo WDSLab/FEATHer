@@ -1,4 +1,7 @@
-"""Build the single raw result files from the scattered CSVs (one-time migration, 2026-10-07).
+"""ARCHIVED one-time migration (2026-10-07) - do not rerun: raw_*.csv are now maintained by
+merge_incoming.py / select_verdict.py, and --write refuses once they hold newer rows.
+
+Build the single raw result files from the scattered CSVs (one-time migration, 2026-10-07).
 
     results/raw_mfg.csv    paper-grade runs on the industrial datasets (main / lookback / ablation /
                            control / reference), only rows whose setting conforms to docs/EXPERIMENT_PROTOCOL.md
@@ -23,10 +26,11 @@ Read-only on the sources: nothing is moved or deleted here.
 """
 import os
 import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # tools/results (protocol)
 
 import pandas as pd
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))   # tools/results/_archive -> repo
 R = os.path.join(ROOT, "results")
 SRC = os.path.join(R, "_archive", "pre_raw_20261007")
 HEAVY = {"PatchTST", "TimeMixer", "TQNet", "LMS_AutoTSF", "TimesNet", "iTransformer", "MDMLP_EIA"}
@@ -94,6 +98,15 @@ def tag(df, role, cfg):
     return df
 
 
+PRE_RAW_SOURCES = {"mfg_baselines.csv", "cmos_mfg.csv", "new3_mfg.csv", "feather_mfg_candR4.csv",
+                   "feather_mfg_candR4_ci.csv", os.path.join("_archive", "baselines", "fcst_results_baselines.csv"),
+                   "feather_mfg_lookback_L192.csv", "feather_mfg_lookback_L336.csv",
+                   "feather_ci_mfg_lookback_L192.csv", "feather_ci_mfg_lookback_L336.csv",
+                   "stsf_mlp_mfg_lookback_L192.csv", "stsf_mlp_mfg_lookback_L336.csv", "ablation.csv",
+                   "control_sparsetsf_mix.csv", "control_front_none.csv", "ltsf_baselines.csv",
+                   "new4_ltsf_server_20261007.csv", "feather_ltsf_candR4.csv", "feather_ltsf_candR4_mix.csv"}
+
+
 def main():
     mfg, ltsf = [], []
 
@@ -124,9 +137,10 @@ def main():
     d = load("ablation.csv")
     mfg.append(tag(d, "ablation", lambda r: "abl:" + r.exp_tag.replace("abl_", "", 1)))
     d = load("control_sparsetsf_mix.csv")
-    mfg.append(tag(d, "control", lambda r: f"ctrl:{r.model}"))
+    _host = {"SparseTSF_mix": "cand:ETTh1", "SparseTSF_MLP_mix": "cand:Electricity"}   # lr 0.02 host rows
+    mfg.append(tag(d, "control", lambda r: f"ctrl:{r.model}@{_host[r.model]}"))
     d = load("control_front_none.csv")
-    mfg.append(tag(d, "control", lambda r: "ctrl:FEATHer_frontnone"))
+    mfg.append(tag(d, "control", lambda r: "ctrl:FEATHer_frontnone@frozen"))
 
     # ---- standard benchmarks
     b = load("ltsf_baselines.csv")
@@ -158,7 +172,18 @@ def main():
         mm = out[name][out[name].role.isin(["main", "reference"])]
         print(mm.groupby(["model", "config_id"]).size().to_dict(), "\n")
 
+    if "--write" in sys.argv and "--i-know-this-rewrites-raw" not in sys.argv:
+        raise SystemExit("archived migration: --write would rebuild raw_*.csv from the pre-raw CSVs and drop "
+                         "every row merged since 10-07. Add --i-know-this-rewrites-raw only to redo the migration.")
     if "--write" in sys.argv:
+        # GUARD (10-07, Fable review): raw_*.csv now also hold rows merged after the migration
+        # (merge_incoming / select_verdict). Rewriting them from the pre-raw CSVs would drop those rows.
+        for name in out:
+            cur = os.path.join(R, name)
+            if os.path.exists(cur):
+                src = set(pd.read_csv(cur, usecols=["source"]).source.astype(str))
+                if any(not s.endswith(".csv") or s not in PRE_RAW_SOURCES for s in src):
+                    raise SystemExit(f"refusing to overwrite {name}: it holds rows merged after the 10-07 migration")
         for name, df in out.items():
             df.to_csv(os.path.join(R, name), index=False)
         lg = pd.concat(legacy, ignore_index=True)

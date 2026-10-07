@@ -1,18 +1,16 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Forecasting worker.
 
 Runs one (model, dataset, pred_len) configuration across a given list of
 seeds. Each completed run appends one row to --results_csv (run.py passes results/_incoming/<host>_<stage>.csv).
 
-This is the *worker* ??call it directly when iterating manually, or let the
-top-level `run_forecast.py` orchestrator dispatch missing combos
-automatically.
+Normally called by the entry point `run.py`, which resolves the setting of every cell
+(tools/results/protocol.py) and passes exp_tag "<role>|<config_id>". Manual use:
 
 Usage:
-    python scripts/train.py \
-        --model FEATHer --data ETTh1 --pred_len 96 \
-        --seeds "2025,2026,2027,2028,2029" --exp_tag main
+    python scripts/train.py --model FEATHer --data ETTh1 --pred_len 96 --seeds 2025,2026,2027
+        --exp_tag "manual|test" --results_csv results/_incoming/manual.csv
 """
 
 import os
@@ -396,6 +394,16 @@ def train_single(args, data_name, pred_len, device, seed):
     # written, and the worker exits non-zero via the P2-1 path so the
     # orchestrator surfaces the group.
     if best_state is None:
+        # 10-07: record the failure as a row (metrics NaN, best_epoch -1) so run.py counts the cell as
+        # done and select_verdict sees a non-finite candidate (protocol rule 6) instead of retrying it
+        # forever; the worker still exits non-zero so the failure is reported.
+        append_result_row(args.results_csv, {
+            "exp_tag": args.exp_tag, "model": getattr(args, "result_model_name", None) or args.model,
+            "data": data_name, "pred_len": pred_len, "seq_len": args.seq_len, "seed": seed,
+            "MSE": float("nan"), "MAE": float("nan"), "RMSE": float("nan"), "CORR": float("nan"),
+            "R2": float("nan"), "val_loss": float("nan"), "best_epoch": -1,
+            "num_params": int(sum(p.numel() for p in model.parameters())),
+            "timestamp": datetime.now().strftime("%Y%m%d_%H%M%S")})
         raise RuntimeError(
             f"no finite val_loss in {args.num_epochs} epoch(s) ??degenerate "
             f"run (diverged/NaN); refusing to report last-epoch metrics")
@@ -549,8 +557,10 @@ def train_single(args, data_name, pred_len, device, seed):
     # The model currently holds the best-val state, so the saved checkpoint
     # is exactly the model whose test metrics were just reported.
     if args.save_model:
-        ckpt = checkpoint_path(args.exp_tag, args.model, data_name,
-                               pred_len, args.seq_len, seed)
+        # result name (FEATHer_mix / FEATHer_CI), not the registry name "FEATHer": both variants share
+        # exp_tag "main|frozen" and would otherwise overwrite each other's checkpoint
+        ckpt = checkpoint_path(args.exp_tag, getattr(args, "result_model_name", None) or args.model,
+                               data_name, pred_len, args.seq_len, seed)
         os.makedirs(os.path.dirname(ckpt), exist_ok=True)
         torch.save(model.state_dict(), ckpt)
         print(f"  -> checkpoint saved ??{ckpt}")
@@ -733,7 +743,7 @@ def parse_args():
     p.add_argument("--num_epochs",  type=int,   default=50)
     p.add_argument("--patience",    type=int,   default=10,
                    help="Early-stopping patience on val loss (epochs).")
-    p.add_argument("--loss",        type=str,   default="l1", choices=["l1", "mse"])
+    p.add_argument("--loss",        type=str,   default="mse", choices=["l1", "mse"])   # protocol: MSE
     p.add_argument("--lambda_spec", type=float, default=0.01)
     # Probe flags (2026-07-22, backward-compatible: defaults reproduce the
     # legacy Adam/no-wd behavior byte-identically). Added to test the TPAMI
@@ -748,7 +758,7 @@ def parse_args():
 
     # Seed control
     p.add_argument("--seeds",         type=str, default="")
-    p.add_argument("--num_seeds",     type=int, default=5)
+    p.add_argument("--num_seeds",     type=int, default=3)   # protocol: 3 seeds
     p.add_argument("--base_seed",     type=int, default=2025)
     p.add_argument("--deterministic", action="store_true", default=True)
 

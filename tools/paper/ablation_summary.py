@@ -1,7 +1,7 @@
 """Component-ablation verdict table.
 
-Pairs the `abl_<arm>` rows written by `run_forecast.py --ablation_arm` against
-the shipping FEATHer row in the main sweep, which is the baseline and is never
+Pairs the ablation rows of results/raw_mfg.csv (role "ablation", written by `run.py --stage ablation`)
+against the frozen FEATHer-mix main rows on the same (dataset, horizon) cells; the baseline is never
 re-run. Comparison is per dataset on the datasets an arm actually covers, so a
 partially-finished sweep still reports honestly.
 

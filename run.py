@@ -29,13 +29,14 @@ import sys
 import pandas as pd
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+os.chdir(ROOT)                      # the worker path and results/_incoming/ are relative to the repo root
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "tools", "results"))
 import protocol as P                                   # noqa: E402
 from utils.dispatch_queue import run_on_gpus           # noqa: E402
 
 RES = os.path.join(ROOT, "results")
-KEY = ["role", "config_id", "model", "data", "pred_len", "seq_len", "seed"]
+KEY = P.KEY
 
 
 def plan(stage, models=None):
@@ -90,10 +91,14 @@ def plan(stage, models=None):
         for arm in P.CONTROL_ARMS:
             if models and arm not in models:
                 continue
+            cfg = P.control_config_id(arm)
+            if cfg is None:
+                print(f"  [skip] {arm}: host {P.CONTROL_ARMS[arm][2]} has no chosen setting yet")
+                continue
             for d in P.MFG:
                 for h in P.HS:
                     for s in P.SEEDS:
-                        add(role="control", config_id="ctrl:" + arm, model=P.control_row_model(arm), group="mfg",
+                        add(role="control", config_id=cfg, model=P.control_row_model(arm), group="mfg",
                             data=d, pred_len=h, seq_len=96, seed=s)
     elif stage in ("main", "lookback"):
         pool = models or (P.FEATHER + P.LIGHT + P.HEAVY if stage == "main" else P.FEATHER + P.ON_CHIP + ["CycleNet", "DLinear"])
@@ -112,6 +117,16 @@ def plan(stage, models=None):
     else:
         raise ValueError(stage)
     return cells
+
+
+def _result_fields():
+    """Column order of the worker's result rows (scripts/train.py CSV_FIELDS), read without importing torch."""
+    import ast
+    tree = ast.parse(open(os.path.join(ROOT, "scripts", "train.py"), encoding="utf-8").read())
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and getattr(node.targets[0], "id", "") == "CSV_FIELDS":
+            return [e.value for e in node.value.elts]
+    raise RuntimeError("CSV_FIELDS not found in scripts/train.py")
 
 
 def done_set():
@@ -193,6 +208,10 @@ def main():
         return
     os.makedirs(os.path.join(RES, "_incoming"), exist_ok=True)
     out = os.path.join("results", "_incoming", f"{a.host}_{a.stage}.csv")
+    if not os.path.exists(out):
+        # write the header before 3-6 workers start appending (otherwise a fast worker can append its
+        # row between another worker's create and header write)
+        open(out, "w", newline="").write(",".join(_result_fields()) + chr(10))
     jobs = jobs_for(missing, a, out)
     if a.limit:
         jobs = jobs[:a.limit]

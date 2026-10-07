@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """
+(10-07: default file is results/raw_mfg.csv; the old fcst_results.csv no longer exists.)
+
 Compact results TABLE (not the line-by-line coverage dump).
 
 Prints one matrix: rows = model (or config), columns = dataset x horizon,
@@ -24,7 +26,7 @@ import pandas as pd
 
 def main():
     p = argparse.ArgumentParser(description="Compact results matrix table")
-    p.add_argument("--csv", default="results/fcst_results.csv")
+    p.add_argument("--csv", default="results/raw_mfg.csv")
     p.add_argument("--metric", default="MSE",
                    choices=["MSE", "MAE", "RMSE", "CORR", "R2", "val_loss"])
     p.add_argument("--exp_tag", default=None, help="filter to one exp_tag")

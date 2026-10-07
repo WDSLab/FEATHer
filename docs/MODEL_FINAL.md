@@ -19,7 +19,8 @@ mix  (배포·헤드라인)            ci_full (비교 행)
 | mfg mix MSE (72런) | 0.6943 | **0.6990 (+0.66%)** — 최대 WindSCADA +2.42%, 동결 기준(평균 ≤+2%, 데이터별 ≤+5%) 통과 |
 | LTSF CI MSE (96런) | 0.3755 | **0.3753** (동률) |
 
-정식 측정 결과 (3시드, `tools/paper/merge_raw.py` 가 num_params 로 검증해 병합):
+정식 측정 결과 (3시드). 10-07 부터 이 값들은 `results/raw_{mfg,ltsf}.csv` 의 `config_id = frozen` 행에 있고, 아래 파일은
+`results/_archive/pre_raw_20261007/` 로 옮겨진 원본이다:
 
 | 파일 | exp_tag | 변종 | 검증 파라미터 | 평균 MSE |
 |---|---|---|---|---|
@@ -28,7 +29,7 @@ mix  (배포·헤드라인)            ci_full (비교 행)
 | `results/feather_ltsf_candR4.csv` | ltsfR4 | LTSF CI | ETTh1 H96 298 | 0.3753 |
 | `results/feather_ltsf_candR4_mix.csv` | ltsfR4mix | LTSF mix | ETTh1 H96 454 | 0.3806 |
 
-부품 ablation (H96, 3시드, `results/ablation.csv` abl_*): 섞기 끄기 +4.31% · 잔차 MLP 끄기 +3.43%
+부품 ablation (H96, 3시드, 10-07 부터 `results/raw_mfg.csv` role ablation): 섞기 끄기 +4.31% · 잔차 MLP 끄기 +3.43%
 · 게이트 없음 +0.96 · 고정 비율 +0.36 · 균등 +0.03 · 밴드 1개 −0.05%.
 → **정확도에 기여하는 부품은 섞기와 잔차 MLP 둘뿐**, 밴드·FFT 게이트는 BlastFurnace 말고는 ≈0.
 (밴드·게이트를 뺄지는 **미결정**.)
@@ -188,7 +189,7 @@ RAM 은 밴드 수·커널과 무관(버퍼가 >1 이면 동일).
 | `--band_kernels` | 밴드 conv 커널 사다리, num_bands−1 개 (LOW=풀링). ⚠ 초기화가 달라짐 |
 | `--band_dilations` | 밴드 conv 팽창률. 기각됐으나 도구는 보존 |
 
-수정: `FEATHer.py`(HIGH=3/MID=5 하드코딩 해제) · `run_forecast.py` ·
+수정: `FEATHer.py`(HIGH=3/MID=5 하드코딩 해제) · 옛 실행기(`_archive/run_forecast_orchestrator.py`) ·
 `scripts/train.py` · `baselines/__init__.py`
 
 ## 9. 남은 작업

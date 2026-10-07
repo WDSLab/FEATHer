@@ -44,6 +44,28 @@ declare -A REPOS=(
 #   S-Mamba       https://github.com/wzhwzhwzh0921/S-D-Mamba   (CUDA selective-scan, no MCU port)
 #   TimeCMA       https://github.com/ChenxiLiu-HNU/TimeCMA     (frozen LLM features, > 1K params budget)
 
+
+# Upstream commits the paper's runs used (10-07). A fresh clone is checked out at exactly this commit.
+declare -A PINS=(
+  ["CMoS"]="b696a0c33b5ad8f03ad483d43b95fcb5564aa939"
+  ["CycleNet"]="d807e51fc2dcd143885ee639d97965a7ab0926f4"
+  ["DLinear"]="0c113668a3b88c4c4ee586b8c5ec3e539c4de5a6"
+  ["DiPE_Linear"]="b26e25015fba2c6a32e1f4eae8d337ccd9fe4067"
+  ["FITS"]="d040bb015b6299da26d879b90dd19c80fb72c160"
+  ["LMS_AutoTSF"]="412884a19e162a069825e5c68efcb875742dd22f"
+  ["MDMLP_EIA"]="0d68442c014a4f796d3396a879d1bf08c260c5b5"
+  ["MixLinear"]="71b5db62e38b1cb108faa1e1d4687287b4568f3b"
+  ["PatchTST"]="204c21efe0b39603ad6e2ca640ef5896646ab1a9"
+  ["PhaseFormer"]="ed1db61c6abfa9326d5ca2a56c6c4ba53ea592ab"
+  ["SAMformer"]="71f10eaa696f2a098798779ee14b6ecd6b69bcd9"
+  ["SparseTSF"]="b8c2740eecc84d8095ffce49ba5acafe68e53bb8"
+  ["TQNet"]="15e19cb23483ed52398566c4baa959168cfffa57"
+  ["TimeBase"]="369b330f3d77371fcc7e8c75c808d01330c40899"
+  ["TimeMixer"]="e24610583b36fdd8c76cc17a8df4e65759a5f460"
+  ["TimesNet"]="4e938a1767106324dd753b2a44832bf870a0252e"
+  ["iTransformer"]="c2426e68ca13f74aaec08045c5c724d8ad328124"
+)
+
 # Optional positional arg: clone only this baseline
 TARGET_NAME="${1:-}"
 
@@ -62,7 +84,11 @@ for target in "${!REPOS[@]}"; do
     url="${REPOS[$target]}"
     echo "[clone] $url"
     echo "        -> $target"
-    git clone --depth 1 "$url" "$target"
+    git clone "$url" "$target"
+    pin="${PINS[$name]:-}"
+    if [ -n "$pin" ]; then
+      git -C "$target" checkout --quiet "$pin" && echo "        pinned at ${pin:0:7}"
+    fi
   fi
 done
 

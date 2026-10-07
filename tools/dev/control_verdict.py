@@ -33,24 +33,20 @@ def cells(df):
     return g
 
 
-ref = pd.read_csv("results/_archive/pre_raw_20261007/feather_mfg_candR4.csv")
-ref = cells(ref[ref.exp_tag == "candR4"])
+_raw = pd.read_csv("results/raw_mfg.csv")      # 10-07: one managed file (role / config_id)
+ref = cells(_raw[(_raw.role == "main") & (_raw.model == "FEATHer_mix") & (_raw.config_id == "frozen")
+                 & (_raw.seq_len == 96) & _raw.MSE.notna()])
 assert len(ref) == 24 and (ref.n == 3).all()
 
 arms = {}
-if os.path.exists("results/_archive/pre_raw_20261007/control_sparsetsf_mix.csv"):
-    c = pd.read_csv("results/_archive/pre_raw_20261007/control_sparsetsf_mix.csv", on_bad_lines="skip")
-    c = c[(c.exp_tag == "ctrl") & (c.seq_len == 96)]
-    for m in sorted(c.model.unique()):
-        arms[m] = cells(c[c.model == m])
-if os.path.exists("results/_archive/pre_raw_20261007/control_front_none.csv"):
-    c = pd.read_csv("results/_archive/pre_raw_20261007/control_front_none.csv", on_bad_lines="skip")
-    c = c[(c.exp_tag == "ctrl_frontnone") & (c.seq_len == 96)]
-    if len(c):
-        arms["FEATHer_frontnone (C)"] = cells(c)
-raw = pd.read_csv("results/_archive/pre_raw_20261007/mfg_raw.csv")
-for m in ("SparseTSF", "SparseTSF_MLP"):
-    arms[f"{m} (plain, ref)"] = cells(raw[raw.model == m])
+_c = _raw[(_raw.role == "control") & (_raw.seq_len == 96) & _raw.MSE.notna()]
+for cfg in sorted(_c.config_id.unique()):           # "ctrl:<arm>@<host setting>"
+    label = cfg[5:].replace("FEATHer_frontnone", "FEATHer_frontnone (C)")
+    arms[label] = cells(_c[_c.config_id == cfg])
+for m, cfg in (("SparseTSF", "cand:ETTh1"), ("SparseTSF_MLP", "cand:Electricity")):   # hosts as run with the arms
+    h = _raw[(_raw.role == "main") & (_raw.model == m) & (_raw.config_id == cfg) & (_raw.seq_len == 96)]
+    if len(h):
+        arms[f"{m} @{cfg} (plain, ref)"] = cells(h)
 
 if not arms:
     raise SystemExit("no control rows yet")

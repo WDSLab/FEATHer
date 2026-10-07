@@ -48,12 +48,16 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
 - **진행 중** (상세·시간 = `manuscript/notes/run_queue_1007.md`): 서버 `--stage ltsf_select`(264) → `--stage ltsf`(605), 결과 = 서버
   `results/_incoming/DESKTOP-K390KQ4_*.csv` → Dropbox → 로컬 `_incoming/` → `merge_incoming.py` · 로컬 `--stage select`(1,224칸, 동시 3,
   16:24 시작; 칩 필터 해제로 추가된 ~126칸은 이번 실행 뒤 같은 명령 한 번 더). 예상: 나눠 돌리면 전체 약 5~6일.
-- **다음**: LTSF 고르기 끝 → `select_verdict.py --group ltsf --write`(→ `chosen_ltsf.json`, 서버로 복사) → 서버 `--stage ltsf` 한 번 더 ·
-  mfg 고르기 끝 → `select_verdict.py --write`(→ `chosen_mfg.json`) → `--stage main` → `--stage lookback`(서버로 넘기기 권장) →
+- **다음**: LTSF 고르기 끝 → `select_verdict.py --group ltsf --write`(→ `docs/chosen_ltsf.json`, 커밋 → 서버 `git pull`) → 서버 `--stage ltsf` 한 번 더 ·
+  mfg 고르기 끝 → `select_verdict.py --write`(→ `docs/chosen_mfg.json`, 커밋) → `--stage main` → `--stage lookback`(서버로 넘기기 권장) →
   대조군 → C 포팅 + 칸 단위 칩 판정 → 표 도구를 raw 로 이전 → 4장 초안(`drafts/sec4_setup.md` v0) 프로토콜대로 고침.
 - **원고 상태**: 빌더·표 도구는 아직 `results/_archive/pre_raw_20261007/` 의 옛 CSV 를 읽음(재정리 전후 원고 글자 동일 확인).
   v5 재빌드 안 함. 프레이밍 v2 = "과거를 길게 못 보면 옆 센서를 본다". 표 서식(8844 twip, 행 0.5 cm, 8 pt) · v1~v4 덮어쓰기 금지 ·
   drafts 형식(영어 한 문장 + 한국어 한 줄) · 프리프린트 주의 · 용어 channel 은 그대로.
+- **10-07 Fable 종합 코드 검토 반영**: 체크포인트 경로 = 결과 이름(mix/CI 덮어쓰기 방지) · 발산 칸도 NaN 행으로 기록(무한 재시도
+  방지) · merge 는 잘린 행 제거 + 임시 파일→바꿔치기 + `.bak` · run.py 가 조각 파일 헤더를 먼저 씀 · 대조군 설정 = 바탕 모델이 고른 설정
+  (`ctrl:<arm>@<바탕 설정>`) · 고른 설정 파일은 `docs/` · 표용 행은 `protocol.main_rows()` · 업스트림 커밋 고정(setup_baselines.sh).
+  ⚠ 같은 날 build_raw --write 를 실수로 한 번 실행 → 칸 단위 비교로 손실 0 확인, 대조군 이름만 복구, 이제 --write 거부.
 - **Git**: 10-07 `06b089e`(프로토콜·실행기·결과 재정리·래퍼) · `2f76303`(Fable 반영: 칸 단위 칩·LTSF 선택) personal push.
   그 뒤 작은 수정(주석 2곳·병합 경고·실행기 설명) 미커밋. 커밋은 요청 시, personal 만.
 
@@ -207,8 +211,10 @@ RevIN -> 3 bands: conv k=3 | conv k=5 | AvgPool(4)+interp -> banded FFT gate -> 
 run.py                       유일한 실행 입구 — 프로토콜이 요구하는 칸 중 결과에 없는 것만 실행
                                   (--stage ltsf / ltsf_select / select / main / lookback / ablation / control, --save_model)
 scripts/train.py                  학습 코드 (모델 × 데이터 × H × 시드들 → 결과 행). run.py 가 부름 (10-07 이름 변경)
-tools/results/                    protocol(후보·설정·ablation·대조군 정의) · build_raw · merge_incoming · select_verdict
-docs/                             EXPERIMENT_PROTOCOL.md (실험 규칙) · MODEL_FINAL.md (FEATHer 동결 구조)
+tools/results/                    protocol(후보·설정·ablation·대조군 정의, main_rows/KEY/안전 쓰기) · merge_incoming · select_verdict
+                                  (_archive/: build_raw·reorganize_results = 10-07 한 번만 쓴 이전 도구, 다시 실행 금지)
+docs/                             EXPERIMENT_PROTOCOL.md (실험 규칙) · MODEL_FINAL.md (FEATHer 동결 구조) · ENV.md (환경·
+                                  베이스라인 커밋) · chosen_{mfg,ltsf}.json (고른 설정, 커밋함)
 _archive/run_forecast_orchestrator.py   옛 실행기 (10-07 은퇴; run 이 같은 명령을 만드는 것 61칸 대조 확인)
 baselines/__init__.py             레지스트리(15) + _METHOD_DEFAULTS + _DATASET_OVERRIDES + _FEATHER_FROZEN
 baselines/<Name>/wrapper.py       upstream Model 을 forward(x)->(B,H,D) 로 감쌈
@@ -240,7 +246,7 @@ stsf · stsf_mlp · mixlinear · dipe · fits. **공통 규칙 ①**("원래 계
 | 파일 | 내용 |
 |---|---|
 | `results/raw_mfg.csv` · `raw_ltsf.csv` | 정식 결과 (role = main/reference/lookback/ablation/control, config_id = 설정 이름) |
-| `results/select_mfg.csv` · `chosen_mfg.json` | mfg 설정 고르기 결과 · 고른 설정 (select_verdict) |
+| `results/select_{mfg,ltsf}.csv` | 설정 고르기 결과 (고른 설정은 git 에 올라가는 `docs/chosen_{mfg,ltsf}.json`) |
 | `results/_incoming/` | 새 실행 조각 (run.py 출력, exp_tag = `role|config_id`) → merge_incoming 으로 합침 |
 | `results/board/` | 보드·칩 측정 (footprint, latency_20260929, current, replay, rsweep, recompute) |
 | `results/analysis/` | complexity, ops_vs_latency, sram_vs_lookback, coupling, r2, kpi, linear_ceiling |
@@ -284,7 +290,7 @@ LiPFormer·LightMTS·FilterNet·TinyCast·RhyMix 등(10-06 조사, 메모리 `pr
 - 전 모델 공통: L **96**(입력 길이 실험 48·192·336) · batch 32 · 50 epoch · patience 10 · Adam + Cosine · clip 1.0 · AMP off ·
   3시드 2025–2027 · best-val epoch 에서 test 1회 · loss = 관측값 MSE + 방법 고유 항.
 - 설정: LTSF = `baselines/__init__.py` `_DATASET_OVERRIDES`(10-07 수정 블록 포함, (모델, 데이터, H) 키) · mfg = `tools/results/protocol.py`
-  `CANDIDATES` + `resolve()`(후보 설정 + mfg 주기류 값) → 고른 설정 `results/chosen_mfg.json`.
+  `CANDIDATES` + `resolve()`(후보 설정 + mfg 주기류 값) → 고른 설정 `docs/chosen_mfg.json` · `docs/chosen_ltsf.json`.
 - 워커 훅: `_aux_loss`(TimeBase) · `_train_loss` / `_epoch_start` / `_test_start`(DiPE) · SAMformer SAM · `--result_model_name`.
 - 예외: DLinear ETTh2 lr 5e-3(공식 0.05 발산, 검증 재선택) · 공식 없는 데이터 = ETTh1 설정.
 - 결측: hold-last 채움 + `mask.csv` → loss/지표는 관측값만 (MetroPT3 17.7% · N2O 5.8% · WindSCADA 1.2%).
@@ -303,7 +309,7 @@ LiPFormer·LightMTS·FilterNet·TinyCast·RhyMix 등(10-06 조사, 메모리 `pr
 python run.py --stage select --check            # ltsf / ltsf_select / select / main / lookback; --check = 빠진 칸만 보기
 python run.py --stage select --ngpu 1 --jobs_per_gpu 3
 python tools/results/merge_incoming.py               # _incoming 조각 -> raw_*.csv / select_mfg.csv (--archive 로 조각 보관)
-python tools/results/select_verdict.py --write       # 고르기 판정 -> results/chosen_mfg.json (--group ltsf -> chosen_ltsf.json)
+python tools/results/select_verdict.py --write       # 고르기 판정 -> docs/chosen_mfg.json (--group ltsf -> docs/chosen_ltsf.json), 커밋할 것
 
 # 원고 빌드 (v5 를 씀; v1~v4 덮어쓰기 금지)
 python manuscript/version/_build/make.py

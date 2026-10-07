@@ -26,11 +26,12 @@
 | 메인 | mfg 6 + LTSF 8 | 96 | 96·192·336·720 | 2025·2026·2027 |
 | 입력 길이 | mfg 6 | **48·192·336** | 96·192·336·720 | 3 |
 | 설정 고르기 | mfg 6 | 96 | 96·192·336·720 | 2025 |
-| 설정 고르기 (공식 설정 없는 LTSF 14칸) | 해당 LTSF 데이터 | 96 | 96·192·336·720 | 2025 |
+| 설정 고르기 (공식 설정 없는 LTSF 15칸 중 후보가 2개 이상인 14칸; CycleNet Exchange 는 후보 1개라 바로 사용) | 해당 LTSF 데이터 | 96 | 96·192·336·720 | 2025 |
 
 - L = 96: 칩(20 KB SRAM)에 채널마다 입력 창을 두어야 하는 조건에서 칩당 수십 채널이 가능한 길이. 유일한 의도적 변경.
 - **L = 720 은 하지 않는다**: 7채널 입력 창만으로 SRAM 을 넘어 어떤 모델도 칩에 올릴 수 없다(범위 밖).
-- 입력 길이 실험은 칩에 들어가는 범위에서 "과거를 늘려 주면 따라오나"를 본다. LTSF 에서는 하지 않는다.
+- 입력 길이 실험은 칩에 들어가는 범위에서 "과거를 늘려 주면 따라오나"를 본다. LTSF 에서는 하지 않는다. 대상 = FEATHer-mix·CI +
+  칩 안 경쟁자 8개 + DLinear · CycleNet (옛 표 11 과 같은 풀; SAMformer 는 H96 만 칩에 들어가 제외). 모든 L 에 L = 96 에서 고른 설정 하나.
 - **L = 48 판정 (결과 보기 전 10-07 고정)**: 섞기 이득(FEATHer-mix vs CI, 24칸 % 변화 평균)이 L = 96 의 +5.9 % 보다 크고
   단측 Wilcoxon p < 0.05 이면 "과거가 짧을수록 옆 보기 이득이 커진다"고 쓰고, 아니면 추세 주장은 하지 않는다.
 
@@ -52,7 +53,7 @@ batch 32 · 최대 50 epoch · patience 10 · Adam + CosineAnnealing(T_max 50) �
 | 칩 안 경쟁자 | SparseTSF · SparseTSF-MLP · MixLinear · DiPE · FITS · CMoS · TimeBase · PhaseFormer | 예 | ○ |
 | 긴 H 에서 칩 밖 경량 | DLinear(H≥192 flash 초과) · CycleNet(H≥336) · SAMformer(H≥192) | 예 (CycleNet 은 후보 1개) | 표에는 싣고 칩 안 순위에서는 제외 |
 | 참고 (정확도 상한) | PatchTST · TimeMixer · TQNet · LMS-AutoTSF · TimesNet · iTransformer · MDMLP-EIA | 아니오 (mfg 기본 설정, LTSF 공식) | ✗ |
-| 대조군 | SparseTSF(+MLP) + 섞기 통로, FEATHer 밴드·게이트 제거 | 아니오 (바탕 모델 설정) | — |
+| 대조군 | SparseTSF(+MLP) + 섞기 통로, FEATHer 밴드·게이트 제거 | 아니오 — **바탕 모델이 고른 설정**(SparseTSF / SparseTSF-MLP / FEATHer-mix), config_id `ctrl:<arm>@<바탕 설정>` | — |
 
 참고 모델은 L = 96 으로 학습한다 (7개 중 6개는 원 논문 기본 입력 길이가 96, PatchTST 만 336).
 
@@ -128,12 +129,15 @@ batch 32 · 최대 50 epoch · patience 10 · Adam + CosineAnnealing(T_max 50) �
 
 ## 8. 결과 관리
 
-- `results/raw_mfg.csv` · `raw_ltsf.csv` = 정식 결과, `select_{mfg,ltsf}.csv` = 고르기 결과, `chosen_{mfg,ltsf}.json` = 고른 설정.
+- `results/raw_mfg.csv` · `raw_ltsf.csv` = 정식 결과, `select_{mfg,ltsf}.csv` = 고르기 결과, 고른 설정 = `docs/chosen_{mfg,ltsf}.json`
+  (git 에 올림 — 공개 저장소로 재현 가능).
 - 모든 행에 `role`(main / reference / lookback / ablation / control / select)과 `config_id`
   (frozen · official · official-exc · ref-default · cand:<DS> · cand:default · ctrl:<arm>).
-- `run.py --stage {ltsf, ltsf_select, select, main, lookback}` 가 계획과 결과를 비교해 **빠진 칸만** 돌린다
+- `run.py --stage {ltsf, ltsf_select, select, main, lookback, ablation, control}` 가 계획과 결과를 비교해 **빠진 칸만** 돌린다
   (결과 조각 → `results/_incoming/`, `tools/results/merge_incoming.py` 로 합침).
 - 규칙과 설정이 다른 옛 결과는 `results/_archive/legacy_rows_20261007.csv` (지우지 않음).
+- 표에 쓸 행은 `tools/results/protocol.main_rows()` 로 고른다 (모델마다 고른/공식 설정만, 실패한 실행 제외). raw 에는 안 고른
+  후보의 행도 남아 있으므로 직접 평균내지 않는다. 실패(발산)한 실행은 MSE 가 비어 있고 best_epoch = −1 인 행으로 남는다.
 
 ## 9. 논문에 밝힐 것
 

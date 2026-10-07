@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """
+(10-07: default file is results/raw_mfg.csv; the old fcst_results.csv no longer exists.)
+
 Progress dashboard for forecasting experiments.
 
 Default mode (fcst_results.csv) prints a coverage matrix per
@@ -169,7 +171,7 @@ def main():
 
     if args.csv is None:
         args.csv = ("results/robust_results.csv" if args.robust
-                    else "results/fcst_results.csv")
+                    else "results/raw_mfg.csv")
 
     df = load(args.csv)
     if df.empty:
