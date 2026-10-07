@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Export float32 weights + golden vectors for the FEATHer v2 C port.
 
-Builds the SHIPPING model frozen in MODEL_FINAL.md (2026-09-04):
+Builds the SHIPPING model frozen in docs/MODEL_FINAL.md (2026-09-04):
 
     --no_in_proj --num_bands 3 --point_kernel 3 --dtk_mode none
     --gate_mode banded          (mfg: channel_mode=mix)
@@ -45,7 +45,7 @@ SEQ_LEN = 96
 D_MODEL = 7
 PERIOD = 24
 
-# frozen architecture (MODEL_FINAL.md)
+# frozen architecture (docs/MODEL_FINAL.md)
 ARCH = dict(
     num_bands=3,
     point_kernel=3,

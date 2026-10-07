@@ -15,7 +15,7 @@ Defaults = the official ETTh1 setting for H = 96/192/336 in the original repo's
 run_etth1.py (the ~1K lightweight configuration): 3 layers, latent_dim 4,
 8 routers, 1 attention head, attention dropout 0.1, phase positional embedding,
 RevIN without affine, lr 1e-3.  2026-10-07: every (dataset, H) now takes its own
-official setting (EXPERIMENT_PROTOCOL.md), including the wider ETTh1 H = 720
+official setting (docs/EXPERIMENT_PROTOCOL.md), including the wider ETTh1 H = 720
 setting; the widths are arguments.  The paper trains with a Huber loss; we use MSE
 like every other model (protocol).  period_len follows the SparseTSF FFT rule.
 """

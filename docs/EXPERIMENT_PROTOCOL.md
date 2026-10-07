@@ -26,6 +26,7 @@
 | 메인 | mfg 6 + LTSF 8 | 96 | 96·192·336·720 | 2025·2026·2027 |
 | 입력 길이 | mfg 6 | **48·192·336** | 96·192·336·720 | 3 |
 | 설정 고르기 | mfg 6 | 96 | 96·192·336·720 | 2025 |
+| 설정 고르기 (공식 설정 없는 LTSF 14칸) | 해당 LTSF 데이터 | 96 | 96·192·336·720 | 2025 |
 
 - L = 96: 칩(20 KB SRAM)에 채널마다 입력 창을 두어야 하는 조건에서 칩당 수십 채널이 가능한 길이. 유일한 의도적 변경.
 - **L = 720 은 하지 않는다**: 7채널 입력 창만으로 SRAM 을 넘어 어떤 모델도 칩에 올릴 수 없다(범위 밖).
@@ -116,7 +117,7 @@ batch 32 · 최대 50 epoch · patience 10 · Adam + CosineAnnealing(T_max 50) �
 | SparseTSF | lr 0.02/0.03, 주기 | ETTh1(0.02) · ETTh2(0.03) |
 | SparseTSF-MLP | 자기 lr (0.001~0.05), Traffic hidden 512 | ETTh1 · ETTh2 · Weather · Electricity · Traffic |
 | DLinear | lr (ETTm2 H 별, Weather = 기본 1e-4); ETTh2 = 6번 예외 | ETTh1 · ETTm1 · ETTm2 · Exchange · Electricity · Traffic |
-| CycleNet | lr 0.01 (L96 스크립트), 주기 | 1개 (L96 설정) |
+| CycleNet | lr 0.01 (L96 스크립트), 주기 | 1개 (L96 설정 = `cand:ETTh1`) |
 | DiPE | 전문가 수·손실 비율·RevIN (데이터별) | ETTh1 · ETTh2 · ETTm2 · Weather · Electricity · 기본 |
 | MixLinear | alpha·lpf (H 별), lr | ETTh1 · ETTh2 · Electricity · Traffic |
 | FITS | H_order (H 별)·기준 주기·채널별 | ETTh1 · ETTm1 · Weather |

@@ -239,7 +239,7 @@ def load_done_set(csv_path):
 # already past the knee". The earlier NUMBERS are not reusable ??that code
 # selected on test (see project-old-faster-test-peeking-0809) ??so every row
 # is re-measured here under the val-selected protocol.
-# Arms are patches against the FROZEN model (2026-09-04, MODEL_FINAL.md):
+# Arms are patches against the FROZEN model (2026-09-04, docs/MODEL_FINAL.md):
 #   no_in_proj, num_bands=3, point_kernel=3, dtk_mode=none, gate_mode=banded,
 #   residual MLP r16, lambda_spec=0.01, channel_mode mix (mfg) / ci_full (LTSF)
 #

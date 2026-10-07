@@ -1,7 +1,7 @@
 /*
  * FEATHer v2 (2026-09-04 shipping model) float32 inference for Cortex-M3.
  *
- * Model, as frozen in MODEL_FINAL.md:
+ * Model, as frozen in docs/MODEL_FINAL.md:
  *     --no_in_proj --num_bands 3 --point_kernel 3 --dtk_mode none
  *     --gate_mode banded          (mfg: channel_mode=mix)
  *

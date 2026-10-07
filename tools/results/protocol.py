@@ -1,4 +1,4 @@
-"""Experiment protocol in code (EXPERIMENT_PROTOCOL.md): which settings exist, and what each config_id means.
+"""Experiment protocol in code (docs/EXPERIMENT_PROTOCOL.md): which settings exist, and what each config_id means.
 
 config_id                      meaning
   frozen                       FEATHer frozen configuration (+ the dataset's period), every group
@@ -37,7 +37,7 @@ ON_CHIP = ["SparseTSF", "SparseTSF_MLP", "MixLinear", "DiPE_Linear", "FITS", "CM
 PERIOD_KEYS = {"period", "sparsetsf_period_len", "mixlinear_period_len", "cyclenet_cycle", "tqnet_cycle",
                "timebase_period_len", "phaseformer_period_len", "cmos_period", "fits_base_t"}
 
-# Industrial candidates (EXPERIMENT_PROTOCOL.md §5).  Distinct settings only; datasets whose setting
+# Industrial candidates (docs/EXPERIMENT_PROTOCOL.md §5).  Distinct settings only; datasets whose setting
 # equals another's are listed once.  No chip filter on candidates (10-07, after the Fable review): every
 # model is selected on accuracy alone, and a chosen setting that exceeds the chip in a cell is reported
 # as "does not fit" in that cell, the same treatment as DLinear / CycleNet / SAMformer.
@@ -63,7 +63,7 @@ for _d in MFG:
     _MFG_EXTRA[("CMoS", _d)] = {"cmos_period": _p}
     _MFG_EXTRA[("FITS", _d)] = {"fits_base_t": B.get_dataset_overrides("CycleNet", _d)["cyclenet_cycle"]}
 
-# LTSF cells whose authors left no final setting (EXPERIMENT_PROTOCOL.md §5.3, 10-07): no script for the
+# LTSF cells whose authors left no final setting (docs/EXPERIMENT_PROTOCOL.md §5.3, 10-07): no script for the
 # dataset, or only a sweep script.  These are chosen like the industrial data: the model's published
 # settings (CANDIDATES) compete on that dataset's validation loss.  Everything else on LTSF = "official".
 LTSF_NO_OFFICIAL = {

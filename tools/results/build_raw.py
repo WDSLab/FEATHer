@@ -1,7 +1,7 @@
 """Build the single raw result files from the scattered CSVs (one-time migration, 2026-10-07).
 
     results/raw_mfg.csv    paper-grade runs on the industrial datasets (main / lookback / ablation /
-                           control / reference), only rows whose setting conforms to EXPERIMENT_PROTOCOL.md
+                           control / reference), only rows whose setting conforms to docs/EXPERIMENT_PROTOCOL.md
     results/raw_ltsf.csv   same for the standard benchmarks
     results/_archive/legacy_rows_20261007.csv   every row that does NOT conform (kept, never deleted)
 
@@ -10,7 +10,7 @@ Every row gets three columns on top of the worker's columns:
     config_id  name of the setting the row was trained with (the run planner matches on it)
     source     file the row came from
 
-config_id names (see EXPERIMENT_PROTOCOL.md):
+config_id names (see docs/EXPERIMENT_PROTOCOL.md):
     frozen          FEATHer frozen configuration (09-23 R4)
     cand:<DS>       a baseline candidate = the authors' final setting for LTSF dataset <DS>
     cand:default    the default setting the authors present (config file / PyTorch class default)

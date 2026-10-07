@@ -1,4 +1,4 @@
-"""Choose baseline settings from the selection runs (EXPERIMENT_PROTOCOL.md §5.3-5.4, rule 6).
+"""Choose baseline settings from the selection runs (docs/EXPERIMENT_PROTOCOL.md §5.3-5.4, rule 6).
 
     python tools/results/select_verdict.py                  # industrial: report only
     python tools/results/select_verdict.py --write          # + results/chosen_mfg.json

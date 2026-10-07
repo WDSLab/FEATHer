@@ -44,6 +44,11 @@ def main(archive):
     if not new:
         return
     new = pd.concat(new, ignore_index=True)
+    # guard: one setting per cell -> the parameter count must not differ between seeds of a cell
+    g = new.groupby(["role", "config_id", "model", "data", "pred_len", "seq_len"]).num_params.nunique()
+    if (g > 1).any():
+        print("  [WARN] cells whose seeds report different num_params (mixed settings?):")
+        print(g[g > 1].to_string())
     targets = {
         "select_mfg.csv": new[(new.role == "select") & new.data.isin(P.MFG)],
         "select_ltsf.csv": new[(new.role == "select") & new.data.isin(P.LTSF)],

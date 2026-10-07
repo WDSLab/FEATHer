@@ -20,14 +20,16 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
 ## Current status (2026-10-07) — 실험 프로토콜 확정, 재실험 진행 중
 
 **한 줄**: 베이스라인 공정성 문제(FEATHer 만 mfg 에서 설정을 고름 · 베이스라인 설정 출처가 제각각 · 7개 모델이 공식 설정과
-다름)를 찾아 **실험 규칙을 새로 정했다 → `EXPERIMENT_PROTOCOL.md`**. 결과는 `results/raw_{mfg,ltsf}.csv` 로 통합했고
+다름)를 찾아 **실험 규칙을 새로 정했다 → `docs/EXPERIMENT_PROTOCOL.md`**. 결과는 `results/raw_{mfg,ltsf}.csv` 로 통합했고
 `run_plan.py` 가 빠진 칸만 돌린다. **새 세션 시작점 = 메모리 `project_session_1007.md`(HANDOFF)**.
 (이전 상태 블록 원문 = `manuscript/notes/CLAUDE_STATUS_ARCHIVE_2026-10-07.md`.)
 
 - **규칙 요약 (상세 = 프로토콜 §5)**: 베이스라인 설정 = 저자가 공개한 값만(최종 스크립트 + 저자 기본 설정; 빈칸용 argparse 값
   제외, 조합 금지) · L96 공식 스크립트 우선(CycleNet lr 0.01) · LTSF = 데이터(·H)별 공식, 없거나 탐색 스크립트뿐이면 ETTh1 설정 ·
   **mfg = 후보(저자 데이터별 설정 묶음) 중 6데이터 검증 손실 평균 순위 1등 하나를 모든 데이터·모든 L 에** (시드 2025, 테스트 안 봄) ·
-  칩 필터(가중치만 128 KB 초과 후보 제외; 실측 초과 시 2등) · 건강 검사(best epoch ≤2 / 발산) · 입력 길이로 정의 안 되는 값은
+  **공식 설정 없는 LTSF 14칸도 같은 방식(그 데이터 검증, `--stage ltsf_select`)** · **칩 판정은 칸 단위**(후보를 미리 거르지 않음,
+  넘는 칸만 "칩 밖" — DLinear 와 같은 취급) · 건강 검사(best epoch ≤2, 0부터 셈 / 발산; LTSF 는 실패 시 lr 0.1·0.01배 검증 재선택) ·
+  입력 길이로 정의 안 되는 값은
   최대값(MixLinear lpf, FITS cut_freq ≤ L/2) · 주기류는 규칙(FFT ≤48 / 하루 주기) · 학습 방법은 통일(Huber·에폭·FITS train_mode)
   하되 방법 고유 손실 항은 유지(FEATHer 스펙트럼, TimeBase 직교, DiPE 주파수 비율+라우터 온도, SAMformer SAM).
 - **10-07 사용자 결정**: FEATHer 동결 유지, mfg·LTSF 다시 안 돌림(LTSF 주기 = 7월 LTSF 검증 선택 → 사실대로 공개) ·
@@ -38,20 +40,29 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
 - **공식 대조로 드러난 것**: LTSF 에서 공식과 다르던 모델 = SparseTSF-MLP · CycleNet · DiPE · MixLinear · FITS · PhaseFormer ·
   DLinear(2곳) → 수정·재실행. 맞던 것 = SparseTSF · CMoS · TimeBase · SAMformer(+서버급). PhaseFormer ETTh1 후보는 H720 이
   큰 설정이라 칩 초과 → mfg 후보 4개(ETTh2·ETTm1·ETTm2·Weather). 근거 = `manuscript/drafts/baseline_official_configs.md`.
-- **진행 중**: 서버 LTSF 790칸(`run_plan.py --stage ltsf`, 서버 `results/_incoming/DESKTOP-K390KQ4_ltsf.csv` → Dropbox 로 받아
-  `tools/results/merge_incoming.py`) · 로컬 mfg 고르기 927칸(`--stage select`, 동시 3, `results/_incoming/DESKTOP-AKL16D8_select.csv`) ·
-  Fable 독립 검토(공정성·코드).
-- **다음**: 고르기 끝 → `tools/results/select_verdict.py --write`(→ `results/chosen_mfg.json`) → `--stage main`(바뀐 모델 3시드 +
-  CycleNet 72) → `--stage lookback`(L48 전부 + 192·336 바뀐 모델) → 대조군(바탕 설정 바뀌면) → C 포팅(새 4개 + 구조 바뀐 후보) →
-  표 도구를 raw 로 이전 → 4장 초안(`drafts/sec4_setup.md` v0) 프로토콜대로 고침.
+- **Fable 독립 검토 (10-07, 스크래치패드 `fable_review_1007.md`)**: 규칙은 공정(베이스라인에 약간 유리), 코드 핵심 경로 맞음(LTSF 352칸
+  공식값 일치, DiPE 손실·온도 업스트림과 수치 동일). 반영: 칩 판정 칸 단위 · LTSF 무공식 칸 검증 선택 · LTSF 실패 규칙 · 판정 도구는
+  후보가 다 끝나야 기록 + 고른 설정의 시드 2025 를 메인에 재사용 · 주석·병합 경고. **사용자 결정: FEATHer 개발 중 테스트를 본 결정(R4·
+  채널 방식)과 선택 시드 공개 문장은 쓰지 않음** — 단 "FEATHer 포함 모든 모델을 검증으로 골랐다" 같은 사실과 다른 문장은 금지,
+  "베이스라인 설정은 검증 손실로 골랐다"까지만. 대조군 바탕 설정(B4)은 mfg 판정 때 결정.
+- **진행 중** (상세·시간 = `manuscript/notes/run_queue_1007.md`): 서버 `--stage ltsf_select`(264) → `--stage ltsf`(605), 결과 = 서버
+  `results/_incoming/DESKTOP-K390KQ4_*.csv` → Dropbox → 로컬 `_incoming/` → `merge_incoming.py` · 로컬 `--stage select`(1,224칸, 동시 3,
+  16:24 시작; 칩 필터 해제로 추가된 ~126칸은 이번 실행 뒤 같은 명령 한 번 더). 예상: 나눠 돌리면 전체 약 5~6일.
+- **다음**: LTSF 고르기 끝 → `select_verdict.py --group ltsf --write`(→ `chosen_ltsf.json`, 서버로 복사) → 서버 `--stage ltsf` 한 번 더 ·
+  mfg 고르기 끝 → `select_verdict.py --write`(→ `chosen_mfg.json`) → `--stage main` → `--stage lookback`(서버로 넘기기 권장) →
+  대조군 → C 포팅 + 칸 단위 칩 판정 → 표 도구를 raw 로 이전 → 4장 초안(`drafts/sec4_setup.md` v0) 프로토콜대로 고침.
 - **원고 상태**: 빌더·표 도구는 아직 `results/_archive/pre_raw_20261007/` 의 옛 CSV 를 읽음(재정리 전후 원고 글자 동일 확인).
   v5 재빌드 안 함. 프레이밍 v2 = "과거를 길게 못 보면 옆 센서를 본다". 표 서식(8844 twip, 행 0.5 cm, 8 pt) · v1~v4 덮어쓰기 금지 ·
   drafts 형식(영어 한 문장 + 한국어 한 줄) · 프리프린트 주의 · 용어 channel 은 그대로.
-- **Git**: 10-07 `06b089e`(프로토콜·실행기·결과 재정리·래퍼) personal push. 커밋은 요청 시, personal 만.
+- **Git**: 10-07 `06b089e`(프로토콜·실행기·결과 재정리·래퍼) · `2f76303`(Fable 반영: 칸 단위 칩·LTSF 선택) personal push.
+  그 뒤 작은 수정(주석 2곳·병합 경고·run_plan 설명) 미커밋. 커밋은 요청 시, personal 만.
 
-### 정리 (10-01, 사용자 승인) + 코드 공개 전 할 일
+### 정리 (10-01, 10-07 사용자 승인) + 코드 공개 전 할 일
+- **10-07 정리 (옮기기만)**: 끝난 dev 진단 13개 → `tools/dev/_archive/` · 안 쓰는 옛 표 도구 9개 → `tools/paper/_archive/` · 끝난 계획서 3개 →
+  `manuscript/drafts/_records/` · 7월 메모·옛 서버 명령 → `manuscript/notes/_archive/` · TPAMI 제출본·tex_workspace → `manuscript/_old_submissions/` ·
+  옛 로그 → `results/_archive/` · 안 쓰는 데이터 → `data/_shelf/`. 원고 빌드 글자 동일 확인.
 - **삭제함**: `__pycache__`(85파일) · `deployment/board/build/`(make 가 다시 만듦) · `tex_workspace` LaTeX 부산물 ·
-  `data/*/data.csv.preP3bak` 5개(133 MB, 7월 수정 전 백업). **남은 백업**: `data/*/data.csv.premask`(MASK-FIX 전) — 미결.
+  `data/*/data.csv.preP3bak` 5개(133 MB, 7월 수정 전 백업). **남은 백업**: `data.csv.premask`(MASK-FIX 전) 3개 → 10-07 `data/_shelf/premask/` 로 옮김.
 - **옮김**: 9월 dev 중간 파일 45개 + `_devlogs` → `results/_archive/dev_2026-09/`(README 에 파일별 출처; 도구 기본 경로는
   아직 `results/` 라 재실행 시 `--csv` 로 경로 지정) · 옛 초안 15개 → `manuscript/drafts/_old/`(재사용 금지) ·
   `run_config_sweep.py` → `_archive/`. **제자리 유지**: `deployment/BOARD_RESULTS_20260824.md`(펌웨어 바닥 10.4 KB 출처, 코드
@@ -196,7 +207,7 @@ RevIN -> 3 bands: conv k=3 | conv k=5 | AvgPool(4)+interp -> banded FFT gate -> 
 run_forecast.py                   오케스트레이터 (--check, resume, --ngpu/--jobs_per_gpu, --ablation_arm)
 run_plan.py                       (10-07) 계획 기반 실행기 — 프로토콜이 요구하는 칸 중 결과에 없는 것만 실행
 tools/results/                    (10-07) protocol(후보·설정 해석) · build_raw · merge_incoming · select_verdict
-EXPERIMENT_PROTOCOL.md            (10-07) 실험 규칙 확정본 (데이터·L/H·학습 절차·설정 규칙·모델별 후보)
+docs/EXPERIMENT_PROTOCOL.md            (10-07) 실험 규칙 확정본 (데이터·L/H·학습 절차·설정 규칙·모델별 후보)
 scripts/benchmarks/run_forecast.py 워커 (모델 × 데이터 × H × N시드)
 baselines/__init__.py             레지스트리(15) + _METHOD_DEFAULTS + _DATASET_OVERRIDES + _FEATHER_FROZEN
 baselines/<Name>/wrapper.py       upstream Model 을 forward(x)->(B,H,D) 로 감쌈
@@ -267,7 +278,7 @@ TimeBase(ICML'25, 58~240) · PhaseFormer(ICLR'26, 1,500~1,630) — 셋 다 채�
 클래스) · SWIFT(공식 코드 미성숙, FITS 와 동률; 여전히 프리프린트) · F-Net(IEEE TAI 2026, 약 18K·섞음, TF·무라이선스) ·
 LiPFormer·LightMTS·FilterNet·TinyCast·RhyMix 등(10-06 조사, 메모리 `project_cmos_baseline_1006.md`). **크기는 제외 기준이 아님**.
 
-## Training protocol — `EXPERIMENT_PROTOCOL.md` 가 기준 (10-07)
+## Training protocol — `docs/EXPERIMENT_PROTOCOL.md` 가 기준 (10-07)
 
 - 전 모델 공통: L **96**(입력 길이 실험 48·192·336) · batch 32 · 50 epoch · patience 10 · Adam + Cosine · clip 1.0 · AMP off ·
   3시드 2025–2027 · best-val epoch 에서 test 1회 · loss = 관측값 MSE + 방법 고유 항.
@@ -282,15 +293,16 @@ LiPFormer·LightMTS·FilterNet·TinyCast·RhyMix 등(10-06 조사, 메모리 `pr
 - **mfg-6 (메인)**: Steel · WindSCADA · BlastFurnace(D=28) · N2O · MetroPT3 · EWELD — `utils/prep_manufacturing.py`.
 - **LTSF-8 (일반화)**: ETTh1/h2/m1/m2 · Weather · Exchange · Electricity · Traffic (darts).
 - H = {96, 192, 336, 720}. 후보 데이터 논의 시 먼저 메모리 `reference_dataset_reject_log.md` 확인.
+- (10-07 정리) 논문에서 뺀 데이터(CMAPSS·CMAPSS3·PMSM·nrel)와 `data.csv.premask` 백업 3개 = `data/_shelf/`.
 
 ## Common commands
 
 ```bash
-# 10-07 실험 관리 (EXPERIMENT_PROTOCOL.md)
-python run_plan.py --stage select --check            # ltsf / select / main / lookback; --check = 빠진 칸만 보기
+# 10-07 실험 관리 (docs/EXPERIMENT_PROTOCOL.md)
+python run_plan.py --stage select --check            # ltsf / ltsf_select / select / main / lookback; --check = 빠진 칸만 보기
 python run_plan.py --stage select --ngpu 1 --jobs_per_gpu 3
 python tools/results/merge_incoming.py               # _incoming 조각 -> raw_*.csv / select_mfg.csv (--archive 로 조각 보관)
-python tools/results/select_verdict.py --write       # 고르기 판정 -> results/chosen_mfg.json
+python tools/results/select_verdict.py --write       # 고르기 판정 -> results/chosen_mfg.json (--group ltsf -> chosen_ltsf.json)
 
 # 원고 빌드 (v5 를 씀; v1~v4 덮어쓰기 금지)
 python manuscript/version/_build/make.py
@@ -318,8 +330,8 @@ python tools/audit/check_progress.py --exp_tag main
 python tools/audit/check_duplicates.py
 
 # 10-06 추가: 새 베이스라인 비교 · P1 판정(보류 중) · 연동 강도 분석
-python tools/dev/new_baselines_compare.py
-python tools/dev/p1_verdict.py
+python tools/dev/_archive/new_baselines_compare.py
+python tools/dev/_archive/p1_verdict.py
 python tools/paper/coupling_vs_mixing.py
 python run_forecast.py --model CMoS --group ltsf --num_seeds 3 --exp_tag main --results_csv results/new4_ltsf.csv --ngpu 2 --jobs_per_gpu 3
 ```

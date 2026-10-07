@@ -5,13 +5,14 @@
     python run_plan.py --stage ltsf --ngpu 2 --jobs_per_gpu 3   (server)
     python tools/results/merge_incoming.py                    # shards -> raw_*.csv / select_mfg.csv
 
-Stages (EXPERIMENT_PROTOCOL.md):
+Stages (docs/EXPERIMENT_PROTOCOL.md):
     ltsf      every model x 8 LTSF datasets x 4 H x 3 seeds, L 96, official settings      -> raw_ltsf.csv
               (cells without an official setting run once their setting is chosen by ltsf_select)
     ltsf_select  no-official LTSF cells: the model's published settings x 4 H x seed 2025 -> select_ltsf.csv
     select    industrial candidates x 6 datasets x 4 H x seed 2025, L 96                   -> select_mfg.csv
     main      industrial chosen setting x 3 seeds, L 96 (models without a choice are skipped) -> raw_mfg.csv
-    lookback  industrial chosen setting x 3 seeds, L 48 / 192 / 336 (chip models + FEATHer) -> raw_mfg.csv
+    lookback  industrial chosen setting x 3 seeds, L 48 / 192 / 336 (FEATHer + chip models + DLinear,
+              CycleNet as in the earlier Table 11 pool) -> raw_mfg.csv
 
 A cell is done when raw_*.csv, select_mfg.csv or a not-yet-merged shard in results/_incoming/ holds a row
 with the same (role, config_id, model, data, pred_len, seq_len, seed).  New rows are written to

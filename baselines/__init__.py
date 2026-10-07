@@ -392,7 +392,7 @@ def get_method_defaults(name):
 
 # FEATHer FINAL canonical mfg config ("N" cell) ??shared across all 6 mfg
 # datasets (one-config protocol); merged with a per-dataset `period` below.
-# FROZEN 2026-09-04 (MODEL_FINAL.md).  Until now these dicts still held the
+# FROZEN 2026-09-04 (docs/MODEL_FINAL.md).  Until now these dicts still held the
 # pre-freeze 938p config, so `run_forecast.py --model FEATHer` silently built
 # the OLD model -- the shipping sweeps only got the frozen one because they
 # were launched with explicit CLI flags.  The two variants differ in exactly
@@ -533,9 +533,9 @@ _DATASET_OVERRIDES: Dict = {
     # differentiation; entries omitted (falls back to _METHOD_DEFAULTS).
 
     # ---- DiPE-Linear (wintertee/DiPE-Linear, DASFAA 2026) ----------------
-    # configs/base.yaml is the only training config in the upstream repo;
-    # no per-dataset YAMLs published. Uniform lr=1e-3, t_loss='mse',
-    # single-expert. Entries omitted (falls back to _METHOD_DEFAULTS).
+    # lr 1e-3 everywhere (configs/models/DiPE/base.yaml). Per-dataset model flags
+    # (num_experts, loss_alpha, use_revin) come from scripts/DiPE.sh -> see the
+    # 2026-10-07 correction block below (this comment said "none published" until 10-07).
 
     # ---- MDMLP-EIA (zh1985csuccsu/MDMLP-EIA, AAAI 2026) ------------------
     # run.py exposes one default config (lr=1e-4); upstream sweep scripts
@@ -563,7 +563,7 @@ _DATASET_OVERRIDES: Dict = {
     # d_state/kernel/num_bands below, period = per-dataset FFT. loss=mse, lr=1e-3
     # from _METHOD_DEFAULTS. Old L-cell (mix, no residual) OFAT configs replaced.
     # 2026-09-04: per-dataset ARCH tuning is GONE -- one frozen config on all 12
-    # datasets, `period` (FFT-detected) the only per-dataset key.  MODEL_FINAL.md
+    # datasets, `period` (FFT-detected) the only per-dataset key.  docs/MODEL_FINAL.md
     # section 6: per-dataset val selection scored 0.2504 vs 0.2501 for the single
     # setting, i.e. the grid was inside noise, and the baselines DO tune per
     # dataset -- so dropping it is the conservative (unfavourable) choice and a
@@ -687,8 +687,9 @@ _OVERRIDE_ALIASES = {"SparseTSF_MLP": "SparseTSF",
 
 
 # ---- 2026-10-06 LTSF settings of the four added baselines (official scripts; L = 96 by protocol).
-# CMoS / TimeBase tune per horizon -> (model, data, H) keys; Exchange has no official
-# setting in any of the four repos -> model defaults (+ SparseTSF's Exchange period 24).
+# CMoS / TimeBase tune per horizon -> (model, data, H) keys.  Exchange: SAMformer has an official
+# setting (run_script.sh exchange_rate); CMoS / TimeBase / PhaseFormer have none -> chosen on validation
+# since 10-07 (tools/results/protocol.py LTSF_NO_OFFICIAL); the rows below are their period entries.
 _DATASET_OVERRIDES.update({
     ("CMoS", "ETTh1"): {"cmos_seg_size": 24, "cmos_num_map": 4, "cmos_kernel_size": 8, "cmos_conv_stride": 4, "cmos_dropout": 0.05, "cmos_use_pi": True, "cmos_period": 24, "lr": 8e-05},
     ("CMoS", "ETTh2"): {"cmos_seg_size": 8, "cmos_num_map": 2, "cmos_kernel_size": 8, "cmos_conv_stride": 4, "cmos_dropout": 0.05, "cmos_use_pi": True, "cmos_period": 24, "lr": 5e-05},
@@ -762,7 +763,7 @@ _DATASET_OVERRIDES.update({
 })
 
 
-# ---- 2026-10-07 protocol corrections (EXPERIMENT_PROTOCOL.md; official scripts re-read line by line,
+# ---- 2026-10-07 protocol corrections (docs/EXPERIMENT_PROTOCOL.md; official scripts re-read line by line,
 # manuscript/drafts/baseline_official_configs.md).  Rules used below:
 #   * LTSF = each model's FINAL per-(dataset[, H]) script values; sweep-only or missing datasets
 #     take the model's ETTh1 setting (period-type keys stay the dataset's own value).
