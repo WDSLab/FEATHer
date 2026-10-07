@@ -45,9 +45,14 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
   후보가 다 끝나야 기록 + 고른 설정의 시드 2025 를 메인에 재사용 · 주석·병합 경고. **사용자 결정: FEATHer 개발 중 테스트를 본 결정(R4·
   채널 방식)과 선택 시드 공개 문장은 쓰지 않음** — 단 "FEATHer 포함 모든 모델을 검증으로 골랐다" 같은 사실과 다른 문장은 금지,
   "베이스라인 설정은 검증 손실로 골랐다"까지만. 대조군 바탕 설정(B4)은 mfg 판정 때 결정.
-- **진행 중** (상세·시간 = `manuscript/notes/run_queue_1007.md`): 서버 `--stage ltsf_select`(264) → `--stage ltsf`(605), 결과 = 서버
-  `results/_incoming/DESKTOP-K390KQ4_*.csv` → Dropbox → 로컬 `_incoming/` → `merge_incoming.py` · 로컬 `--stage select`(1,224칸, 동시 3,
-  16:24 시작; 칩 필터 해제로 추가된 ~126칸은 이번 실행 뒤 같은 명령 한 번 더). 예상: 나눠 돌리면 전체 약 5~6일.
+- **진행 중 (10-07 19:15 기준; 상세·시간 = `manuscript/notes/run_queue_1007.md`)**:
+  - 로컬: `python run.py --stage select --ngpu 1 --jobs_per_gpu 3` — **세션과 독립된 프로세스**(Start-Process, 숨김).
+    로그 `results/_logs/select_local_1007.log` / `.err`, 결과 `results/_incoming/DESKTOP-AKL16D8_select.csv`. 1,224칸 중 193 완료,
+    약 2일. 진행 확인 = `python run.py --stage select --check`. 멈출 땐 명령줄에 `run.py --stage select` / `exp_tag select|` 가 있는
+    python 프로세스만 종료(사용자의 다른 실험 건드리지 말 것). 동시 3개 = 메모리 한계.
+  - 서버 (WSL `//wsl.localhost/Ubuntu-24.04/home/user/lee/FEATHer`, 커밋 653010b): `run.py --stage ltsf_select`(264) →
+    `--stage ltsf`(605). 결과 = 서버 `results/_incoming/DESKTOP-K390KQ4_*.csv` → Dropbox → 로컬 `results/_incoming/` →
+    `python tools/results/merge_incoming.py`. 서버 raw 는 건너뛰기용 사본 — **로컬 raw 가 원본**, 서버 raw 로 덮어쓰기 금지.
 - **다음**: LTSF 고르기 끝 → `select_verdict.py --group ltsf --write`(→ `docs/chosen_ltsf.json`, 커밋 → 서버 `git pull`) → 서버 `--stage ltsf` 한 번 더 ·
   mfg 고르기 끝 → `select_verdict.py --write`(→ `docs/chosen_mfg.json`, 커밋) → `--stage main` → `--stage lookback`(서버로 넘기기 권장) →
   대조군 → C 포팅 + 칸 단위 칩 판정 → 표 도구를 raw 로 이전 → 4장 초안(`drafts/sec4_setup.md` v0) 프로토콜대로 고침.
