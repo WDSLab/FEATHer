@@ -5,7 +5,7 @@ minus torchrun/fcntl: one orchestrator process owns an in-memory queue and
 runs one worker subprocess per GPU; a GPU grabs the next job the moment it
 frees up, so a slow model on one GPU never idles the other).
 
-Used by run_plan.py (and tools/search/*) via `--ngpu N`:
+Used by run.py (and tools/search/*) via `--ngpu N`:
   ngpu=1 -> identical to the old sequential behavior (same GPU, same order).
   ngpu=N -> jobs run on GPU indices base_gpu .. base_gpu+N-1.
 

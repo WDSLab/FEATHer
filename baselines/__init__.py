@@ -263,7 +263,7 @@ _BUILDERS: Dict[str, Callable] = {
 # architecture. Running them would have ablated a model that is not the one in
 # the main table, and the deltas would have been meaningless.
 #
-# Ablation now runs as `run_plan.py --stage ablation` (arms in tools/results/protocol.py): one switch off
+# Ablation now runs as `run.py --stage ablation` (arms in tools/results/protocol.py): one switch off
 # per arm on the shipping model, using the flags the worker already exposes.
 # See ABLATION_ARMS there. Head/DTK-variant ablations are the one thing that
 # did not survive the move ??they need the archived modules updated to accept

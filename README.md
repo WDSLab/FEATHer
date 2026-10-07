@@ -1,5 +1,5 @@
 > **Note (2026-10-07):** this README predates the current layout and will be rewritten for the code release.
-> Current entry point: `python run_plan.py --stage <stage>` (training code `scripts/train.py`); rules in
+> Current entry point: `python run.py --stage <stage>` (training code `scripts/train.py`); rules in
 > `docs/EXPERIMENT_PROTOCOL.md`. Commands below that call `run_forecast.py` refer to the retired orchestrator
 > (`_archive/run_forecast_orchestrator.py`).
 

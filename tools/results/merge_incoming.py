@@ -3,7 +3,7 @@
     python tools/results/merge_incoming.py            # merge (shards stay; re-merging is harmless)
     python tools/results/merge_incoming.py --archive  # merge, then move the shards to _archive/incoming_merged/
 
-Routing: exp_tag "<role>|<config_id>" (written by run_plan.py) -> role select -> select_{mfg,ltsf}.csv,
+Routing: exp_tag "<role>|<config_id>" (written by run.py) -> role select -> select_{mfg,ltsf}.csv,
 otherwise industrial datasets -> raw_mfg.csv, LTSF datasets -> raw_ltsf.csv.  Duplicate cells
 (role, config_id, model, data, pred_len, seq_len, seed) keep the newest row.  Copy a shard from the
 server into results/_incoming/ first (any file name).

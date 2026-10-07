@@ -3,7 +3,7 @@
 Forecasting worker.
 
 Runs one (model, dataset, pred_len) configuration across a given list of
-seeds. Each completed run appends one row to `results/fcst_results.csv`.
+seeds. Each completed run appends one row to --results_csv (run.py passes results/_incoming/<host>_<stage>.csv).
 
 This is the *worker* ??call it directly when iterating manually, or let the
 top-level `run_forecast.py` orchestrator dispatch missing combos
@@ -78,7 +78,7 @@ def checkpoint_path(exp_tag, model_name, data_name, pred_len, seq_len, seed):
         results/checkpoints/<exp_tag>/<model>/<data>_H<h>_L<L>_s<seed>.pth
     (os.makedirs on dirname at save time creates the model subfolder.)
     """
-    # run_plan.py exp_tags look like "main|cand:ETTh1"; '|' and ':' are not legal in Windows paths
+    # run.py exp_tags look like "main|cand:ETTh1"; '|' and ':' are not legal in Windows paths
     # (older tags such as "candR4" contain neither, so their checkpoint paths are unchanged).
     folder = exp_tag.replace("|", "__").replace(":", "-")
     return os.path.join(
@@ -614,7 +614,7 @@ def parse_args():
 
     # Model
     p.add_argument("--result_model_name", type=str, default=None,
-                   help="name written to the results row (run_plan.py: FEATHer_mix / FEATHer_CI); default = --model")
+                   help="name written to the results row (run.py: FEATHer_mix / FEATHer_CI); default = --model")
     p.add_argument("--model", type=str, default="FEATHer",
                    choices=list_models())
     p.add_argument("--seq_len",   type=int, default=96)

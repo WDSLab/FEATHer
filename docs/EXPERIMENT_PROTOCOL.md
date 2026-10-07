@@ -131,7 +131,7 @@ batch 32 · 최대 50 epoch · patience 10 · Adam + CosineAnnealing(T_max 50) �
 - `results/raw_mfg.csv` · `raw_ltsf.csv` = 정식 결과, `select_{mfg,ltsf}.csv` = 고르기 결과, `chosen_{mfg,ltsf}.json` = 고른 설정.
 - 모든 행에 `role`(main / reference / lookback / ablation / control / select)과 `config_id`
   (frozen · official · official-exc · ref-default · cand:<DS> · cand:default · ctrl:<arm>).
-- `run_plan.py --stage {ltsf, ltsf_select, select, main, lookback}` 가 계획과 결과를 비교해 **빠진 칸만** 돌린다
+- `run.py --stage {ltsf, ltsf_select, select, main, lookback}` 가 계획과 결과를 비교해 **빠진 칸만** 돌린다
   (결과 조각 → `results/_incoming/`, `tools/results/merge_incoming.py` 로 합침).
 - 규칙과 설정이 다른 옛 결과는 `results/_archive/legacy_rows_20261007.csv` (지우지 않음).
 

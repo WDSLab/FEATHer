@@ -1,8 +1,8 @@
 """Plan-driven runner (2026-10-07): run only the cells the protocol needs and the results do not have yet.
 
-    python run_plan.py --stage select --check                 # what is missing, nothing runs
-    python run_plan.py --stage select --ngpu 1 --jobs_per_gpu 3
-    python run_plan.py --stage ltsf --ngpu 2 --jobs_per_gpu 3   (server)
+    python run.py --stage select --check                 # what is missing, nothing runs
+    python run.py --stage select --ngpu 1 --jobs_per_gpu 3
+    python run.py --stage ltsf --ngpu 2 --jobs_per_gpu 3   (server)
     python tools/results/merge_incoming.py                    # shards -> raw_*.csv / select_mfg.csv
 
 Stages (docs/EXPERIMENT_PROTOCOL.md):

@@ -21,7 +21,7 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
 
 **한 줄**: 베이스라인 공정성 문제(FEATHer 만 mfg 에서 설정을 고름 · 베이스라인 설정 출처가 제각각 · 7개 모델이 공식 설정과
 다름)를 찾아 **실험 규칙을 새로 정했다 → `docs/EXPERIMENT_PROTOCOL.md`**. 결과는 `results/raw_{mfg,ltsf}.csv` 로 통합했고
-`run_plan.py` 가 빠진 칸만 돌린다. **새 세션 시작점 = 메모리 `project_session_1007.md`(HANDOFF)**.
+`run.py` 가 빠진 칸만 돌린다. **새 세션 시작점 = 메모리 `project_session_1007.md`(HANDOFF)**.
 (이전 상태 블록 원문 = `manuscript/notes/CLAUDE_STATUS_ARCHIVE_2026-10-07.md`.)
 
 - **규칙 요약 (상세 = 프로토콜 §5)**: 베이스라인 설정 = 저자가 공개한 값만(최종 스크립트 + 저자 기본 설정; 빈칸용 argparse 값
@@ -55,7 +55,7 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
   v5 재빌드 안 함. 프레이밍 v2 = "과거를 길게 못 보면 옆 센서를 본다". 표 서식(8844 twip, 행 0.5 cm, 8 pt) · v1~v4 덮어쓰기 금지 ·
   drafts 형식(영어 한 문장 + 한국어 한 줄) · 프리프린트 주의 · 용어 channel 은 그대로.
 - **Git**: 10-07 `06b089e`(프로토콜·실행기·결과 재정리·래퍼) · `2f76303`(Fable 반영: 칸 단위 칩·LTSF 선택) personal push.
-  그 뒤 작은 수정(주석 2곳·병합 경고·run_plan 설명) 미커밋. 커밋은 요청 시, personal 만.
+  그 뒤 작은 수정(주석 2곳·병합 경고·실행기 설명) 미커밋. 커밋은 요청 시, personal 만.
 
 ### 정리 (10-01, 10-07 사용자 승인) + 코드 공개 전 할 일
 - **10-07 정리 (옮기기만)**: 끝난 dev 진단 13개 → `tools/dev/_archive/` · 안 쓰는 옛 표 도구 9개 → `tools/paper/_archive/` · 끝난 계획서 3개 →
@@ -204,12 +204,12 @@ RevIN -> 3 bands: conv k=3 | conv k=5 | AvgPool(4)+interp -> banded FFT gate -> 
 `utils/` = 데이터·학습 기계, `tools/` = 사람이 돌려 산출물을 만드는 것 (학습 경로에서 import 안 함).
 
 ```
-run_plan.py                       유일한 실행 입구 — 프로토콜이 요구하는 칸 중 결과에 없는 것만 실행
+run.py                       유일한 실행 입구 — 프로토콜이 요구하는 칸 중 결과에 없는 것만 실행
                                   (--stage ltsf / ltsf_select / select / main / lookback / ablation / control, --save_model)
-scripts/train.py                  학습 코드 (모델 × 데이터 × H × 시드들 → 결과 행). run_plan 이 부름 (10-07 이름 변경)
+scripts/train.py                  학습 코드 (모델 × 데이터 × H × 시드들 → 결과 행). run.py 가 부름 (10-07 이름 변경)
 tools/results/                    protocol(후보·설정·ablation·대조군 정의) · build_raw · merge_incoming · select_verdict
 docs/                             EXPERIMENT_PROTOCOL.md (실험 규칙) · MODEL_FINAL.md (FEATHer 동결 구조)
-_archive/run_forecast_orchestrator.py   옛 실행기 (10-07 은퇴; run_plan 이 같은 명령을 만드는 것 61칸 대조 확인)
+_archive/run_forecast_orchestrator.py   옛 실행기 (10-07 은퇴; run 이 같은 명령을 만드는 것 61칸 대조 확인)
 baselines/__init__.py             레지스트리(15) + _METHOD_DEFAULTS + _DATASET_OVERRIDES + _FEATHER_FROZEN
 baselines/<Name>/wrapper.py       upstream Model 을 forward(x)->(B,H,D) 로 감쌈
 utils/                            prep_manufacturing (raw -> data.csv + mask.csv) · data_factory · data_loader
@@ -241,7 +241,7 @@ stsf · stsf_mlp · mixlinear · dipe · fits. **공통 규칙 ①**("원래 계
 |---|---|
 | `results/raw_mfg.csv` · `raw_ltsf.csv` | 정식 결과 (role = main/reference/lookback/ablation/control, config_id = 설정 이름) |
 | `results/select_mfg.csv` · `chosen_mfg.json` | mfg 설정 고르기 결과 · 고른 설정 (select_verdict) |
-| `results/_incoming/` | 새 실행 조각 (run_plan 출력, exp_tag = `role|config_id`) → merge_incoming 으로 합침 |
+| `results/_incoming/` | 새 실행 조각 (run.py 출력, exp_tag = `role|config_id`) → merge_incoming 으로 합침 |
 | `results/board/` | 보드·칩 측정 (footprint, latency_20260929, current, replay, rsweep, recompute) |
 | `results/analysis/` | complexity, ops_vs_latency, sram_vs_lookback, coupling, r2, kpi, linear_ceiling |
 | `results/dev/` | dev 실험 (원고 숫자 아님) |
@@ -300,8 +300,8 @@ LiPFormer·LightMTS·FilterNet·TinyCast·RhyMix 등(10-06 조사, 메모리 `pr
 
 ```bash
 # 10-07 실험 관리 (docs/EXPERIMENT_PROTOCOL.md)
-python run_plan.py --stage select --check            # ltsf / ltsf_select / select / main / lookback; --check = 빠진 칸만 보기
-python run_plan.py --stage select --ngpu 1 --jobs_per_gpu 3
+python run.py --stage select --check            # ltsf / ltsf_select / select / main / lookback; --check = 빠진 칸만 보기
+python run.py --stage select --ngpu 1 --jobs_per_gpu 3
 python tools/results/merge_incoming.py               # _incoming 조각 -> raw_*.csv / select_mfg.csv (--archive 로 조각 보관)
 python tools/results/select_verdict.py --write       # 고르기 판정 -> results/chosen_mfg.json (--group ltsf -> chosen_ltsf.json)
 
@@ -314,10 +314,10 @@ python tools/paper/table_deploy.py
 python tools/paper/fig_pareto_board.py
 python tools/paper/ablation_summary.py --per_dataset   # (옛 ablation.csv 기준)
 
-# ablation · 대조군 · 보드용 체크포인트 (run_plan 에 통합, 10-07)
-python run_plan.py --stage ablation --check
-python run_plan.py --stage control --ngpu 1 --jobs_per_gpu 3
-python run_plan.py --stage main --models FEATHer_mix --data MetroPT3 --save_model   # 보드 export 용 저장
+# ablation · 대조군 · 보드용 체크포인트 (run.py 에 통합, 10-07)
+python run.py --stage ablation --check
+python run.py --stage control --ngpu 1 --jobs_per_gpu 3
+python run.py --stage main --models FEATHer_mix --data MetroPT3 --save_model   # 보드 export 용 저장
 
 # 보드 / C
 cd deployment/board && make test                    # WSL, 골든 전부

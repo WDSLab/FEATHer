@@ -52,7 +52,7 @@ def main() -> int:
     raw = pd.read_csv(args.csv)
     abl = raw[raw.role == "ablation"]
     if abl.empty:
-        print(f"no ablation rows in {args.csv} - run `python run_plan.py --stage ablation` first")
+        print(f"no ablation rows in {args.csv} - run `python run.py --stage ablation` first")
         return 1
     base = raw[(raw.role == "main") & (raw.model == "FEATHer_mix") & (raw.config_id == "frozen")]
     if base.empty:
