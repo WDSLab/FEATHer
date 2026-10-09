@@ -1,0 +1,16 @@
+{
+ "CMoS|Exchange": "cand:Traffic",
+ "DiPE_Linear|Exchange": "cand:ETTh1",
+ "DiPE_Linear|Traffic": "cand:Electricity",
+ "FITS|Electricity": "cand:Weather",
+ "FITS|Exchange": "cand:ETTm1",
+ "FITS|Traffic": "cand:Weather",
+ "MixLinear|ETTm1": "cand:Traffic",
+ "MixLinear|ETTm2": "cand:Electricity",
+ "MixLinear|Exchange": "cand:Traffic",
+ "MixLinear|Weather": "cand:Electricity",
+ "PhaseFormer|Exchange": "cand:ETTm2",
+ "SparseTSF_MLP|Exchange": "cand:Weather",
+ "SparseTSF|Exchange": "cand:ETTh1",
+ "TimeBase|Exchange": "cand:ETTh1"
+}
