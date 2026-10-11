@@ -70,6 +70,7 @@ def _build_feather(args, n_features, seq_len, pred_len):
         factor_head=getattr(args, "factor_head", None) or 0,
         factor_src=getattr(args, "factor_src", None) or "hidden",
         front=getattr(args, "front", None) or "bands",
+        mix_sep=bool(getattr(args, "mix_sep", 0) or 0),
     )
 
 
@@ -125,7 +126,7 @@ def _build_sparsetsf_mlp(args, n_features, seq_len, pred_len):
 # channel-mixing bus only (D -> 4 -> D residual GELU MLP), with FEATHer's instance norm
 # ("_mix") or SparseTSF's own window-mean removal ("_mixM").  Answers "what does FEATHer
 # do better than SparseTSF plus a small channel mixer?" - plan and pre-declared rule in
-# manuscript/drafts/control_sparsetsf_mix_plan.md.  Recipe (lr, period) = SparseTSF's.
+# manuscript/drafts/_records/control_sparsetsf_mix_plan.md.  Recipe (lr, period) = SparseTSF's.
 def _build_sparsetsf_mix(args, n_features, seq_len, pred_len):
     from baselines.SparseTSF.wrapper import build_mix
     return build_mix(args, n_features, seq_len, pred_len, "linear", "revin")
@@ -764,7 +765,7 @@ _DATASET_OVERRIDES.update({
 
 
 # ---- 2026-10-07 protocol corrections (docs/EXPERIMENT_PROTOCOL.md; official scripts re-read line by line,
-# manuscript/drafts/baseline_official_configs.md).  Rules used below:
+# manuscript/drafts/_records/baseline_official_configs.md).  Rules used below:
 #   * LTSF = each model's FINAL per-(dataset[, H]) script values; sweep-only or missing datasets
 #     take the model's ETTh1 setting (period-type keys stay the dataset's own value).
 #   * L = 96 scripts win where they exist (CycleNet Linear-Input-96: lr 0.01 everywhere).

@@ -736,6 +736,8 @@ def parse_args():
     p.add_argument("--factor_head", type=int, default=0, help="P1 (10-06): shared-factor forecasting; 0 = off.")
     p.add_argument("--factor_src", type=str, default=None, help="P1 factor source: hidden (default) | low (P2).")
     p.add_argument("--front", type=str, default=None, help="bands (default) | none (P3: no bands, no FFT gate).")
+    p.add_argument("--mix_sep", type=int, default=0,
+                   help="10-11 mixing-only control: residual MLP per channel (1->R->1), no cross-channel term; 0 = off.")
 
     # Training
     p.add_argument("--batch_size",  type=int,   default=32)

@@ -110,6 +110,8 @@ CONTROL_ARMS = {
     "SparseTSF_MLP_mix": ("SparseTSF_MLP_mix", [], "SparseTSF_MLP"),
     "SparseTSF_MLP_mixM": ("SparseTSF_MLP_mixM", [], "SparseTSF_MLP"),
     "FEATHer_frontnone": ("FEATHer", ["--front", "none"], "FEATHer_mix"),
+    # 10-11 mixing-only control: FEATHer-mix with a channel-separate residual MLP (docs/prereg_mixsep_1011.md)
+    "FEATHer_mixsep": ("FEATHer", ["--mix_sep", "1"], "FEATHer_mix"),
 }
 
 

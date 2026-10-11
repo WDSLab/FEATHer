@@ -786,6 +786,7 @@ class FEATHer(nn.Module):
         factor_head: int = 0,
         factor_src: str = "hidden",
         front: str = "bands",
+        mix_sep: bool = False,
     ):
         super().__init__()
 
@@ -1268,6 +1269,29 @@ class FEATHer(nn.Module):
             self.factor_head = SparsePeriodKernel(
                 seq_len=seq_len, pred_len=pred_len, d_model=mlp_rank, period=period)
 
+        # mix_sep (2026-10-11, control arm FEATHer_mixsep): the mixing-only control.
+        # mix vs ci_full also removes the per-channel band/head weights, so the
+        # mixing gain mixes two things.  This keeps the mix model as it is and
+        # makes only the residual MLP channel-separate: one 1 -> R -> 1 MLP per
+        # channel (3DR + D params vs the mixer's 2DR + R + D, i.e. no fewer), so
+        # nothing crosses channels.  Built LAST (RNG stream of everything above
+        # unchanged); the shared mixer is dropped so it is neither used nor counted.
+        # Off = the frozen model, byte-identical.
+        self.mix_sep = bool(mix_sep)
+        if self.mix_sep:
+            assert use_residual_mlp and channel_mode == "mix" and mix_mode == "hidden" \
+                and not mlp_tie and not self.mix_lag and not self.mix_listen \
+                and not getattr(self, "factor_head_on", False) and gate_mix == "none", \
+                "mix_sep replaces the hidden residual mixer of the mix model"
+            del self.nl_down, self.nl_up
+            D, R = eff_d, mlp_rank
+            # per-channel nn.Linear init: fan_in 1 (down) and R (up)
+            self.sep_down_w = nn.Parameter(torch.empty(D, R).uniform_(-1.0, 1.0))
+            self.sep_down_b = nn.Parameter(torch.empty(D, R).uniform_(-1.0, 1.0))
+            b = float(R) ** -0.5
+            self.sep_up_w = nn.Parameter(torch.empty(D, R).uniform_(-b, b))
+            self.sep_up_b = nn.Parameter(torch.empty(D).uniform_(-b, b))
+
     def _head2_readout(self, hidden: torch.Tensor) -> torch.Tensor:
         """The SPK readout at period2 on the head's own aggregated series."""
         sp = self.sparse_head
@@ -1308,6 +1332,10 @@ class FEATHer(nn.Module):
 
     def _mixer(self, v: torch.Tensor) -> torch.Tensor:
         """Residual MLP over the channel axis: W_up(GELU(W_down v))."""
+        if getattr(self, "mix_sep", False):
+            # one 1 -> R -> 1 MLP per channel: v (B, L, D) -> (B, L, D), no cross-channel term
+            u = F.gelu(v.unsqueeze(-1) * self.sep_down_w + self.sep_down_b)   # (B, L, D, R)
+            return (u * self.sep_up_w).sum(-1) + self.sep_up_b
         u = F.gelu(self.nl_down(v))
         if getattr(self, "mix_lag", ""):
             u = self.lag_conv(u.transpose(1, 2)).transpose(1, 2)
