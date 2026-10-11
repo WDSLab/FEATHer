@@ -3,7 +3,7 @@
 이 문서는 FEATHer 논문의 모든 학습 실험이 **어떤 데이터·길이·설정으로, 어떤 규칙에 따라** 돌았는지를 정한다.
 규칙은 결과를 보기 전에 정했고, 결과가 나빠져도 되돌리지 않는다. 코드에서의 위치는 각 절 끝에 적었다.
 
-- 근거 자료: `manuscript/drafts/baseline_official_configs.md` (공식 스크립트를 줄 단위로 읽은 표, 값마다 file:line)
+- 근거 자료: `manuscript/drafts/_records/baseline_official_configs.md` (공식 스크립트를 줄 단위로 읽은 표, 값마다 file:line)
 - 모델 구조: `MODEL_FINAL.md` · 결과 파일: `results/README.md` · 돌릴 목록: `manuscript/notes/run_queue_1007.md`
 
 ---
@@ -78,6 +78,13 @@ batch 32 · 최대 50 epoch · patience 10 · Adam + CosineAnnealing(T_max 50) �
    **LTSF 는 후보가 하나라** 실패한 (모델, 데이터)에 한해 lr 만 공식값의 0.1배 · 0.01배 중 **검증 손실**로 다시 고르고
    논문에 예외로 밝힌다 (선례: DLinear ETTh2 공식 lr 0.05 가 우리 스케줄러에서 발산 → 검증으로 5e-3 재선택).
    best epoch 는 0부터 센다 (≤ 2 = 처음 세 epoch 안).
+   **수정 (2026-10-11, 결과를 본 뒤 — 논문에 밝힘)**: 정식 3시드 단계의 "best epoch ≤ 2 → 다음 후보 / lr 재선택"은 쓰지 않고,
+   **발산(값 없음·무한대)만 실패**로 본다. 근거(main 결과, `P.main_rows`): best epoch ≤ 2 가 시드 2개 이상인 칸이 mfg 60/480 ·
+   LTSF 91/584 로 FEATHer·서버급 포함 거의 모든 모델에 있고, 모델이 아니라 데이터별로 몰린다(BlastFurnace 27/60, ETTm2·ETTh*);
+   같은 칸에서 일찍 멈춘 시드가 끝까지 학습한 시드보다 나쁘지 않다(시험 MSE mfg +0.09 %, LTSF −2.33 %); 걸린 칸이 풀 안에서
+   하위에 몰리지 않는다. ⇒ 학습 실패가 아니라 검증 손실이 초반에 최저인 데이터 특성(조기 종료가 제 역할을 한 것). 모든 모델에
+   같은 규칙이 적용되므로 설정 변경·재실험 없음(LTSF FITS ETTm2 · DiPE ETTm1 · MixLinear ETTh2 lr 재선택도 하지 않음).
+   고르기 단계의 후보 제외(셀 절반 초과)는 실행 전에 정한 대로 이미 적용했고 그대로 둔다(DiPE mfg ETTh1, TimeBase LTSF-Exchange Weather).
 7. **입력 길이가 정의를 넘는 값**은 그 입력 길이가 허용하는 최대값: MixLinear lpf ≤ ⌈L/주기⌉, FITS 자르는 주파수 ≤ L/2
    (공식 계산식 `(L // base_T + 1) × H_order + 10`).
 8. **주기류 값은 규칙으로 계산** (고르는 대상이 아님):
