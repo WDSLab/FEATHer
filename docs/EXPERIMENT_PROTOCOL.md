@@ -73,6 +73,13 @@ batch 32 · 최대 50 epoch · patience 10 · Adam + CosineAnnealing(T_max 50) �
 5. **칩 판정은 칸 단위** (10-07 Fable 검토 후 변경): 후보를 칩 크기로 미리 거르지 않는다. 모든 모델이 정확도(검증 손실)만으로
    설정을 고르고, 고른 설정이 어떤 칸(데이터 × H)에서 칩(128 KB flash / 20 KB SRAM)을 넘으면 그 칸만 "칩 밖"으로 표시한다
    — DLinear · CycleNet · SAMformer 와 같은 취급. 칩 안 순위는 지금처럼 24칸 모두 칩에 들어가는 모델로 매긴다.
+   **수정 (2026-10-12, main 결과를 본 뒤 — 사후 변경, 논문에 밝힘)**: mfg 설정은 **칩에 들어가는 칸이 가장 많은 공개 설정 중**
+   4번 규칙(검증 순위)으로 고른다. 칩 판정 = `deployment/board/chip_verdict.py --candidates`(모든 후보 × 24칸 펌웨어 빌드, 실제 채널
+   수). 이유: 정확도 우선 선택이 칩 안 비교에서 일부 모델을 통째로 빼서(PhaseFormer Traffic 0/24 칸, 공개 ETTh2 설정이면 21/24)
+   "칩 안에서 가장 정확" 비교를 우리에게 유리하게 기울였다(Fable 검토 권고). 이 변경은 우리 순위를 낮춘다(CMoS 가 H720 에도 들어옴).
+   바뀐 모델 = CMoS Traffic → Weather (24/24) · FITS Weather → ETTm1 (23/24) · PhaseFormer Traffic → ETTh2 (21/24); 나머지는
+   이미 24/24 이거나(SMLP·DiPE·MixLinear·TimeBase, 그대로 1등) 모든 공개 설정의 구조가 같다(DLinear·CycleNet·SAMformer).
+   정확도 우선 설정의 결과(옛 main 행, config_id 그대로 raw 에 남음)는 표 주석 한 줄로 밝힌다. LTSF 는 공식 설정 그대로.
 6. **건강 검사**: 고르기에서 best epoch ≤ 2 인 칸이 절반을 넘거나 값이 없는/발산한 후보는 제외. 정식 3시드에서 시드 2개
    이상이 발산하거나 best epoch ≤ 2 면 다음 후보. "성능이 나쁘다"는 바꿀 이유가 아니다.
    **LTSF 는 후보가 하나라** 실패한 (모델, 데이터)에 한해 lr 만 공식값의 0.1배 · 0.01배 중 **검증 손실**로 다시 고르고
@@ -156,6 +163,9 @@ batch 32 · 최대 50 epoch · patience 10 · Adam + CosineAnnealing(T_max 50) �
   복사 실수(주석의 의도대로 설정 사용) · CMoS 주기 힌트는 L 보다 크면 효과 없음.
 
 ## 10. 변경 이력
+
+- 2026-10-12 (main 결과 후, Fable 검토): mfg 설정 = "칩에 가장 많이 들어가는 공개 설정 중 검증 1등"(5절 5번 수정).
+  CMoS · FITS · PhaseFormer 설정 변경, 시드 2025 고르기 행을 main 으로 재사용, 시드 2026 · 2027 와 입력 길이는 새로 실행.
 
 - 2026-10-07 (Fable 검토 후): 공식 설정 없는 LTSF 칸 = 검증 손실로 고르기(`--stage ltsf_select`), LTSF 학습 실패 시 lr 0.1·0.01배
   검증 재선택, best epoch 0부터 셈, 판정 도구는 후보가 다 끝나야 기록하고 고른 설정의 시드 2025 결과를 메인에 재사용.

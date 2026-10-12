@@ -1,10 +1,10 @@
 {
- "CMoS": "cand:Traffic",
+ "CMoS": "cand:Weather",
  "DLinear": "cand:Exchange",
  "DiPE_Linear": "cand:Electricity",
- "FITS": "cand:Weather",
+ "FITS": "cand:ETTm1",
  "MixLinear": "cand:Traffic",
- "PhaseFormer": "cand:Traffic",
+ "PhaseFormer": "cand:ETTh2",
  "SAMformer": "cand:default",
  "SparseTSF": "cand:ETTh1",
  "SparseTSF_MLP": "cand:Traffic",
