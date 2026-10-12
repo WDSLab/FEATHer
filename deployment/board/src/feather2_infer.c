@@ -15,6 +15,9 @@
 /* The golden headers are regenerated per horizon.  Building this port
  * against weights exported for a DIFFERENT horizon would compile fine and
  * return a plausible, wrong forecast, so refuse it at compile time. */
+#ifdef FEA2_P_GEN                       /* stamped by the export since 10-12 */
+_Static_assert(FEA2_PERIOD == FEA2_P_GEN, "feather2_weights.h was exported at another period");
+#endif
 _Static_assert(FEA2_H == FEA2_H_GEN,
                "FEA2_H does not match the horizon the weights were exported at - re-run export_golden_*.py --pred_len");
 _Static_assert(FEA2_MLP_R == FEA2_R_GEN,

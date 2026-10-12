@@ -87,9 +87,15 @@ void mixlinear_forward(const float *x, float *y)
 
         /* 4/5/6. per period-phase: both branches, then emit that phase */
         for (p = 0; p < ML_P; p++) {
-            float seg[ML_SEGX];
+            /* upstream zero-pads the segment axis to sq_x^2 for the time branch
+             * (F.pad).  At P = 24 seg_x = 4 = 2^2 and there is no pad; at P = 48
+             * seg_x = 2 < 4, and reading seg[2..3] unpadded was out of bounds
+             * (found 10-12 by the P = 48 golden run). */
+            float seg[ML_SQX * ML_SQX];
             for (sx = 0; sx < ML_SEGX; sx++)
                 seg[sx] = ml_xc[sx * ML_P + p];       /* xr[c][p][sx] */
+            for (; sx < ML_SQX * ML_SQX; sx++)
+                seg[sx] = 0.0f;
 
             /* ---- TIME branch: grid[r][col] = seg[r*2+col] ----
              * TLinear1: (sq_x -> sq_y) over the grid columns.

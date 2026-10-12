@@ -39,16 +39,18 @@ def main() -> None:
     ap.add_argument("--ckpt", type=str, default=None)
     ap.add_argument("--mlp_rank", type=int, default=ARCH["mlp_rank"],
                     help="residual MLP rank; the C header takes -DFEA2_MLP_R to match")
+    ap.add_argument("--period", type=int, default=PERIOD,
+                    help="SPK period (10-12); the C header takes -DFEA2_PERIOD to match")
     a = ap.parse_args()
-    H, D = a.pred_len, a.d_model
-    assert H % PERIOD == 0, "pred_len must be divisible by period"
+    H, D, P = a.pred_len, a.d_model, a.period
+    assert H % P == 0, "pred_len must be divisible by period"
 
     arch = dict(ARCH)
     arch["channel_mode"] = "ci_full"
     arch["mlp_rank"] = a.mlp_rank
     torch.manual_seed(WEIGHT_SEED)
     m = FEATHer(seq_len=SEQ_LEN, pred_len=H, d_model=D,
-                use_norm=True, period=PERIOD, **arch).eval()
+                use_norm=True, period=P, **arch).eval()
     if a.ckpt:
         sd = torch.load(a.ckpt, map_location="cpu")
         sd = sd.get("model_state_dict", sd.get("state_dict", sd))
@@ -65,7 +67,7 @@ def main() -> None:
     # ci_full builds every layer at width 1, so the parameter count must NOT
     # depend on D.  If it does, the variant was not actually folded.
     assert m.conv_point.weight.shape[0] == 1, "ci_full did not build at width 1"
-    print(f"params = {n_params}  (L={SEQ_LEN} H={H} D={D} P={PERIOD}, width-1)")
+    print(f"params = {n_params}  (L={SEQ_LEN} H={H} D={D} P={P}, width-1)")
 
     g = torch.Generator().manual_seed(INPUT_SEED)
     x = torch.randn(1, SEQ_LEN, D, generator=g)
@@ -90,7 +92,8 @@ def main() -> None:
         f.write(f"/* source={src}, params={n_params}, H={H}, ci_full */\n")
         f.write("#ifndef FEATHER2_WEIGHTS_H\n#define FEATHER2_WEIGHTS_H\n\n")
         f.write(f"#define FEA2_H_GEN {H}\n")
-        f.write(f"#define FEA2_R_GEN {arch['mlp_rank']}\n\n")
+        f.write(f"#define FEA2_R_GEN {arch['mlp_rank']}\n")
+        f.write(f"#define FEA2_P_GEN {P}\n\n")
         emit_array(f, "W_CONVP", m.conv_point.weight)
         emit_array(f, "B_CONVP", m.conv_point.bias)
         emit_array(f, "W_CONVM", m.conv_mid.weight)

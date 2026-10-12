@@ -176,7 +176,7 @@ def check_streaming(st, pred_len: int, m: FEATHer) -> float:
 
 
 def main() -> None:
-    global D_MODEL
+    global D_MODEL, PERIOD
     ap = argparse.ArgumentParser()
     ap.add_argument("--pred_len", type=int, default=96)
     ap.add_argument("--ckpt", type=str, default=None)
@@ -184,8 +184,11 @@ def main() -> None:
                     help="residual MLP rank; the C header takes -DFEA2_MLP_R to match")
     ap.add_argument("--d_model", type=int, default=D_MODEL,
                     help="channel count; the C header takes -D<PFX>_D to match")
+    # 10-12: SPK period (FFT rule <= 48: 48 on WindSCADA / BlastFurnace); the C header
+    # takes -DFEA2_PERIOD to match, stamped as FEA2_P_GEN
+    ap.add_argument("--period", type=int, default=PERIOD)
     a = ap.parse_args()
-    D_MODEL = a.d_model
+    D_MODEL, PERIOD = a.d_model, a.period
     ARCH["mlp_rank"] = a.mlp_rank
     H = a.pred_len
     assert H % PERIOD == 0, "pred_len must be divisible by period"
@@ -217,7 +220,8 @@ def main() -> None:
         f.write(f"#define FEA2_H_GEN {H}\n")
         # same guard for the residual-MLP rank (2026-09-29): a rank-16 header
         # built at -DFEA2_MLP_R=4 compiled silently and gave a wrong forecast
-        f.write(f"#define FEA2_R_GEN {ARCH['mlp_rank']}\n\n")
+        f.write(f"#define FEA2_R_GEN {ARCH['mlp_rank']}\n")
+        f.write(f"#define FEA2_P_GEN {PERIOD}\n\n")
         emit_array(f, "W_CONVP", m.conv_point.weight)          # (D,1,3)
         emit_array(f, "B_CONVP", m.conv_point.bias)            # (D,)
         emit_array(f, "W_CONVM", m.conv_mid.weight)            # (D,1,5)

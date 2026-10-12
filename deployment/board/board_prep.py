@@ -113,7 +113,7 @@ PLAN = (
 
 
 def cfg_header(model: str, H: int, D: int, power: str, direct_dft: bool = False,
-               stream: bool = False, config: str | None = None) -> str:
+               stream: bool = False, config: str | None = None, period: int | None = None) -> str:
     run, name, _, _, _ = MODELS[model]
     if direct_dft:
         name += " (direct DFT)"
@@ -126,6 +126,12 @@ def cfg_header(model: str, H: int, D: int, power: str, direct_dft: bool = False,
              "#ifndef BOARD_CFG_H", "#define BOARD_CFG_H",
              f"#define {run}", f'#define BOARD_NAME "{name}"',
              f"#define BOARD_H {H}", f"#define BOARD_D {D}"]
+    # period (10-12): ports whose period is a compile-time macro rather than a generated
+    # geometry header (SparseTSF-MLP / MixLinear carry it in their geom header)
+    if period and model in ("feather_mix", "feather_fn", "feather_ci"):
+        lines.append(f"#define FEA2_PERIOD {period}")
+    elif period and model == "stsf":
+        lines.append(f"#define STSF_P {period}")
     if model in ("feather_mix", "feather_fn"):
         lines += [f"#define FEA2_H {H}", f"#define FEA2_D {D}", "#define FEA2_MLP_R 4",
                   "#define BOARD_SKIP_CI"]
@@ -191,10 +197,27 @@ def config_args(model: str, config: str | None = None) -> list[str]:
     return ["--config", cid.split(":", 1)[1]]
 
 
-def export(model: str, H: int, D: int, ckpt: str | None = None, config: str | None = None) -> None:
+def geo_args(model: str, geo: dict | None) -> list[str]:
+    """The dataset's period / CycleNet cycle (10-12, chip_verdict.py) for the exports that do
+    not resolve the dataset themselves.  geo = None keeps every export's default."""
+    if not geo:
+        return []
+    if model in ("feather_mix", "feather_ci", "stsf") and geo.get("period"):
+        return ["--period", str(geo["period"])]
+    if model == "cyclenet" and geo.get("cycle"):
+        return ["--cycle", str(geo["cycle"])]
+    return []
+
+
+def export(model: str, H: int, D: int, ckpt: str | None = None, config: str | None = None,
+           data: str | None = None, geo: dict | None = None) -> None:
     _, _, stem, extra, _ = MODELS[model]
+    # data (10-12, chip_verdict.py): the industrial dataset whose period rule the config
+    # models resolve with; None = each export's default (MetroPT3), as before
     cmd = [sys.executable, str(HERE / f"export_golden_{stem}.py"),
            "--pred_len", str(H), "--d_model", str(D)] + extra + config_args(model, config) \
+        + (["--data", data] if data and model in CONFIG_MODELS else []) \
+        + geo_args(model, geo) \
         + (["--ckpt", str(ckpt)] if ckpt else [])
     r = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True,
                        env={**__import__("os").environ, "PYTHONUTF8": "1"})
@@ -210,7 +233,8 @@ def export(model: str, H: int, D: int, ckpt: str | None = None, config: str | No
 
 def install(project: Path, model: str, H: int, D: int, power: str,
             direct_dft: bool = False, stream_ckpt: str | None = None,
-            config: str | None = None) -> None:
+            config: str | None = None, data: str | None = None,
+            geo: dict | None = None) -> None:
     """Export, copy into `project`, write board_cfg.h, restore golden/.
 
     stream_ckpt (2026-10-04): install the STREAMING REPLAY firmware (main.c.stream,
@@ -226,7 +250,7 @@ def install(project: Path, model: str, H: int, D: int, power: str,
         bak = Path(tmp) / "golden"
         shutil.copytree(GOLDEN, bak)
         try:
-            export(model, H, D, stream_ckpt, config)
+            export(model, H, D, stream_ckpt, config, data, geo)
             for f in SRC.glob("*.c"):
                 if f.name == "feather2in_infer.c":      # rejected candidate, not measured
                     continue
@@ -246,7 +270,7 @@ def install(project: Path, model: str, H: int, D: int, power: str,
         stale.unlink()
     with (inc_dir / "board_cfg.h").open("w", encoding="utf-8", newline="\n") as f:
         f.write(cfg_header(model, H, D, power, direct_dft, stream=bool(stream_ckpt),
-                           config=config))
+                           config=config, period=(geo or {}).get("period")))
     main_c = src_dir / "main.c"
     keep = src_dir / "main.c.bak_pre_board_prep"
     if main_c.exists() and not keep.exists():
@@ -273,12 +297,21 @@ def wsl(cmd: str, cwd: Path) -> subprocess.CompletedProcess:
 
 
 def dry_build(project: Path, model: str, H: int, D: int, direct_dft: bool = False,
-              stream_ckpt: str | None = None) -> dict:
+              stream_ckpt: str | None = None, data: str | None = None,
+              keep_elf: Path | None = None, relax_ld: bool = False,
+              geo: dict | None = None, config: str | None = None) -> dict:
     """Build the whole firmware for one cell in a scratch copy; never touches `project`."""
     with tempfile.TemporaryDirectory() as tmp:
         scratch = Path(tmp) / "proj"
         shutil.copytree(project, scratch, ignore=shutil.ignore_patterns("Debug", "Release"))
-        install(scratch, model, H, D, "none", direct_dft, stream_ckpt)
+        install(scratch, model, H, D, "none", direct_dft, stream_ckpt, config=config, data=data, geo=geo)
+        if relax_ld:
+            # chip_verdict.py: link the scratch image against oversized regions so an
+            # over-budget cell still reports both sizes; the caller compares them with
+            # the real 128 K / 20 K (the scratch firmware is never flashed)
+            ld = scratch / "STM32F103RBTX_FLASH.ld"
+            ld.write_text(ld.read_text().replace("LENGTH = 20K", "LENGTH = 1024K")
+                          .replace("LENGTH = 128K", "LENGTH = 65536K"))
         script = (
             "set -e; mkdir -p obj; "
             "for f in Core/Src/*.c Drivers/STM32F1xx_HAL_Driver/Src/*.c; do "
@@ -292,6 +325,8 @@ def dry_build(project: Path, model: str, H: int, D: int, direct_dft: bool = Fals
             "arm-none-eabi-size -A fw.elf")
         r = wsl(script, scratch)
         out = r.stdout + r.stderr
+        if keep_elf is not None and (scratch / "fw.elf").exists():
+            shutil.copy2(scratch / "fw.elf", keep_elf)
         if r.returncode != 0:
             return dict(ok=False, why=" ".join(out.split())[-300:])
         sec = {}

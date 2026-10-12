@@ -40,13 +40,17 @@ OUT_DIR = Path(__file__).resolve().parent / "golden"
 def main() -> None:
     global PRED_LEN
     global D_MODEL
+    global PERIOD
     _cli = argparse.ArgumentParser()
     _cli.add_argument("--pred_len", type=int, default=PRED_LEN,
                       help="board horizon; the C header takes -D<PFX>_H to match")
     _cli.add_argument("--d_model", type=int, default=D_MODEL,
                       help="channel count; the C header takes -D<PFX>_D to match")
+    # 10-12: the industrial period rule gives 48 on WindSCADA / BlastFurnace; the C
+    # header takes -DSTSF_P to match (stamped below as STSF_P_GEN)
+    _cli.add_argument("--period", type=int, default=PERIOD)
     _a = _cli.parse_args()
-    PRED_LEN, D_MODEL = _a.pred_len, _a.d_model
+    PRED_LEN, D_MODEL, PERIOD = _a.pred_len, _a.d_model, _a.period
     torch.manual_seed(WEIGHT_SEED)
     args = argparse.Namespace(
         sparsetsf_period_len=PERIOD,
@@ -61,7 +65,7 @@ def main() -> None:
     # (the reference the 08-24 board numbers were taken at).  At other
     # horizons the geometry legitimately changes - print it instead, and
     # the C header must be given matching -D overrides.
-    if PRED_LEN == 96:
+    if PRED_LEN == 96 and PERIOD == 24:
         assert n_params == 41, f"expected the 41-param linear variant, got {n_params}"
 
     g = torch.Generator().manual_seed(INPUT_SEED)
@@ -92,7 +96,7 @@ def main() -> None:
         # static-asserts against it, so a stale golden header (weights
         # from one H, code built for another) fails to COMPILE instead of
         # silently producing a plausible wrong forecast.
-        f.write(f"#define STSF_H_GEN {PRED_LEN}\n\n")
+        f.write(f"#define STSF_H_GEN {PRED_LEN}\n#define STSF_P_GEN {PERIOD}\n\n")
         emit_array(f, "STSF_W_CONV", model.conv1d.weight)   # (1,1,25)
         emit_array(f, "STSF_W_LIN", model.linear.weight)    # (4,4) out,in
         f.write("#endif /* STSF_WEIGHTS_H */\n")

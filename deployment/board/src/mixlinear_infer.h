@@ -31,7 +31,6 @@
 #ifndef ML_D
 #define ML_D 7
 #endif
-#define ML_P 24                       /* period_len              */
 #define ML_SEGX (ML_L / ML_P)         /* input segments  = 4     */
 #define ML_SEGY (ML_H / ML_P)         /* output segments = 4     */
 /* Input/output grid factorisation.  These are EQUAL (=2) at H=96, which is
@@ -41,6 +40,9 @@
  * weights and the geometry cannot drift apart. */
 #include "mixlinear_geom.h"
 #define ML_SQ ML_SQX                  /* back-compat alias       */
+#ifndef ML_P                          /* period_len (geom header since 10-12) */
+#define ML_P 24
+#endif
 /* Upstream's time branch emits sq_y^2 blocks of P steps, which OVERSHOOTS the
  * horizon (H=720 -> 6*6*24 = 864 > 720) and is truncated at the end.  The
  * port no longer evaluates the overshoot or holds either branch at length H

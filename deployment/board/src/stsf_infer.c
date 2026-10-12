@@ -10,6 +10,9 @@
 /* The golden headers are regenerated per horizon.  Building this port
  * against weights exported for a DIFFERENT horizon would compile fine and
  * return a plausible, wrong forecast, so refuse it at compile time. */
+#ifdef STSF_P_GEN                       /* stamped by the export since 10-12 */
+_Static_assert(STSF_P == STSF_P_GEN, "stsf_weights.h was exported at another period");
+#endif
 _Static_assert(STSF_H == STSF_H_GEN,
                "STSF_H does not match the horizon the weights were exported at - re-run export_golden_*.py --pred_len");
 

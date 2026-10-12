@@ -37,7 +37,6 @@
 #ifndef SMLP_D
 #define SMLP_D 7
 #endif
-#define SMLP_P 24                       /* period_len                 */
 #define SMLP_N (SMLP_L / SMLP_P)        /* input segments  = 4        */
 #define SMLP_M (SMLP_H / SMLP_P)        /* output segments = 4        */
 #define SMLP_K (1 + 2 * (SMLP_P / 2))   /* agg conv kernel = 25       */
@@ -46,6 +45,9 @@
 #if __has_include("stsf_mlp_geom.h")
 #include "stsf_mlp_geom.h"
 #endif
+#endif
+#ifndef SMLP_P                          /* period_len (geom header since 10-12) */
+#define SMLP_P 24
 #endif
 #ifndef SMLP_DM
 #define SMLP_DM 128                     /* d_model, upstream default  */

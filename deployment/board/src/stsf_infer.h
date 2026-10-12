@@ -26,7 +26,9 @@
 #ifndef STSF_D
 #define STSF_D 7
 #endif
-#define STSF_P 24                       /* period_len                */
+#ifndef STSF_P                          /* period_len: 24, or 48 on WindSCADA / BlastFurnace (10-12) */
+#define STSF_P 24
+#endif
 #define STSF_N (STSF_L / STSF_P)        /* input segments  = 4       */
 #define STSF_M (STSF_H / STSF_P)        /* output segments = 4       */
 #define STSF_K (1 + 2 * (STSF_P / 2))   /* agg conv kernel = 25      */
