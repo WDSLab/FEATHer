@@ -17,7 +17,7 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
 메모리 안에 들어가게 만들었다 (칩당 43채널). 철학 = "과거를 길게 못 보면 옆 센서를 본다"(10-06 v2). flash 가 H에 거의 무관(18.1→18.5 KB, H96→720; 파라미터는 MetroPT3 340→444 — 옛 "1.008배"는 동결 전 모델 값, 쓰지 말 것)해서 긴 H로 갈수록 칩 안 비교에서 유리해진다.
 판정 기준은 파라미터가 아니라 **실측 flash·SRAM·보드 지연시간**.
 
-## Current status (2026-10-07) — 실험 프로토콜 확정, 재실험 진행 중
+## Current status (2026-10-12) — 공정한 재실험 결과: FEATHer 순위 하락, 재설계 검토 중
 
 **한 줄**: 베이스라인 공정성 문제(FEATHer 만 mfg 에서 설정을 고름 · 베이스라인 설정 출처가 제각각 · 7개 모델이 공식 설정과
 다름)를 찾아 **실험 규칙을 새로 정했다 → `docs/EXPERIMENT_PROTOCOL.md`**. 결과는 `results/raw_{mfg,ltsf}.csv` 로 통합했고
@@ -38,19 +38,32 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
   CycleNet 은 모든 L 에 lr 0.01 하나 · SparseTSF-MLP 는 자기 공식 lr(선형 lr 빌려 쓰던 것 폐기).
 - **쓰지 말 문장 (10-07 사용자 결정)**: FEATHer 개발 중 테스트를 본 결정(R4·채널 방식)과 선택 시드 공개 문장은 쓰지 않음 —
   단 "FEATHer 포함 모든 모델을 검증으로 골랐다" 같은 사실과 다른 문장은 금지, "베이스라인 설정은 검증 손실로 골랐다"까지만.
-- **진행 중 (10-07 20:40 기준; 상세·시간 = `manuscript/notes/run_queue_1007.md`)**:
-  - 로컬: `python run.py --stage select --ngpu 1 --jobs_per_gpu 3` — **세션과 독립된 프로세스**(Start-Process, 숨김).
-    로그 `results/_logs/select_local_1007.log` / `.err`, 결과 `results/_incoming/DESKTOP-AKL16D8_select.csv`. 1,224칸 중 205 완료,
-    **10-10(금) 오전~낮 끝 예상**(MetroPT3 먼저, 칸당 25~30분 × 동시 3). 진행 확인 = `python run.py --stage select --check`. 멈출 땐 명령줄에 `run.py --stage select` / `exp_tag select|` 가 있는
-    python 프로세스만 종료(사용자의 다른 실험 건드리지 말 것). 동시 3개 = 메모리 한계.
-  - 서버 (WSL `//wsl.localhost/Ubuntu-24.04/home/user/lee/FEATHer`, 커밋 653010b): `run.py --stage ltsf_select`(264) →
-    `--stage ltsf`(605). 결과 = 서버 `results/_incoming/DESKTOP-K390KQ4_*.csv` → Dropbox → 로컬 `results/_incoming/` →
-    `python tools/results/merge_incoming.py`. 서버 raw 는 건너뛰기용 사본 — **로컬 raw 가 원본**, 서버 raw 로 덮어쓰기 금지.
-- **다음**: LTSF 고르기 끝 → `select_verdict.py --group ltsf --write`(→ `docs/chosen_ltsf.json`, 커밋 → 서버 `git pull`) → 서버 `--stage ltsf` 한 번 더 ·
-  mfg 고르기 끝 → `select_verdict.py --write`(→ `docs/chosen_mfg.json`, 커밋) → `--stage main` → `--stage lookback`(서버로 넘기기 권장) →
-  대조군 → 칸 단위 칩 판정(보드 수치는 후보 CSV 에서 고른 줄만 읽음; 채널 수별 flash·SRAM 은 measure_footprint
-  `--config`) → 표 도구를 raw 로 이전 → 4장 초안(`drafts/sec4_setup.md` v0) 프로토콜대로 고침.
-  입력 길이 단계는 서버 LTSF 가 끝나면 서버로 넘길지 사용자가 결정. L48 판정 규칙은 프로토콜 §2 에 이미 있음(별도 문서 안 만듦).
+- **⚠ 10-12 핵심 (새 세션 시작점 = 메모리 `project_session_1012.md` HANDOFF)**: 베이스라인을 프로토콜대로 고른 설정으로 다시 돌리니
+  **FEATHer-mix 는 더 이상 가장 정확하지 않다.** mfg 평균 MSE(L96, 3시드): DLinear 0.656 · CMoS 0.682 · PhaseFormer 0.683 · DiPE 0.696 ·
+  **FEATHer-mix 0.699** · SAMformer 0.708 · FITS 0.709 · SMLP 0.722 · CycleNet 0.724 · FEATHer-CI 0.736 · MixLinear/SparseTSF 0.749 · TimeBase 0.843
+  (우리 숫자는 그대로, 베이스라인이 좋아짐: PhaseFormer −6.4 · DiPE −4.5 · CMoS/FITS −2.3 %). 모든 칸 칩 안 = FEATHer·SparseTSF·SMLP·DiPE·MixLinear·TimeBase;
+  CMoS H720 ✗ · FITS H720·28ch ✗ · CycleNet H≥336 ✗ · DLinear H≥192 ✗ · SAMformer H96 D≤7 만 · PhaseFormer 전부 ✗.
+  DiPE(Electricity: 전문가 4·RevIN 끔·주파수 손실 0.3) 가 MSE 22/24 칸 우세(BlastFurnace −10~−17 %, WindSCADA −10 %), 우리는 H720 N2O·EWELD(DiPE 붕괴)만;
+  MAE 는 우리 14/24; 속도 DiPE 751 ms / 약 12.9 s vs 우리 161 / 208 ms. **H720 칩 안 1등은 유지(0.808)**. LTSF(부분): FEATHer-CI 12개 중 7등.
+  대조군: 섞기 통로를 붙이면 SparseTSF +6.7 %(6/6, p 0.016) · SMLP +4.6 %(p 0.031) · `_mixM` +6.5/+4.8 %(p 0.078) → 정규화 탓 아님;
+  SparseTSF+통로 ≈ FEATHer-mix(≈0.70) → 값을 하는 건 섞기 통로. **사용자가 FEATHer 재설계(검증으로만 선택) 검토 중** — 방향은 사용자와 하나씩.
+- **10-09~12 확정**: `docs/chosen_mfg.json`(6c5109a) · `docs/chosen_ltsf.json`(e681cfe) · 안정성 가설 사전 등록 검사 **통과**(ρ −0.675, p 0.004;
+  `docs/prereg_stability_1009.md`, "같은 공정이라 섞기 이득"은 반증됨) · 프로토콜 6번 수정(d3904c7, 사용자 A: 발산만 실패, best epoch ≤2 는 데이터 특성 →
+  재실험·LTSF lr 재선택 없음, 사후 수정으로 공개) · 섞기만의 효과 사전 등록(62bf8ec) + `--mix_sep`(45c9322, 동결 모델 바이트 동일).
+- **10-12 오후 (세션 73e9858d, 상세 = 메모리 `project_session_1012.md` 끝부분)**:
+  ① **mixsep 판정 = 5.9 % 를 M = 2.1 % 로 교체**(사전 등록 규칙; 5/6 데이터, p 0.047) — 섞기 자체 몫 ≈ 1/3, 나머지 채널별 용량. 원고 미반영.
+  ② **칸 단위 칩 판정 완료**(`deployment/board/chip_verdict.py` → `results/board/chip_verdict_20261012.csv`, 펌웨어 전체 빌드, 실제 D, 고른 설정):
+  24칸 전부 = FEATHer-mix/CI · SparseTSF · MixLinear · TimeBase · DiPE · SMLP; CMoS 18 · CycleNet 12 · DLinear 6 · FITS 5 · SAMformer 5 · PhaseFormer 0.
+  C 포트 주기 48 지원(WindSCADA·BlastFurnace; MixLinear L/P 비제곱일 때 범위 밖 읽기 수정 — P24 영향 없음), golden P48 24/24 · `make test` 15/15.
+  ③ **LTSF 1,920칸 완료**: FEATHer-CI 경량 13개 중 5등(0.375, 1등 칸 0) — "LTSF 평균 최저" 폐기; 전 칸 칩 안 7개 풀에서는 평균 1등(SMLP 와 0.1 %).
+  ④ **베이스라인 칩 제약 선택 검토 중**(사용자): 후보 설정마다 칩 판정이 달라짐(PhaseFormer ETTh2·CMoS 비-Traffic·FITS 비-Weather 는 들어감) →
+  `chip_verdict.py --candidates` 실행 중 → "24칸 전부 칩 안 후보 중 검증 1등"으로 다시 뽑기(사후 변경으로 공개). 바뀌는 모델(CMoS·PhaseFormer·FITS 후보)만
+  main 시드 2026·27 + lookback 재실행 → 서버 lookback 은 이 3개 빼고 실행 중.
+  ⑤ **재설계 진행**(사용자 (가) 선택): `docs/prereg_redesign_1012.md`(34da661) — 정규화 후보 B 평균만 · C RevIN 끔 · D 수준 학습 · E 섞기에 통계,
+  1단계 96런 로컬 실행 중(새벽 2시쯤) → `tools/results/redesign_verdict.py --stage 1`(검증만) → 2단계 lr → 3단계 3시드. 다음 후보 = 헤드(청크 4·8·12, 크로네커;
+  선행 = MixLinear·SegTSF·LightTS → "정확도 부품"으로만). "요약된 긴 과거"는 평가 방식을 바꿔야 해서 **사용자가 기각**.
+  서버 결과 = Dropbox `WDSLab/05. 실험/FEATHer/results/` → 로컬 `results/_incoming/` → `merge_incoming.py`(로컬 raw 가 원본). ⚠ `deployment/board/golden/` 은 gitignore — git checkout 으로 복구 불가, 파일 복사로 백업.
+- **다음**: 칩 제약 설정 확정 → 바뀐 모델 추가 실행 → 재설계 1·2·3단계 → 헤드 실험 → 보드 한 번(아슬아슬한 칸·P48·재설계) → 표 도구를 raw 로 → 주장 다시 쓰기.
 - **보드 (10-07 저녁, 끝남)**: 새 C 포트 4개(CMoS·TimeBase·PhaseFormer·SAMformer) + 기존 4개(FITS·MixLinear·DiPE·SMLP)를
   후보 설정 대응으로(기본 export 는 바이트 동일). `make test` 14개 PASS. **모든 후보 구조의 지연**을 미리 잼 →
   `results/board/board_latency_candidates_20261007.csv`(77칸, MetroPT3 7채널 / H720 은 1채널 ×7) — 판정 후 보드 다시 안 꽂음.
@@ -58,7 +71,10 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
   SAMformer 368 ms(H96 D7 만 칩 안). **전류 13개 모델 전부 실측** 29.2~30.0 mA(CycleNet·새 4개 추가).
   ⚠ FEATHer-mix 는 가장 빠르지 않음: H96 161 ms 중간(TimeBase 22~67 · CMoS 27~623 후보별 · SparseTSF 47 · MixLinear 72~87 더 빠름),
   H720 208 ms 상위권(SparseTSF 90 · TimeBase 90~270 · CMoS ETTh1 141). TimeBase = 비용 면 최대 위협 → 주장은 칩 안 정확도로.
-- **원고 상태**: 빌더·표 도구는 아직 `results/_archive/pre_raw_20261007/` 의 옛 CSV 를 읽음(재정리 전후 원고 글자 동일 확인).
+- **원고 상태 (10-07 저녁)**: `manuscript/drafts/` = 초록 + 1~6장 초안 **완성**(영어 문장 + 한국어 줄, `¶` = 문단 끝; 리뷰 에이전트 2회 + 외부 리뷰 반영;
+  베이스라인 걸린 숫자 `[TBD]`, 투고 전 확인 `[CHECK]`). 글쓰기 기준 = `manuscript/notes/analysis_flow.md`·`terminology.md`. 외부 리뷰에서 남은 실험 2개 = ① 섞기만 분리 arm
+  (mix 모드 + 채널별 1→4→1, 72런; `_mixM` 2개 함께) ② front-none C 포트·보드 측정 + persistence 행. 빌더 TODO = Table 12 메모리 일치 열 · T6 칸별 풀 · 검정 단위 데이터(6쌍).
+  빌더·표 도구는 아직 `results/_archive/pre_raw_20261007/` 의 옛 CSV 를 읽음(재정리 전후 원고 글자 동일 확인).
   v5 재빌드 안 함. 프레이밍 v2 = "과거를 길게 못 보면 옆 센서를 본다". 표 서식(8844 twip, 행 0.5 cm, 8 pt) · v1~v4 덮어쓰기 금지 ·
   drafts 형식(영어 한 문장 + 한국어 한 줄) · 프리프린트 주의 · 용어 channel 은 그대로.
 - **Git**: 10-07 `06b089e`(프로토콜·실행기·결과 재정리·래퍼) · `2f76303`(Fable 반영: 칸 단위 칩·LTSF 선택) personal push.
@@ -74,6 +90,16 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
   (QEMU, 프리프린트가 쓴 평가)는 기록용으로 보관 ④ `tools/dev` 도구들의 기본 경로 정리.
 
 ### 확정 숫자 (원고에 쓰는 값)
+- ⚠ **10-12**: 아래 베이스라인 관련 숫자·순위·"칩 안 가장 정확"·"LTSF 경량 평균 최저" 주장은 **재실험 전 값 — 쓰지 말 것**. 현재 값 = 위 상태 블록 + 메모리 `project_session_1012.md`.
+- **(10-07 외부 리뷰 반영, 초안에 적용됨)**: ① "연산 수가 지연의 96 % 설명" **삭제**(FFT 기준 연산 수 r² 0.44; 직접 DFT 기준만 0.956) → 남는 주장 = "파라미터 수 r² 0.00" + 모델 예시 ·
+  "파라미터가 flash 를 못 맞힌다" → "**한 예측 범위에서 보고된** 파라미터 수로는 못 맞힌다" ② **검정 단위 = 데이터(6쌍, H 평균, 단측 Wilcoxon 최소 p 0.016)**, 칸 수·시드 변동은 보조:
+  섞기 이득 6/6 p 0.016(시드 5.7~6.2 %) · L192 5/6 p 0.031 · **L336 5/6 p 0.16(데이터 단위 비유의)** · front-none 5/6 p 0.031 · SparseTSF+통로 5/6 p 0.047 · STSF-MLP+통로 4/6 비유의 ·
+  통로 on SparseTSF 6/6 · on STSF-MLP 5/6 · noresid 6/6 · band2 6/6 p 0.016 (스크래치패드 `dataset_level_stats.py`) ③ 5.9 % 는 항상 "**빼면 5.9 % 오른다**"(분모 mix) ④ mix–CI 차이는 섞기만이 아님
+  (CI 는 필터·게이트도 채널별) → 6.1 한계점에 명시, **대조 arm "mix 모드 + 채널별 1→4→1" 72런 필요**(미실행) ⑤ 가이드 = "후보를 좁힌다 + 최종은 설비 검증 데이터" ⑥ "천 개 미만 유일" → "가장 작은 섞는 모델(296~1,924)";
+  "경량 전부 CI" → "DLinear 보다 작은 경량 전부"(SAMformer 예외) ⑦ L>96 칩당 채널은 **상한**("최대") ⑧ 동일 메모리 우위 = 보간 → **데이터별 메모리 일치 비교로 교체 완료**(`tools/paper/memory_matched.py` → `results/analysis/memory_matched_20261007.csv`):
+  각 변종이 D 에서 감당하는 최장 L 이 두 변종 **동일**(6·7ch → L336, 14ch → L192, 28ch → L96), 그 L 에서 **mix 가 6/6 데이터(p 0.016)·24/24 칸 우세**
+  (BlastFurnace +1.0 · N2O +2.7 · EWELD +2.7 · MetroPT3 +3.2 · WindSCADA +5.0 · Steel +12.7 %, 평균 4.5 %). CI 가 유리한 구간 = CI 만 창을 한 번 더 늘리는 **8~13·19~24채널**(6데이터 평균 약 1.4 %, 해당 데이터 없음).
+  "43채널 3.7 % / 18채널 0.7 %" 보간 값은 **더 이상 쓰지 않음**. Table 12 에 메모리 일치 열 추가 필요(빌더 미반영).
 - **(10-07 숫자 검토로 정정, 초안에 반영됨)**: 밴드+게이트 파라미터 = 10D+12(Steel D=6 → **72**, MetroPT3 → 82) · 선형 헤드 H336 = **128 KB**(KiB; 131 은 십진) ·
   칩당 채널 CI 모델 = **42~50**(DiPE H720 42) · 밴드 3 > 2 의 p = **0.016(단측)**(0.03 은 양측) · 섞기 이득 최소 데이터 = **MetroPT3·BlastFurnace 약 1 % 이하**(BlastFurnace ≈0 아님) ·
   L720 입력 창 7채널 = 20,160 B 로 20,480 B **미만**(스택·버퍼까지 더해야 초과 — "입력 창만으로 초과" 문구 금지) · 서버급 대비 파라미터 **두~네 자릿수** ·

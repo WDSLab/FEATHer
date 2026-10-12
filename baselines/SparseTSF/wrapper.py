@@ -64,7 +64,7 @@ def _default_period(seq_len, pred_len):
 # channel-mixing bus?"  This is the UNCHANGED upstream SparseTSF with FEATHer's residual
 # channel mixer in front of it and nothing else of FEATHer (no bands, no FFT gate, no
 # spectral loss, no SPK re-implementation).  Pre-declared rule and arms:
-# manuscript/drafts/control_sparsetsf_mix_plan.md.
+# manuscript/drafts/_records/control_sparsetsf_mix_plan.md.
 #
 #   norm = "revin"  FEATHer's instance norm (window mean detached, std not - the same
 #                   half-RevIN as FEATHer.py) -> mixer -> SparseTSF -> * std + mean

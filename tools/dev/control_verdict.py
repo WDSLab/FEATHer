@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Verdict for the control experiment "SparseTSF + small channel mixer vs FEATHer-mix"
-(2026-10-06, pre-declared rule in manuscript/drafts/control_sparsetsf_mix_plan.md).
+(2026-10-06, pre-declared rule in manuscript/drafts/_records/control_sparsetsf_mix_plan.md).
 
     python tools/dev/control_verdict.py
 
