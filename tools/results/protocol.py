@@ -127,7 +127,7 @@ REDESIGN_ARMS = {
 }
 REDESIGN_STAGE1 = ["rd:mean", "rd:norevin", "rd:learnlevel", "rd:mixstats"]
 # stage 2 (lr x 0.3 / x 3 of the stage-1 winner) is appended here after the stage-1 verdict
-REDESIGN_STAGE2 = []
+REDESIGN_STAGE2 = ["rd:norevin@lr0.0003", "rd:norevin@lr0.003"]   # stage-1 winner (10-12 verdict)
 
 
 def _rd(config_id):
