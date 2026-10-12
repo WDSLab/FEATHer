@@ -787,6 +787,7 @@ class FEATHer(nn.Module):
         factor_src: str = "hidden",
         front: str = "bands",
         mix_sep: bool = False,
+        mix_stats: bool = False,
     ):
         super().__init__()
 
@@ -854,7 +855,7 @@ class FEATHer(nn.Module):
         if revin_mode is None:
             revin_mode = "mad" if use_robust_norm else "standard"
         assert revin_mode in ("standard", "mad", "winsor", "center",
-                              "last", "last_std"), revin_mode
+                              "last", "last_std", "mean", "learn_level"), revin_mode
         self.revin_mode = revin_mode
         self.use_robust_norm = use_robust_norm
         # Knobs for the winsor/center statistics (2026-08-02 Steel-residual
@@ -1292,6 +1293,24 @@ class FEATHer(nn.Module):
             self.sep_up_w = nn.Parameter(torch.empty(D, R).uniform_(-b, b))
             self.sep_up_b = nn.Parameter(torch.empty(D).uniform_(-b, b))
 
+        # 10-12 redesign candidates (docs/prereg_redesign_1012.md), selected on validation only.
+        # Both start as the frozen function and are created LAST from constants (no RNG draw), so
+        # the frozen model's initialisation is unchanged; off = byte-identical.
+        #   revin_mode "learn_level": x_norm = (x - a * mean) / std, a per channel (init 1) -
+        #       the model learns how much of the window level to remove (a = 1 is RevIN).
+        #   mix_stats: the residual mixer's bottleneck also reads each channel's window mean and
+        #       log-std (level / spread, i.e. what RevIN removes), zero-initialised.
+        if self.revin_mode == "learn_level":
+            self.level_a = nn.Parameter(torch.ones(eff_d))
+        self.mix_stats = bool(mix_stats)
+        if self.mix_stats:
+            assert use_residual_mlp and mix_mode == "hidden" and not self.mix_sep \
+                and not mlp_tie and not getattr(self, "factor_head_on", False), \
+                "mix_stats extends the shared hidden residual mixer"
+            self.stats_proj = nn.Linear(2 * eff_d, mlp_rank)
+            nn.init.zeros_(self.stats_proj.weight)
+            nn.init.zeros_(self.stats_proj.bias)
+
     def _head2_readout(self, hidden: torch.Tensor) -> torch.Tensor:
         """The SPK readout at period2 on the head's own aggregated series."""
         sp = self.sparse_head
@@ -1336,7 +1355,10 @@ class FEATHer(nn.Module):
             # one 1 -> R -> 1 MLP per channel: v (B, L, D) -> (B, L, D), no cross-channel term
             u = F.gelu(v.unsqueeze(-1) * self.sep_down_w + self.sep_down_b)   # (B, L, D, R)
             return (u * self.sep_up_w).sum(-1) + self.sep_up_b
-        u = F.gelu(self.nl_down(v))
+        if getattr(self, "mix_stats", False):
+            u = F.gelu(self.nl_down(v) + self.stats_proj(self._stats).unsqueeze(1))
+        else:
+            u = F.gelu(self.nl_down(v))
         if getattr(self, "mix_lag", ""):
             u = self.lag_conv(u.transpose(1, 2)).transpose(1, 2)
         if self.mlp_tie:
@@ -1419,6 +1441,16 @@ class FEATHer(nn.Module):
                 else:  # "center": no window scale ??see __init__ rationale.
                     stdev = None
                     x_norm = xw - means
+            elif mode == "mean":
+                # mean-only centering (SparseTSF / NLinear style): the window scale is kept
+                means = x.mean(1, keepdim=True).detach()
+                stdev = None
+                x_norm = x - means
+            elif mode == "learn_level":
+                # learned fraction of the level removed (see __init__); a = 1 is "standard"
+                means = x.mean(1, keepdim=True).detach() * self.level_a
+                stdev = torch.sqrt(x.var(1, keepdim=True, unbiased=False) + 1e-5)
+                x_norm = (x - means) / stdev
             else:  # "standard" ??canonical RevIN, byte-identical.
                 means = x.mean(1, keepdim=True).detach()
                 stdev = torch.sqrt(x.var(1, keepdim=True, unbiased=False) + 1e-5)
@@ -1426,6 +1458,10 @@ class FEATHer(nn.Module):
         else:
             means, stdev = None, None
             x_norm = x
+
+        if getattr(self, "mix_stats", False):
+            # window level / spread of the raw (train-scaled) input, (B, 2D), read by _mixer
+            self._stats = torch.cat([x.mean(1), 0.5 * torch.log(x.var(1, unbiased=False) + 1e-5)], dim=-1)
 
         # Input projection
         x_proj = self.in_proj(x_norm)

@@ -671,7 +671,7 @@ def parse_args():
     # Instance-norm variant (2026-08-02): winsorized full RevIN vs center-only.
     p.add_argument("--revin_mode", type=str, default=None,
                    choices=["standard", "mad", "winsor", "center",
-                            "last", "last_std"])
+                            "last", "last_std", "mean", "learn_level"])
     p.add_argument("--winsor_bound", type=float, default=None)
     p.add_argument("--center_trim",  type=float, default=None)
     p.add_argument("--channel_mode", type=str, default=None,
@@ -738,6 +738,8 @@ def parse_args():
     p.add_argument("--front", type=str, default=None, help="bands (default) | none (P3: no bands, no FFT gate).")
     p.add_argument("--mix_sep", type=int, default=0,
                    help="10-11 mixing-only control: residual MLP per channel (1->R->1), no cross-channel term; 0 = off.")
+    p.add_argument("--mix_stats", type=int, default=0,
+                   help="10-12 redesign candidate: the residual mixer also reads window mean/log-std; 0 = off.")
 
     # Training
     p.add_argument("--batch_size",  type=int,   default=32)

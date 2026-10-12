@@ -115,6 +115,26 @@ CONTROL_ARMS = {
 }
 
 
+# ---- 10-12 redesign: FEATHer-mix under the baselines' rule (docs/prereg_redesign_1012.md) ----------
+# config_id "rd:<arm>" (frozen lr) or "rd:<arm>@lr<value>" (stage 2).  Seed 2025 only, L 96, 6 x 4 H,
+# validation loss decides; rows go to raw_mfg.csv with role "redesign", model FEATHer_mix.
+REDESIGN_ARMS = {
+    "frozen": [],                                        # A (stage 2 lr arms only; stage 1 = the main rows)
+    "mean": ["--revin_mode", "mean"],                    # B mean-only centering, window scale kept
+    "norevin": ["--no_revin"],                           # C no instance normalisation
+    "learnlevel": ["--revin_mode", "learn_level"],       # D learned fraction of the level removed
+    "mixstats": ["--mix_stats", "1"],                    # E mixer also reads window mean / log-std
+}
+REDESIGN_STAGE1 = ["rd:mean", "rd:norevin", "rd:learnlevel", "rd:mixstats"]
+# stage 2 (lr x 0.3 / x 3 of the stage-1 winner) is appended here after the stage-1 verdict
+REDESIGN_STAGE2 = []
+
+
+def _rd(config_id):
+    arm, _, lr = config_id[3:].partition("@lr")
+    return arm, (float(lr) if lr else None)
+
+
 def control_config_id(arm):
     """"ctrl:<arm>@<host config>" or None while the host's industrial setting is not chosen."""
     host_cfg = mfg_main_config_id(CONTROL_ARMS[arm][2])
@@ -137,6 +157,8 @@ def cli_flags(model, config_id):
         return list(ABLATION_ARMS[config_id[4:]][1])
     if config_id.startswith("ctrl:"):
         return list(CONTROL_ARMS[_ctrl(config_id)[0]][1])
+    if config_id.startswith("rd:"):
+        return list(REDESIGN_ARMS[_rd(config_id)[0]])
     return []
 
 # chosen settings live in docs/ (committed) so that the public repository reproduces the main runs
@@ -179,6 +201,11 @@ def resolve(model, group, data, H, config_id):
         s = _merge("FEATHer", data, H)
         for k in ABLATION_ARMS[config_id[4:]][2]:
             s.pop(k, None)
+    elif config_id.startswith("rd:"):
+        # the frozen industrial FEATHer-mix setting; the arm's flags go through cli_flags
+        arm, lr_x = _rd(config_id)
+        lr, loss, ov = resolve("FEATHer_mix", group, data, H, "frozen")
+        return (lr_x if lr_x is not None else lr), loss, ov
     elif config_id.startswith("ctrl:"):
         # the host's setting (its periods / lr / widths), trained under the arm's registry model
         arm, host_cfg = _ctrl(config_id)

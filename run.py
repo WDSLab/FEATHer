@@ -15,6 +15,7 @@ Stages (docs/EXPERIMENT_PROTOCOL.md):
               CycleNet as in the earlier Table 11 pool) -> raw_mfg.csv
     ablation  FEATHer arms (protocol.ABLATION_PLAN: arm x horizons) x 6 datasets x 3 seeds          -> raw_mfg.csv
     control   SparseTSF(+MLP) + mixing bus, FEATHer without bands/gate x 6 x 4 H x 3 seeds          -> raw_mfg.csv
+    redesign  10-12 FEATHer-mix candidates (protocol.REDESIGN_STAGE1/2) x 6 x 4 H x seed 2025        -> raw_mfg.csv
 
 A cell is done when raw_*.csv, select_mfg.csv or a not-yet-merged shard in results/_incoming/ holds a row
 with the same (role, config_id, model, data, pred_len, seq_len, seed).  New rows are written to
@@ -100,6 +101,14 @@ def plan(stage, models=None):
                     for s in P.SEEDS:
                         add(role="control", config_id=cfg, model=P.control_row_model(arm), group="mfg",
                             data=d, pred_len=h, seq_len=96, seed=s)
+    elif stage == "redesign":
+        for cfg in P.REDESIGN_STAGE1 + P.REDESIGN_STAGE2:
+            if models and cfg not in models:
+                continue
+            for d in P.MFG:
+                for h in P.HS:
+                    add(role="redesign", config_id=cfg, model="FEATHer_mix", group="mfg", data=d,
+                        pred_len=h, seq_len=96, seed=P.SELECT_SEED)
     elif stage in ("main", "lookback"):
         pool = models or (P.FEATHER + P.LIGHT + P.HEAVY if stage == "main" else P.FEATHER + P.ON_CHIP + ["CycleNet", "DLinear"])
         Ls = [96] if stage == "main" else [48, 192, 336]
@@ -177,7 +186,8 @@ def jobs_for(missing, args, out_csv):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", required=True, choices=["ltsf", "ltsf_select", "select", "main", "lookback", "ablation", "control"])
+    ap.add_argument("--stage", required=True, choices=["ltsf", "ltsf_select", "select", "main", "lookback", "ablation", "control",
+                                                    "redesign"])
     ap.add_argument("--models", default="", help="comma list (default: the stage's pool)")
     ap.add_argument("--data", default="", help="comma list of datasets (default: all of the stage)")
     ap.add_argument("--configs", default="", help="comma list of config_ids (default: all)")

@@ -71,6 +71,7 @@ def _build_feather(args, n_features, seq_len, pred_len):
         factor_src=getattr(args, "factor_src", None) or "hidden",
         front=getattr(args, "front", None) or "bands",
         mix_sep=bool(getattr(args, "mix_sep", 0) or 0),
+        mix_stats=bool(getattr(args, "mix_stats", 0) or 0),
     )
 
 
