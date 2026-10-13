@@ -654,25 +654,32 @@ class SparsePeriodKernel(nn.Module):
     """
 
     def __init__(self, seq_len: int, pred_len: int, d_model: int, period: int,
-                 hidden: int = 0):
+                 hidden: int = 0, seg: int = 0, agg_shared: bool = False):
         super().__init__()
-        assert seq_len % period == 0, "seq_len must be divisible by period"
-        assert pred_len % period == 0, "pred_len must be divisible by period"
+        # seg (10-13 size dial): segment length of the phase-wise map, decoupled from the period.
+        # 0 = the period (byte-identical canonical head); seg = 1 is a dense L -> H map.  The
+        # aggregation conv keeps the period-derived width either way.
+        w = int(seg) or period
+        assert seq_len % w == 0, "seq_len must be divisible by the segment length"
+        assert pred_len % w == 0, "pred_len must be divisible by the segment length"
 
         self.seq_len = seq_len
         self.pred_len = pred_len
         self.d_model = d_model
-        self.period = period
+        self.period = w              # segment length used by forward()
 
-        self.n = seq_len // period   # input periods
-        self.m = pred_len // period  # output periods
+        self.n = seq_len // w        # input segments
+        self.m = pred_len // w       # output segments
 
-        # Sliding aggregation conv
+        # Sliding aggregation conv.  agg_shared (10-13): one kernel for every channel, as in
+        # SparseTSF (the per-channel kernel was 71 % of FEATHer-mix's parameters at D = 28).
         k = 2 * (period // 2) + 1
+        self.agg_shared = bool(agg_shared)
+        ch = 1 if self.agg_shared else d_model
         self.agg_conv = nn.Conv1d(
-            d_model, d_model,
+            ch, ch,
             kernel_size=k, padding=k // 2,
-            groups=d_model, bias=False
+            groups=ch, bias=False
         )
 
         # Cross-period backbone. hidden=0 keeps the canonical single bias-free
@@ -700,7 +707,10 @@ class SparsePeriodKernel(nn.Module):
 
         # Residual + depthwise aggregation
         h_t = h.permute(0, 2, 1)
-        h_agg = h_t + self.agg_conv(h_t)
+        if self.agg_shared:
+            h_agg = h_t + self.agg_conv(h_t.reshape(B * D, 1, L)).reshape(B, D, L)
+        else:
+            h_agg = h_t + self.agg_conv(h_t)
 
         # Reshape for period-wise processing
         x_merged = h_agg.reshape(B * D, L)
@@ -788,6 +798,8 @@ class FEATHer(nn.Module):
         front: str = "bands",
         mix_sep: bool = False,
         mix_stats: bool = False,
+        head_seg: int = 0,
+        agg_shared: bool = False,
     ):
         super().__init__()
 
@@ -1142,7 +1154,12 @@ class FEATHer(nn.Module):
                 d_model=eff_d,
                 period=period,
                 hidden=spk_hidden,
+                seg=head_seg,
+                agg_shared=agg_shared,
             )
+        if head_seg or agg_shared:
+            assert head_mode == "spk" and not self.far_coarse and head2 == "none", \
+                "head_seg / agg_shared extend the plain SPK head"
 
         # FFT-gate redesigns (2026-09-18).  The band gate is accuracy-neutral
         # because its choice is absorbed by the linear head, so these give the

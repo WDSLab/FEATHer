@@ -645,6 +645,10 @@ def parse_args():
     # SPK head nonlinearity (2026-08-26): 0 = canonical linear cross-period
     # backbone; >0 inserts one GELU hidden layer of that width.
     p.add_argument("--spk_hidden",    type=int, default=0)
+    # 10-13 size dial: SPK segment length decoupled from the period (0 = period, canonical) and
+    # one aggregation kernel shared by every channel (0 = per channel, canonical)
+    p.add_argument("--head_seg",      type=int, default=0)
+    p.add_argument("--agg_shared",    type=int, default=0)
 
     # Per-band nonlinearity (2026-08-27): breaks the band-bank collapse.
 
