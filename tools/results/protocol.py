@@ -130,6 +130,44 @@ REDESIGN_STAGE1 = ["rd:mean", "rd:norevin", "rd:learnlevel", "rd:mixstats"]
 REDESIGN_STAGE2 = ["rd:norevin@lr0.0003", "rd:norevin@lr0.003"]   # stage-1 winner (10-12 verdict)
 
 
+# ---- 10-13 size-matched comparison (docs/EXPERIMENT_PROTOCOL.md §10, the main comparison from 10-13) --------
+# Each baseline starts from its chosen industrial setting and changes ONE size dial; lr is re-chosen from
+# SIZE_LR_MULT x the setting's lr on the validation loss (seed 2025, one choice per model and tier).
+# Tiers: "1k" = per dataset the largest dial value whose numbers stored on the chip (complex x2) are <= 1,000 at
+# all four H; "max" = per dataset the largest dial value whose firmware fits 128 KB flash / 20 KB SRAM at all four
+# H (real builds).  Dial values per (tier, model, dataset) come from the chip builds -> docs/size_dials.json
+# (tools/results/size_dials.py); the chosen lr multiplier -> docs/chosen_size.json (tools/results/size_verdict.py).
+# config_id "sz<tier>:<candidate>+<dial>=<value>@x<lr multiplier>", e.g. "sz1k:Weather+cmos_seg_size=24@x0.1".
+SIZE_TIERS = ["1k", "max"]
+SIZE_DIALS = {"CMoS": "cmos_seg_size", "SparseTSF_MLP": "sparsetsf_d_model", "TimeBase": "timebase_basis_num",
+              "PhaseFormer": "phaseformer_latent_dim", "DiPE_Linear": "dipe_num_experts", "FITS": "fits_cut_freq"}
+SIZE_LR_MULT = [0.1, 1, 10]
+SIZE_DIALS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                               "docs", "size_dials.json")
+CHOSEN_SIZE_FILE = os.path.join(os.path.dirname(SIZE_DIALS_FILE), "chosen_size.json")
+
+
+def size_config_id(tier, model, data, mult):
+    """config_id of one size-matched cell, or None while the dial value / base setting is not known."""
+    v = _load(SIZE_DIALS_FILE).get(tier, {}).get(model, {}).get(data)
+    base = mfg_main_config_id(model)
+    if v is None or base is None or not base.startswith("cand:"):
+        return None
+    return f"sz{tier}:{base[5:]}+{SIZE_DIALS[model]}={v}@x{mult:g}"
+
+
+def _sz(config_id):
+    """"sz<tier>:<body>@x<mult>" -> (tier, body, mult)"""
+    tier, rest = config_id[2:].split(":", 1)
+    body, _, mult = rest.rpartition("@x")
+    return tier, body, float(mult)
+
+
+def chosen_size():
+    """"<tier>|<model>" -> chosen lr multiplier (written by size_verdict.py)."""
+    return _load(CHOSEN_SIZE_FILE)
+
+
 def _rd(config_id):
     arm, _, lr = config_id[3:].partition("@lr")
     return arm, (float(lr) if lr else None)
@@ -206,6 +244,11 @@ def resolve(model, group, data, H, config_id):
         arm, lr_x = _rd(config_id)
         lr, loss, ov = resolve("FEATHer_mix", group, data, H, "frozen")
         return (lr_x if lr_x is not None else lr), loss, ov
+    elif config_id.startswith("sz"):
+        # size-matched variant: the candidate with its dial set, lr scaled by the multiplier
+        _, body, mult = _sz(config_id)
+        lr, loss, ov = resolve(model, group, data, H, "cand:" + body)
+        return lr * mult, loss, ov
     elif config_id.startswith("ctrl:"):
         # the host's setting (its periods / lr / widths), trained under the arm's registry model
         arm, host_cfg = _ctrl(config_id)
@@ -220,12 +263,17 @@ def resolve(model, group, data, H, config_id):
     elif config_id.startswith("cand:"):
         # a candidate = the model's setting for LTSF dataset <src> (every H); period-type keys always come
         # from the dataset being trained (industrial: FFT / daily-cycle rule; LTSF: that dataset's entry)
-        src = config_id.split(":", 1)[1]
+        # 10-13 size-matched variants: "cand:<src>+<key>=<value>[+...]" = candidate <src> with the size knob(s)
+        # replaced (the 1K-parameter budget study); everything else stays the author setting
+        src, _, knobs = config_id.split(":", 1)[1].partition("+")
         base = dict(B.get_method_defaults(m))
         if src != "default":
             base.update({k: v for k, v in B.get_dataset_overrides(m, src, H).items() if k not in PERIOD_KEYS})
         own = {**B.get_dataset_overrides(m, data), **_MFG_EXTRA.get((m, data), {})}
         base.update({k: v for k, v in own.items() if k in PERIOD_KEYS})
+        for kv in filter(None, knobs.split("+")):
+            k, v = kv.split("=", 1)
+            base[k] = int(v) if v.lstrip("-").isdigit() else float(v)
         s = base
     else:
         raise ValueError(config_id)

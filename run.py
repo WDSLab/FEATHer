@@ -16,6 +16,9 @@ Stages (docs/EXPERIMENT_PROTOCOL.md):
     ablation  FEATHer arms (protocol.ABLATION_PLAN: arm x horizons) x 6 datasets x 3 seeds          -> raw_mfg.csv
     control   SparseTSF(+MLP) + mixing bus, FEATHer without bands/gate x 6 x 4 H x 3 seeds          -> raw_mfg.csv
     redesign  10-12 FEATHer-mix candidates (protocol.REDESIGN_STAGE1/2) x 6 x 4 H x seed 2025        -> raw_mfg.csv
+    size_select  10-13 size-matched baselines (1K / chip-max tier, protocol.SIZE_*) x lr x0.1/x1/x10 x 6 x 4 H x
+              seed 2025 -> raw_mfg.csv (role sizesel); tools/results/size_verdict.py --write picks the lr
+    size      the chosen lr x 3 seeds (seed 2025 reused from size_select)                        -> raw_mfg.csv
 
 A cell is done when raw_*.csv, select_mfg.csv or a not-yet-merged shard in results/_incoming/ holds a row
 with the same (role, config_id, model, data, pred_len, seq_len, seed).  New rows are written to
@@ -109,6 +112,31 @@ def plan(stage, models=None):
                 for h in P.HS:
                     add(role="redesign", config_id=cfg, model="FEATHer_mix", group="mfg", data=d,
                         pred_len=h, seq_len=96, seed=P.SELECT_SEED)
+    elif stage in ("size_select", "size"):
+        # 10-13 size-matched comparison: lr multiplier chosen on validation (size_select, seed 2025), then the
+        # chosen multiplier x 3 seeds (size; its seed-2025 cells are the selection runs, see done_set)
+        for tier in P.SIZE_TIERS:
+            for m in P.SIZE_DIALS:
+                if models and m not in models:
+                    continue
+                if stage == "size_select":
+                    mults = P.SIZE_LR_MULT
+                else:
+                    mult = P.chosen_size().get(f"{tier}|{m}")
+                    if mult is None:
+                        print(f"  [skip] {tier} {m}: lr not chosen yet (size_select + size_verdict.py --write)")
+                        continue
+                    mults = [mult]
+                for mult in mults:
+                    for d in P.MFG:
+                        cfg = P.size_config_id(tier, m, d, mult)
+                        if cfg is None:
+                            print(f"  [skip] {tier} {m} {d}: no dial value in docs/size_dials.json yet")
+                            continue
+                        for h in P.HS:
+                            for s in ([P.SELECT_SEED] if stage == "size_select" else P.SEEDS):
+                                add(role="sizesel" if stage == "size_select" else "size", config_id=cfg, model=m,
+                                    group="mfg", data=d, pred_len=h, seq_len=96, seed=s)
     elif stage in ("main", "lookback"):
         pool = models or (P.FEATHER + P.LIGHT + P.HEAVY if stage == "main" else P.FEATHER + P.ON_CHIP + ["CycleNet", "DLinear"])
         Ls = [96] if stage == "main" else [48, 192, 336]
@@ -157,6 +185,8 @@ def done_set():
     # a main run of a candidate setting at the selection seed is also its selection run (same cell)
     m = a[(a.role == "main") & a.config_id.str.startswith("cand:") & (a.seed == P.SELECT_SEED) & (a.seq_len == 96)]
     a = pd.concat([a, m.assign(role="select")], ignore_index=True)
+    # a size-matched selection run (seed 2025) is also the seed-2025 run of the same config in the size stage
+    a = pd.concat([a, a[a.role == "sizesel"].assign(role="size")], ignore_index=True)
     return set(zip(a.role, a.config_id, a.model, a.data, a.pred_len.astype(int), a.seq_len.astype(int),
                    a.seed.astype(int)))
 
@@ -186,7 +216,7 @@ def jobs_for(missing, args, out_csv):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", required=True, choices=["ltsf", "ltsf_select", "select", "main", "lookback", "ablation", "control",
+    ap.add_argument("--stage", required=True, choices=["ltsf", "ltsf_select", "select", "main", "lookback", "ablation", "control", "size_select", "size",
                                                     "redesign"])
     ap.add_argument("--models", default="", help="comma list (default: the stage's pool)")
     ap.add_argument("--data", default="", help="comma list of datasets (default: all of the stage)")

@@ -4,7 +4,7 @@
  "DiPE_Linear": "cand:Electricity",
  "FITS": "cand:ETTm1",
  "MixLinear": "cand:Traffic",
- "PhaseFormer": "cand:ETTh2",
+ "PhaseFormer": "cand:Weather",
  "SAMformer": "cand:default",
  "SparseTSF": "cand:ETTh1",
  "SparseTSF_MLP": "cand:Traffic",

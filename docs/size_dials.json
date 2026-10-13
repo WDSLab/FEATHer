@@ -1,0 +1,53 @@
+{
+ "1k": {
+  "CMoS": {
+   "BlastFurnace": 24,
+   "EWELD": 24,
+   "MetroPT3": 24,
+   "N2O": 24,
+   "Steel": 24,
+   "WindSCADA": 24
+  },
+  "DiPE_Linear": {
+   "BlastFurnace": 1,
+   "EWELD": 1,
+   "MetroPT3": 1,
+   "N2O": 1,
+   "Steel": 1,
+   "WindSCADA": 1
+  },
+  "FITS": {
+   "BlastFurnace": 7,
+   "EWELD": 7,
+   "MetroPT3": 7,
+   "N2O": 7,
+   "Steel": 7,
+   "WindSCADA": 7
+  },
+  "PhaseFormer": {
+   "BlastFurnace": 2,
+   "EWELD": 3,
+   "MetroPT3": 3,
+   "N2O": 3,
+   "Steel": 3,
+   "WindSCADA": 2
+  },
+  "SparseTSF_MLP": {
+   "BlastFurnace": 52,
+   "EWELD": 27,
+   "MetroPT3": 27,
+   "N2O": 27,
+   "Steel": 27,
+   "WindSCADA": 52
+  },
+  "TimeBase": {
+   "BlastFurnace": 54,
+   "EWELD": 27,
+   "MetroPT3": 27,
+   "N2O": 27,
+   "Steel": 27,
+   "WindSCADA": 54
+  }
+ },
+ "max": {}
+}
