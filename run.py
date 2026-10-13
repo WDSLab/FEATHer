@@ -43,7 +43,7 @@ RES = os.path.join(ROOT, "results")
 KEY = P.KEY
 
 
-def plan(stage, models=None):
+def plan(stage, models=None, tiers=None):
     """List of cells: dict(role, config_id, model, group, data, pred_len, seq_len, seed)."""
     cells = []
     add = lambda **c: cells.append(c)
@@ -115,7 +115,7 @@ def plan(stage, models=None):
     elif stage in ("size_select", "size"):
         # 10-13 size-matched comparison: lr multiplier chosen on validation (size_select, seed 2025), then the
         # chosen multiplier x 3 seeds (size; its seed-2025 cells are the selection runs, see done_set)
-        for tier in P.SIZE_TIERS:
+        for tier in (tiers or P.SIZE_TIERS):
             for m in P.SIZE_DIALS:
                 if models and m not in models:
                     continue
@@ -221,6 +221,7 @@ def main():
     ap.add_argument("--models", default="", help="comma list (default: the stage's pool)")
     ap.add_argument("--data", default="", help="comma list of datasets (default: all of the stage)")
     ap.add_argument("--configs", default="", help="comma list of config_ids (default: all)")
+    ap.add_argument("--tier", default="", help="size stages only: comma list of tiers (1k,max; default: all)")
     ap.add_argument("--limit", type=int, default=0, help="run only the first N worker invocations (testing)")
     ap.add_argument("--save_model", action="store_true", help="also save each trained state dict "
                     "(results/checkpoints/<exp_tag>/<model>/...; needed for board export and replay)")
@@ -231,7 +232,7 @@ def main():
     ap.add_argument("--host", default=socket.gethostname().split(".")[0])
     a = ap.parse_args()
     models = [m.strip() for m in a.models.split(",") if m.strip()] or None
-    cells = plan(a.stage, models)
+    cells = plan(a.stage, models, [t.strip() for t in a.tier.split(",") if t.strip()] or None)
     if a.data:
         keep = {x.strip() for x in a.data.split(",")}
         cells = [c for c in cells if c["data"] in keep]

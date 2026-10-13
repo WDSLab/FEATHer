@@ -26,7 +26,7 @@ void fea2ci_begin(const float *x, int c)
 
 const float *fea2ci_block(int om)
 {
-    return fea2_block(om, 0);              /* FEA2_PERIOD * 1, no copy */
+    return fea2_block(om, 0);              /* FEA2_SEG * 1, no copy */
 }
 
 void fea2ci_forward(const float *x, float *y)
@@ -35,8 +35,8 @@ void fea2ci_forward(const float *x, float *y)
         fea2ci_begin(x, c);
         for (int om = 0; om < FEA2_M; ++om) {
             const float *blk = fea2ci_block(om);
-            for (int ph = 0; ph < FEA2_PERIOD; ++ph)
-                y[(om * FEA2_PERIOD + ph) * FEA2CI_D + c] = blk[ph];
+            for (int ph = 0; ph < FEA2_SEG; ++ph)
+                y[(om * FEA2_SEG + ph) * FEA2CI_D + c] = blk[ph];
         }
     }
 }

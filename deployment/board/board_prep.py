@@ -114,7 +114,7 @@ PLAN = (
 
 def cfg_header(model: str, H: int, D: int, power: str, direct_dft: bool = False,
                stream: bool = False, config: str | None = None, period: int | None = None,
-               stream_ch: bool = False) -> str:
+               stream_ch: bool = False, geo: dict | None = None) -> str:
     run, name, _, _, _ = MODELS[model]
     if direct_dft:
         name += " (direct DFT)"
@@ -136,6 +136,11 @@ def cfg_header(model: str, H: int, D: int, power: str, direct_dft: bool = False,
     if model in ("feather_mix", "feather_fn"):
         lines += [f"#define FEA2_H {H}", f"#define FEA2_D {D}", "#define FEA2_MLP_R 4",
                   "#define BOARD_SKIP_CI"]
+        # 10-13 size dial (FEATHer head_seg / agg_shared); absent = the frozen model
+        if (geo or {}).get("seg"):
+            lines.append(f"#define FEA2_SEG {geo['seg']}")
+        if (geo or {}).get("agg_shared"):
+            lines.append("#define FEA2_AGG_SHARED 1")
         if model == "feather_fn":
             lines.append("#define FEA2_FRONT_NONE")
     elif model == "feather_ci":
@@ -205,7 +210,12 @@ def geo_args(model: str, geo: dict | None) -> list[str]:
     not resolve the dataset themselves.  geo = None keeps every export's default."""
     if not geo:
         return []
-    if model in ("feather_mix", "feather_ci", "stsf") and geo.get("period"):
+    if model == "feather_mix":
+        # 10-13 size dial passes through to the export (absent = the frozen model)
+        return ((["--period", str(geo["period"])] if geo.get("period") else [])
+                + (["--head_seg", str(geo["seg"])] if geo.get("seg") else [])
+                + (["--agg_shared", "1"] if geo.get("agg_shared") else []))
+    if model in ("feather_ci", "stsf") and geo.get("period"):
         return ["--period", str(geo["period"])]
     if model == "cyclenet" and geo.get("cycle"):
         return ["--cycle", str(geo["cycle"])]
@@ -302,7 +312,8 @@ def install(project: Path, model: str, H: int, D: int, power: str,
         stale.unlink()
     with (inc_dir / "board_cfg.h").open("w", encoding="utf-8", newline="\n") as f:
         f.write(cfg_header(model, H, D, power, direct_dft, stream=bool(stream_ckpt),
-                           config=config, period=(geo or {}).get("period"), stream_ch=stream_ch))
+                           config=config, period=(geo or {}).get("period"), stream_ch=stream_ch,
+                           geo=geo))
     main_c = src_dir / "main.c"
     keep = src_dir / "main.c.bak_pre_board_prep"
     if main_c.exists() and not keep.exists():

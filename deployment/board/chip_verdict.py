@@ -89,7 +89,8 @@ def config_of(model: str) -> str:
     return a[1] if a else ("frozen" if model.startswith("feather") else "default")
 
 
-def one_cell(model: str, data: str, H: int, config: str | None = None) -> dict:
+def one_cell(model: str, data: str, H: int, config: str | None = None, extra_geo: dict | None = None) -> dict:
+    """extra_geo (10-13): geometry keys added to the dataset's (e.g. FEATHer seg / agg_shared size dial)"""
     D = DATA_D[data]
     full = bp.MODELS[model][4]
     golden = (SEQ_LEN + H) * D * 4
@@ -98,7 +99,7 @@ def one_cell(model: str, data: str, H: int, config: str | None = None) -> dict:
     try:
         r = bp.dry_build(bp.DEFAULT_PROJECT, model, H, D, relax_ld=True,
                          data=data if model in bp.CONFIG_MODELS else None,
-                         geo=geo_of(model, data, H), config=config)
+                         geo={**(geo_of(model, data, H) or {}), **(extra_geo or {})} or None, config=config)
     except SystemExit as e:                                   # export refused the geometry
         return {**row, "build": "EXPORT_FAIL", "verdict": "?", "why": " ".join(str(e).split())[-200:]}
     if "flash" not in r:

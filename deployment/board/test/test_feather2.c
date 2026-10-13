@@ -74,15 +74,15 @@ int main(void)
      * exactly where the full forecast has it.  A caller that never keeps
      * more than one block still gets the same forecast. */
     printf("\nstreaming (%d blocks x %d channels of %d steps):\n",
-           FEA2_M, FEA2_D, FEA2_PERIOD);
+           FEA2_M, FEA2_D, FEA2_SEG);
     fea2_begin(G2_X);
     float worst = 0.0f;
     for (int om = 0; om < FEA2_M; ++om) {
         for (int d = 0; d < FEA2_D; ++d) {
             const float *blk = fea2_block(om, d);
-            for (int ph = 0; ph < FEA2_PERIOD; ++ph) {
+            for (int ph = 0; ph < FEA2_SEG; ++ph) {
                 float df = fabsf(blk[ph]
-                                 - G2_Y[(om * FEA2_PERIOD + ph) * FEA2_D + d]);
+                                 - G2_Y[(om * FEA2_SEG + ph) * FEA2_D + d]);
                 if (df > worst || isnan(df)) worst = df;
             }
         }
@@ -91,7 +91,7 @@ int main(void)
     if (!ok) g_fail = 1;
     printf("  %-10s %-4s max|diff| = %.3e   (live window = %d floats = %d B)\n",
            "blocks", ok ? "PASS" : "FAIL", worst,
-           FEA2_PERIOD, (int)(FEA2_PERIOD * sizeof(float)));
+           FEA2_SEG, (int)(FEA2_SEG * sizeof(float)));
     printf("  %-10s      full forecast would be %d floats = %d B\n",
            "vs dense", FEA2_H * FEA2_D,
            (int)(FEA2_H * FEA2_D * sizeof(float)));

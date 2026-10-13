@@ -13,7 +13,7 @@
  *     for (int d = 0; d < FEA2_D; ++d) {
  *         fea2r_channel(d);                    // one sensor, recomputed
  *         for (int om = 0; om < FEA2_M; ++om)
- *             sink_write(om, d, fea2r_block(om));   // FEA2_PERIOD floats
+ *             sink_write(om, d, fea2r_block(om));   // FEA2_SEG floats
  *     }
  *
  * x must stay valid until the last fea2r_block() call.  The returned block

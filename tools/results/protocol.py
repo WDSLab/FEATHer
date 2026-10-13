@@ -140,7 +140,10 @@ REDESIGN_STAGE2 = ["rd:norevin@lr0.0003", "rd:norevin@lr0.003"]   # stage-1 winn
 # config_id "sz<tier>:<candidate>+<dial>=<value>@x<lr multiplier>", e.g. "sz1k:Weather+cmos_seg_size=24@x0.1".
 SIZE_TIERS = ["1k", "max"]
 SIZE_DIALS = {"CMoS": "cmos_seg_size", "SparseTSF_MLP": "sparsetsf_d_model", "TimeBase": "timebase_basis_num",
-              "PhaseFormer": "phaseformer_latent_dim", "DiPE_Linear": "dipe_num_experts", "FITS": "fits_cut_freq"}
+              "PhaseFormer": "phaseformer_latent_dim", "DiPE_Linear": "dipe_num_experts", "FITS": "fits_cut_freq",
+              "FEATHer_mix": "head_seg"}
+# fixed structural switches of a size-matched model (FEATHer: one aggregation kernel shared by all channels)
+SIZE_FIXED = {"FEATHer_mix": {"agg_shared": 1}}
 SIZE_LR_MULT = [0.1, 1, 10]
 SIZE_DIALS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
                                "docs", "size_dials.json")
@@ -151,9 +154,10 @@ def size_config_id(tier, model, data, mult):
     """config_id of one size-matched cell, or None while the dial value / base setting is not known."""
     v = _load(SIZE_DIALS_FILE).get(tier, {}).get(model, {}).get(data)
     base = mfg_main_config_id(model)
-    if v is None or base is None or not base.startswith("cand:"):
+    if v is None or base is None or not (base.startswith("cand:") or base == "frozen"):
         return None
-    return f"sz{tier}:{base[5:]}+{SIZE_DIALS[model]}={v}@x{mult:g}"
+    fixed = "".join(f"+{k}={x}" for k, x in SIZE_FIXED.get(model, {}).items())
+    return f"sz{tier}:{base.replace('cand:', '')}{fixed}+{SIZE_DIALS[model]}={v}@x{mult:g}"
 
 
 def _sz(config_id):
@@ -247,7 +251,14 @@ def resolve(model, group, data, H, config_id):
     elif config_id.startswith("sz"):
         # size-matched variant: the candidate with its dial set, lr scaled by the multiplier
         _, body, mult = _sz(config_id)
-        lr, loss, ov = resolve(model, group, data, H, "cand:" + body)
+        src, _, knobs = body.partition("+")
+        if src == "frozen":                      # FEATHer: the frozen setting + the size switches
+            lr, loss, ov = resolve(model, group, data, H, "frozen")
+            for kv in filter(None, knobs.split("+")):
+                k, v = kv.split("=", 1)
+                ov[k] = int(v) if v.lstrip("-").isdigit() else float(v)
+        else:
+            lr, loss, ov = resolve(model, group, data, H, "cand:" + body)
         return lr * mult, loss, ov
     elif config_id.startswith("ctrl:"):
         # the host's setting (its periods / lr / widths), trained under the arm's registry model

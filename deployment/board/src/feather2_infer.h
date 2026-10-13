@@ -75,6 +75,17 @@
 #ifndef FEA2_PERIOD
 #define FEA2_PERIOD 24                  /* SPK period (FFT-detected)      */
 #endif
+/* 10-13 size dial (FEATHer.py head_seg / agg_shared).  FEA2_SEG = segment length of the SPK
+ * map, decoupled from the period (the aggregation kernel keeps the period width); FEA2_SEG =
+ * FEA2_PERIOD is the canonical head.  FEA2_AGG_SHARED = 1: one aggregation kernel for every
+ * channel (SparseTSF's choice) instead of one per channel.  Defaults = the frozen model. */
+#ifndef FEA2_SEG
+#define FEA2_SEG FEA2_PERIOD
+#endif
+#ifndef FEA2_AGG_SHARED
+#define FEA2_AGG_SHARED 0
+#endif
+#define FEA2_AGG_ROW(d) (FEA2_AGG_SHARED ? 0 : (d))   /* row of W_AGG2 for channel d */
 
 #define FEA2_NB 3                       /* bands: POINT / MID / LOW       */
 #define FEA2_KP 3                       /* POINT conv kernel              */
@@ -85,8 +96,8 @@
 
 #define FEA2_NF (FEA2_L / 2 + 1)                 /* rfft bins  = 49       */
 #define FEA2_LP (FEA2_L / 4)                     /* pooled LOW = 24       */
-#define FEA2_N  (FEA2_L / FEA2_PERIOD)           /* input periods         */
-#define FEA2_M  (FEA2_H / FEA2_PERIOD)           /* output periods        */
+#define FEA2_N  (FEA2_L / FEA2_SEG)              /* input segments        */
+#define FEA2_M  (FEA2_H / FEA2_SEG)              /* output segments       */
 #define FEA2_AGG_K (2 * (FEA2_PERIOD / 2) + 1)   /* SPK agg conv kernel   */
 
 /* ---- static arena, in floats ----
@@ -112,7 +123,7 @@
 #define FEA2_MAX2(a, b) ((a) > (b) ? (a) : (b))
 /* 3*NF + 64: the gate's re/im/power plus the fast FFT's 2 x 32 scratch */
 #define FEA2_SCRATCH_N FEA2_MAX2(FEA2_MAX2(3 * FEA2_NF + 64, FEA2_L + FEA2_LP), \
-                                 FEA2_MAX2(FEA2_MLP_R, FEA2_PERIOD))
+                                 FEA2_MAX2(FEA2_MLP_R, FEA2_SEG))
 #define FEA2_ARENA_N (FEA2_L * FEA2_D + FEA2_SCRATCH_N \
                       + 2 * FEA2_D + FEA2_NB)
 #define FEA2_ARENA_BYTES (FEA2_ARENA_N * (int)sizeof(float))
@@ -124,7 +135,7 @@
  *     fea2_begin(x);                                  // x is read only
  *     for (int om = 0; om < FEA2_M; ++om)
  *         for (int d = 0; d < FEA2_D; ++d)
- *             sink_write(om, d, fea2_block(om, d));   // FEA2_PERIOD floats
+ *             sink_write(om, d, fea2_block(om, d));   // FEA2_SEG floats
  *
  * fea2_begin() runs everything up to and including the SPK aggregation and
  * leaves h_agg in the arena; fea2_block() then costs one backbone row for one

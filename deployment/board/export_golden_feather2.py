@@ -140,7 +140,10 @@ def staged_forward(m: FEATHer, x: torch.Tensor, pred_len: int):
         mlp = hidden + m.nl_up(F.gelu(m.nl_down(hidden)))
 
         hh_t = mlp.permute(0, 2, 1)
-        h_agg = hh_t + m.sparse_head.agg_conv(hh_t)         # (1, D, L)
+        if m.sparse_head.agg_shared:                       # 10-13: one kernel for all channels
+            h_agg = hh_t + m.sparse_head.agg_conv(hh_t.reshape(D_MODEL, 1, SEQ_LEN)).reshape(1, D_MODEL, SEQ_LEN)
+        else:
+            h_agg = hh_t + m.sparse_head.agg_conv(hh_t)     # (1, D, L)
         y_spk = m.sparse_head(mlp)
 
         y = y_spk * stdev[:, 0, :].unsqueeze(1).repeat(1, pred_len, 1)
@@ -163,15 +166,16 @@ def check_streaming(st, pred_len: int, m: FEATHer) -> float:
     """
     W = m.sparse_head.backbone.weight            # (m, n)
     h_agg, means, stdev = st["h_agg"][0], st["means"][0, 0], st["stdev"][0, 0]
-    n, mm = SEQ_LEN // PERIOD, pred_len // PERIOD
+    S = m.sparse_head.period                     # segment length (= PERIOD unless --head_seg)
+    n, mm = SEQ_LEN // S, pred_len // S
     out = torch.empty(pred_len, D_MODEL)
     for om in range(mm):
-        blk = torch.empty(PERIOD, D_MODEL)
-        for ph in range(PERIOD):
+        blk = torch.empty(S, D_MODEL)
+        for ph in range(S):
             for d in range(D_MODEL):
-                acc = sum(W[om, i] * h_agg[d, i * PERIOD + ph] for i in range(n))
+                acc = sum(W[om, i] * h_agg[d, i * S + ph] for i in range(n))
                 blk[ph, d] = acc * stdev[d] + means[d]
-        out[om * PERIOD:(om + 1) * PERIOD] = blk
+        out[om * S:(om + 1) * S] = blk
     return (out - st["y"][0]).abs().max().item()
 
 
@@ -187,11 +191,17 @@ def main() -> None:
     # 10-12: SPK period (FFT rule <= 48: 48 on WindSCADA / BlastFurnace); the C header
     # takes -DFEA2_PERIOD to match, stamped as FEA2_P_GEN
     ap.add_argument("--period", type=int, default=PERIOD)
+    # 10-13 size dial: SPK segment length (0 = the period) and the shared aggregation kernel;
+    # the C header takes -DFEA2_SEG / -DFEA2_AGG_SHARED, stamped as FEA2_SEG_GEN / FEA2_AGGS_GEN
+    ap.add_argument("--head_seg", type=int, default=0)
+    ap.add_argument("--agg_shared", type=int, default=0)
     a = ap.parse_args()
     D_MODEL, PERIOD = a.d_model, a.period
     ARCH["mlp_rank"] = a.mlp_rank
+    if a.head_seg or a.agg_shared:                  # absent by default: the frozen golden stays byte-identical
+        ARCH["head_seg"], ARCH["agg_shared"] = a.head_seg, bool(a.agg_shared)
     H = a.pred_len
-    assert H % PERIOD == 0, "pred_len must be divisible by period"
+    assert H % (a.head_seg or PERIOD) == 0, "pred_len must be divisible by the segment length"
 
     m = build(H, a.ckpt)
     n_params = sum(p.numel() for p in m.parameters())
@@ -221,7 +231,11 @@ def main() -> None:
         # same guard for the residual-MLP rank (2026-09-29): a rank-16 header
         # built at -DFEA2_MLP_R=4 compiled silently and gave a wrong forecast
         f.write(f"#define FEA2_R_GEN {ARCH['mlp_rank']}\n")
-        f.write(f"#define FEA2_P_GEN {PERIOD}\n\n")
+        f.write(f"#define FEA2_P_GEN {PERIOD}\n")
+        if "head_seg" in ARCH:
+            f.write(f"#define FEA2_SEG_GEN {m.sparse_head.period}\n")
+            f.write(f"#define FEA2_AGGS_GEN {int(m.sparse_head.agg_shared)}\n")
+        f.write("\n")
         emit_array(f, "W_CONVP", m.conv_point.weight)          # (D,1,3)
         emit_array(f, "B_CONVP", m.conv_point.bias)            # (D,)
         emit_array(f, "W_CONVM", m.conv_mid.weight)            # (D,1,5)

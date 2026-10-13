@@ -43,6 +43,13 @@ _Static_assert(FEA2_FN_GEN == 1, "feather2fn_weights.h was not exported with fro
 #ifdef FEA2_P_GEN                       /* stamped by the export since 10-12 */
 _Static_assert(FEA2_PERIOD == FEA2_P_GEN, "feather2_weights.h was exported at another period");
 #endif
+#ifdef FEA2_SEG_GEN                     /* 10-13 size dial, stamped by the export */
+_Static_assert(FEA2_SEG == FEA2_SEG_GEN, "feather2_weights.h was exported at another SPK segment length");
+_Static_assert(FEA2_AGG_SHARED == FEA2_AGGS_GEN, "feather2_weights.h was exported with another agg-kernel sharing");
+#else                                   /* a canonical golden: the dial must be at its default */
+_Static_assert(FEA2_SEG == FEA2_PERIOD && FEA2_AGG_SHARED == 0,
+               "FEA2_SEG / FEA2_AGG_SHARED set but the weights were exported without --head_seg / --agg_shared");
+#endif
 _Static_assert(FEA2_H == FEA2_H_GEN,
                "FEA2_H does not match the horizon the weights were exported at - re-run export_golden_*.py --pred_len");
 _Static_assert(FEA2_MLP_R == FEA2_R_GEN,
@@ -58,7 +65,7 @@ static float s_row[FEA2_L];                /* one sensor's x_norm               
 static float s_col[FEA2_L];                /* one sensor's hidden -> h_agg         */
 /* pass 0 needs re/im/power beside s_row; pass 1/2 need the pooled LOW branch and
  * the agg-conv copy.  They never coexist, so they share one buffer. */
-#define FEA2R_SCR_N FEA2_MAX2(3 * FEA2_NF, FEA2_MAX2(FEA2_LP, FEA2_MAX2(FEA2_L, FEA2_PERIOD)))
+#define FEA2R_SCR_N FEA2_MAX2(3 * FEA2_NF, FEA2_MAX2(FEA2_LP, FEA2_MAX2(FEA2_L, FEA2_SEG)))
 static float s_scr[FEA2R_SCR_N];
 static int s_cur = -1;
 
@@ -204,7 +211,7 @@ void fea2r_channel(int d)
         for (int j = 0; j < FEA2_AGG_K; ++j) {
             int s = t + j - agg_pad;
             if (s >= 0 && s < FEA2_L)
-                acc += W_AGG2[d * FEA2_AGG_K + j] * keep[s];
+                acc += W_AGG2[FEA2_AGG_ROW(d) * FEA2_AGG_K + j] * keep[s];
         }
         s_col[t] = acc + keep[t];
     }
@@ -215,10 +222,10 @@ void fea2r_channel(int d)
 const float *fea2r_block(int om)
 {
     float *blk = s_scr;
-    for (int ph = 0; ph < FEA2_PERIOD; ++ph) {
+    for (int ph = 0; ph < FEA2_SEG; ++ph) {
         float acc = 0.0f;
         for (int in = 0; in < FEA2_N; ++in)
-            acc += W_BB2[om * FEA2_N + in] * s_col[in * FEA2_PERIOD + ph];
+            acc += W_BB2[om * FEA2_N + in] * s_col[in * FEA2_SEG + ph];
         blk[ph] = acc * s_stdev[s_cur] + s_mean[s_cur];
     }
     return blk;
@@ -231,8 +238,8 @@ void fea2r_forward(const float *x, float *y)
         fea2r_channel(d);
         for (int om = 0; om < FEA2_M; ++om) {
             const float *blk = fea2r_block(om);
-            for (int ph = 0; ph < FEA2_PERIOD; ++ph)
-                y[((size_t)om * FEA2_PERIOD + ph) * FEA2_D + d] = blk[ph];
+            for (int ph = 0; ph < FEA2_SEG; ++ph)
+                y[((size_t)om * FEA2_SEG + ph) * FEA2_D + d] = blk[ph];
         }
     }
 }

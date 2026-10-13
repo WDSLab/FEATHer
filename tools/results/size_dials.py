@@ -22,8 +22,8 @@ import protocol as P   # noqa: E402
 
 BOARD = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "results", "board")
 B2R = {"cmos": "CMoS", "stsf_mlp": "SparseTSF_MLP", "timebase": "TimeBase", "phaseformer": "PhaseFormer",
-       "dipe": "DiPE_Linear", "fits": "FITS"}
-SMALLER_IS_BIGGER = {"CMoS"}          # segment length: a smaller segment = a larger model
+       "dipe": "DiPE_Linear", "fits": "FITS", "feather_mix": "FEATHer_mix"}
+SMALLER_IS_BIGGER = {"CMoS", "FEATHer_mix"}   # segment length: a smaller segment = a larger model
 
 
 def load():
