@@ -78,9 +78,10 @@ float dipe_st_xf[DIPE_D * DIPE_L];
 float dipe_st_xt[DIPE_D * DIPE_L];
 #endif
 
-void dipe_forward(const float *x, float *y)
+static void dipe_run(const float *x, float *y, int d0, int d1, int ys, fea_emit_fn emit)
 {
-    for (int d = 0; d < DIPE_D; ++d) {
+    for (int d = d0; d < d1; ++d) {
+        float *yd = y ? ((ys == 1) ? y : y + d) : 0;   /* this channel's outputs */
 #if DIPE_E > 1
         {   /* this channel's expert weights: softmax over the router logits */
             float mx = -INFINITY, se = 0.0f;
@@ -168,10 +169,21 @@ void dipe_forward(const float *x, float *y)
                                        DIPE_COS193, DIPE_SIN193,
                                        DIPE_TN - DIPE_H - DIPE_PAD + j);
 #if DIPE_REVIN
-            y[j * DIPE_D + d] = s * sd + m;
+            FEA_OUT(yd, ys, emit, d, j, s * sd + m);
 #else
-            y[j * DIPE_D + d] = s;
+            FEA_OUT(yd, ys, emit, d, j, s);
 #endif
         }
     }
 }
+
+/* Full buffer (caller owns H x D, time-major): the original API, same arithmetic. */
+void dipe_forward(const float *x, float *y) { dipe_run(x, y, 0, DIPE_D, DIPE_D, 0); }
+
+/* One channel d (10-12): its H forecasts to yc[0..H-1].  Lets the caller emit channel by
+ * channel with an H-float buffer (porting rule 1) instead of holding H x D. */
+void dipe_forward_ch(const float *x, int d, float *yc) { dipe_run(x, yc, d, d + 1, 1, 0); }
+
+/* One channel d (10-13): each forecast value goes to emit(d, t, v) the moment it is final -
+ * no H-float buffer (fea_emit.h).  Same values as dipe_forward_ch, bit for bit. */
+void dipe_forward_emit(const float *x, int d, fea_emit_fn emit) { dipe_run(x, 0, d, d + 1, 1, emit); }

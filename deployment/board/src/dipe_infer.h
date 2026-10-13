@@ -7,6 +7,8 @@
 #ifndef DIPE_INFER_H
 #define DIPE_INFER_H
 
+#include "fea_emit.h"
+
 /* Board builds: deployment/board/board_prep.py writes board_cfg.h into the
  * CubeIDE project (never into this repo), carrying the geometry of the model
  * under test.  x86 tests and measure_footprint.py do not see it. */
@@ -56,6 +58,10 @@
 
 /* x: (DIPE_L, DIPE_D) time-major -> y: (DIPE_H, DIPE_D) time-major */
 void dipe_forward(const float *x, float *y);
+/* one channel d -> yc[0..H-1] (stream per channel) */
+void dipe_forward_ch(const float *x, int d, float *yc);
+/* one channel d, each value to emit(d, t, v) as it is final (10-13, no H buffer) */
+void dipe_forward_emit(const float *x, int d, fea_emit_fn emit);
 
 /* stage buffers for golden comparison (channel-major (D, L)) - test build
  * only (the board build works one channel at a time and never holds these) */

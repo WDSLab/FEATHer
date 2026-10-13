@@ -77,9 +77,10 @@ float fits_st_up_im[FITS_D * FITS_UP];
  * caught 2026-09-04 by the H=192 golden run). */
 #define FITS_ECOMP ((float)FITS_TN / (float)FITS_L)
 
-void fits_forward(const float *x, float *y)
+static void fits_run(const float *x, float *y, int d0, int d1, int ys, fea_emit_fn emit)
 {
-    for (int d = 0; d < FITS_D; ++d) {
+    for (int d = d0; d < d1; ++d) {
+        float *yd = y ? ((ys == 1) ? y : y + d) : 0;   /* this channel's outputs */
         /* RevIN: mean, UNBIASED var + 1e-5 inside sqrt */
         float m = 0.0f;
         for (int t = 0; t < FITS_L; ++t)
@@ -134,7 +135,18 @@ void fits_forward(const float *x, float *y)
             float s = fea_idft_half_at(s_up_re, s_up_im, FITS_TN, FITS_UP,
                                        FITS_COS192, FITS_SIN192,
                                        FITS_TN - FITS_H + j);
-            y[j * FITS_D + d] = s * FITS_ECOMP * sd + m;
+            FEA_OUT(yd, ys, emit, d, j, s * FITS_ECOMP * sd + m);
         }
     }
 }
+
+/* Full buffer (caller owns H x D, time-major): the original API, same arithmetic. */
+void fits_forward(const float *x, float *y) { fits_run(x, y, 0, FITS_D, FITS_D, 0); }
+
+/* One channel d (10-12): its H forecasts to yc[0..H-1].  Lets the caller emit channel by
+ * channel with an H-float buffer (porting rule 1) instead of holding H x D. */
+void fits_forward_ch(const float *x, int d, float *yc) { fits_run(x, yc, d, d + 1, 1, 0); }
+
+/* One channel d (10-13): each forecast value goes to emit(d, t, v) the moment it is final -
+ * no H-float buffer (fea_emit.h).  Same values as fits_forward_ch, bit for bit. */
+void fits_forward_emit(const float *x, int d, fea_emit_fn emit) { fits_run(x, 0, d, d + 1, 1, emit); }

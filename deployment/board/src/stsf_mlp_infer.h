@@ -17,6 +17,8 @@
 #ifndef STSF_MLP_INFER_H
 #define STSF_MLP_INFER_H
 
+#include "fea_emit.h"
+
 /* Board builds: deployment/board/board_prep.py writes board_cfg.h into the
  * CubeIDE project (never into this repo), carrying the geometry of the model
  * under test.  x86 tests and measure_footprint.py do not see it. */
@@ -55,6 +57,10 @@
 
 /* x: (SMLP_L, SMLP_D) time-major -> y: (SMLP_H, SMLP_D) time-major */
 void stsf_mlp_forward(const float *x, float *y);
+/* one channel d -> yc[0..H-1] (stream per channel) */
+void stsf_mlp_forward_ch(const float *x, int d, float *yc);
+/* one channel d, each value to emit(d, t, v) as it is final (10-13, no H buffer) */
+void stsf_mlp_forward_emit(const float *x, int d, fea_emit_fn emit);
 
 /* Stage buffers for golden comparison exist ONLY under -DSMLP_CAPTURE_STAGES
  * (the x86 golden test).  The board build works one channel at a time and

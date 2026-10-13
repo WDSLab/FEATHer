@@ -4,6 +4,7 @@
  */
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "timebase_infer.h"
 #include "timebase_vectors.h"
@@ -39,10 +40,38 @@ static void check(const char *name, const float *got,
     }
 }
 
+/* 10-13: the per-value emit API must hand out exactly the buffered values (bit for bit),
+ * each (d, t) once.  Rebuilt time-major from the sink and compared with memcmp. */
+static float g_ye[TB_H * TB_D];
+static int g_cnt[TB_H * TB_D];
+static void emit_sink(int d, int t, float v)
+{
+    g_ye[t * TB_D + d] = v;
+    g_cnt[t * TB_D + d]++;
+}
+
+static int check_emit(const float *y)
+{
+    for (int d = 0; d < TB_D; ++d)
+        timebase_forward_emit(TG_X, d, emit_sink);
+    for (int i = 0; i < TB_H * TB_D; ++i)
+        if (g_cnt[i] != 1) {
+            printf("FAIL  emit   cell %d emitted %d times\n", i, g_cnt[i]);
+            return 1;
+        }
+    if (memcmp(g_ye, y, sizeof g_ye) != 0) {
+        printf("FAIL  emit   values differ from the buffered forward\n");
+        return 1;
+    }
+    printf("PASS  emit   n=%d bit-identical to the buffered forward\n", TB_H * TB_D);
+    return 0;
+}
+
 int main(void)
 {
     static float y[TB_H * TB_D];
     timebase_forward(TG_X, y);
+    g_fail += check_emit(y);
 
     printf("TimeBase L=%d H=%d D=%d period=%d basis=%d individual=%d\n",
            TB_L, TB_H, TB_D, TB_P, TB_B, TB_IND);

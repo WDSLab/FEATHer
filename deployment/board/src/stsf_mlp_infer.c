@@ -47,9 +47,10 @@ static float s_xc[SMLP_L];    /* one channel: centered, then conv+residual */
 static float s_cv[SMLP_L];    /* conv output, one channel                  */
 static float s_h[SMLP_DM];    /* hidden for one (channel, phase)           */
 
-void stsf_mlp_forward(const float *x, float *y)
+static void stsf_mlp_run(const float *x, float *y, int d0, int d1, int ys, fea_emit_fn emit)
 {
-    for (int d = 0; d < SMLP_D; ++d) {
+    for (int d = d0; d < d1; ++d) {
+        float *yd = y ? ((ys == 1) ? y : y + d) : 0;   /* this channel's outputs */
         /* per-channel mean only (SparseTSF has no variance norm).  Same
          * accumulation order as fea_instnorm_stats, so the value is
          * bit-identical to the all-channel build. */
@@ -90,8 +91,19 @@ void stsf_mlp_forward(const float *x, float *y)
                 float acc = SMLP_B_FC2[om];
                 for (int h = 0; h < SMLP_DM; ++h)
                     acc += SMLP_W_FC2[om * SMLP_DM + h] * s_h[h];
-                y[(om * SMLP_P + ph) * SMLP_D + d] = acc + m;
+                FEA_OUT(yd, ys, emit, d, om * SMLP_P + ph, acc + m);
             }
         }
     }
 }
+
+/* Full buffer (caller owns H x D, time-major): the original API, same arithmetic. */
+void stsf_mlp_forward(const float *x, float *y) { stsf_mlp_run(x, y, 0, SMLP_D, SMLP_D, 0); }
+
+/* One channel d (10-12): its H forecasts to yc[0..H-1].  Lets the caller emit channel by
+ * channel with an H-float buffer (porting rule 1) instead of holding H x D. */
+void stsf_mlp_forward_ch(const float *x, int d, float *yc) { stsf_mlp_run(x, yc, d, d + 1, 1, 0); }
+
+/* One channel d (10-13): each forecast value goes to emit(d, t, v) the moment it is final -
+ * no H-float buffer (fea_emit.h).  Same values as stsf_mlp_forward_ch, bit for bit. */
+void stsf_mlp_forward_emit(const float *x, int d, fea_emit_fn emit) { stsf_mlp_run(x, 0, d, d + 1, 1, emit); }

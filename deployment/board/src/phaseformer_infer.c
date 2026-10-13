@@ -172,9 +172,10 @@ static void routing_layer(int li)
     }
 }
 
-void phaseformer_forward(const float *x, float *y)
+static void phaseformer_run(const float *x, float *y, int d0, int d1, int ys, fea_emit_fn emit)
 {
-    for (int d = 0; d < PF_D; ++d) {
+    for (int d = d0; d < d1; ++d) {
+        float *yd = y ? ((ys == 1) ? y : y + d) : 0;   /* this channel's outputs */
         /* RevIN */
         float mu = 0.0f;
         for (int t = 0; t < PF_L; ++t)
@@ -234,7 +235,18 @@ void phaseformer_forward(const float *x, float *y)
                 float acc = PF_PRED_B[j];
                 for (int i = 0; i < PF_DL; ++i)
                     acc += PF_PRED_W[j * PF_DL + i] * s_z[p * PF_DL + i];
-                y[(j * PF_P + p) * PF_D + d] = acc * sg + mu;
+                FEA_OUT(yd, ys, emit, d, j * PF_P + p, acc * sg + mu);
             }
     }
 }
+
+/* Full buffer (caller owns H x D, time-major): the original API, same arithmetic. */
+void phaseformer_forward(const float *x, float *y) { phaseformer_run(x, y, 0, PF_D, PF_D, 0); }
+
+/* One channel d (10-12): its H forecasts to yc[0..H-1].  Lets the caller emit channel by
+ * channel with an H-float buffer (porting rule 1) instead of holding H x D. */
+void phaseformer_forward_ch(const float *x, int d, float *yc) { phaseformer_run(x, yc, d, d + 1, 1, 0); }
+
+/* One channel d (10-13): each forecast value goes to emit(d, t, v) the moment it is final -
+ * no H-float buffer (fea_emit.h).  Same values as phaseformer_forward_ch, bit for bit. */
+void phaseformer_forward_emit(const float *x, int d, fea_emit_fn emit) { phaseformer_run(x, 0, d, d + 1, 1, emit); }

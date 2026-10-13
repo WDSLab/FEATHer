@@ -133,6 +133,20 @@
 #else
   #error "board_cfg.h selects no model - run deployment/board/board_prep.py"
 #endif
+
+/* BOARD_STREAM_CH (10-12): channel-independent full-buffer ports run through their
+ * <pfx>_forward_ch API, one channel at a time; since 10-13 through <pfx>_forward_emit with no output buffer,
+ * at the dataset's real channel count.  The full H x D golden would not fit the flash at
+ * D = 28 / H = 720, so board_prep.py writes board_gold_ch.h: channel 0 element by element
+ * plus every channel's sum / absolute sum (x86 tests check every element bit-exactly). */
+#if defined(BOARD_STREAM_CH)
+  #if !defined(FULL_FORWARD)
+    #error "BOARD_STREAM_CH needs a full-buffer port with a _ch API"
+  #endif
+  #include "board_gold_ch.h"
+  #define CH_FWD_(f) f##_emit       /* 10-13: per-value emit, no output buffer */
+  #define CH_FWD(f) CH_FWD_(f)
+#endif
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -193,7 +207,9 @@ static uint32_t stack_peak_used(void)
 /* the caller's input window, in SRAM (counted in the footprint table too) */
 static float s_x[BOARD_L * BOARD_D];
 
-#if defined(FULL_FORWARD) || defined(RUN_PERS)
+#if defined(BOARD_STREAM_CH)
+/* 10-13: no output buffer - <pfx>_forward_emit hands each value to emit_sink (below) */
+#elif defined(FULL_FORWARD) || defined(RUN_PERS)
 /* full-buffer API only: the caller owns y.  board_prep.py only builds these
  * ports at (H, D) where this buffer fits; at H = 720 they run with D = 1 and
  * the per-channel latency is multiplied by D (channel-independent models). */
@@ -210,6 +226,19 @@ static inline void check(float got, float ref)
   if (ad > g_maxabs) g_maxabs = ad;
   if (!(ad <= 1e-5f + 1e-4f * fabsf(ref))) g_bad++;   /* NaN counts as bad */
 }
+
+#if defined(BOARD_STREAM_CH)
+static int    g_check;
+static double g_sum;
+/* each forecast value as it is final; timed run keeps one, check run compares channel 0
+ * element by element and sums every channel (in emission order) */
+static void emit_sink(int d, int t, float v)
+{
+  if (!g_check) { g_sink = v; return; }
+  if (d == 0) check(v, GOLD_Y_CH0[t]);
+  g_sum += v;
+}
+#endif
 
 /* one inference; check = 0 -> timed sink, check = 1 -> compare to golden */
 static void infer(int check_it)
@@ -259,6 +288,16 @@ static void infer(int check_it)
     for (int t = 0; t < BOARD_H; ++t)
       for (int d = 0; d < BOARD_D; ++d)
         check(s_y[t * BOARD_D + d], GOLD_X[(BOARD_L - 1) * BOARD_D + d]);
+#elif defined(BOARD_STREAM_CH)
+  g_check = check_it;
+  for (int d = 0; d < BOARD_D; ++d) {
+    g_sum = 0.0;
+    CH_FWD(FULL_FORWARD)(s_x, d, emit_sink);
+    if (!check_it) continue;
+    float ad = (float)fabs(g_sum - GOLD_SUM[d]);
+    if (ad > g_maxabs) g_maxabs = ad;
+    if (!(ad <= 1e-5f * BOARD_H + 1e-4f * GOLD_ABSSUM[d])) g_bad++;
+  }
 #else
   FULL_FORWARD(s_x, s_y);
   if (check_it)

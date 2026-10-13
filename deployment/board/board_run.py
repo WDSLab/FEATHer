@@ -258,6 +258,72 @@ def run_candidates(a) -> None:
                   f"flash {fl / 1024:.1f} KB  RAM {ram / 1024:.2f} KB", flush=True)
 
 
+# 10-12: the tightest on-chip cell of every channel-streaming port at its chip-best setting
+# (deployment/board/chip_verdict.py --candidates), run at the dataset's REAL channel count with
+# <pfx>_forward_ch (one channel at a time, H-float output).  (board model, setting, dataset, H)
+STREAM_CELLS = [("cmos", "Weather", "BlastFurnace", 720), ("dipe", "Electricity", "BlastFurnace", 720),
+                ("fits", "ETTm1", "BlastFurnace", 336), ("fits", "ETTm1", "Steel", 720),
+                ("stsf_mlp", "Traffic", "BlastFurnace", 720), ("mixlinear", "Traffic", "BlastFurnace", 720),
+                ("timebase", "ETTm2", "BlastFurnace", 720), ("phaseformer", "ETTh2", "BlastFurnace", 720),
+                ("phaseformer", "ETTh2", "BlastFurnace", 336), ("stsf", None, "BlastFurnace", 720)]
+OUT_STREAM = bp.ROOT / "results" / "board" / "board_stream_20261012.csv"
+STREAM_COLS = ["model", "config", "data", "H", "D", "status", "bad", "maxabs_e6", "cycles",
+               "latency_us", "latency_ms", "stack_B", "flash_B", "ram_B", "gcc", "timestamp"]
+
+
+def run_stream(a) -> None:
+    import chip_verdict as cv
+    gcc_ver = run([GCC, "--version"]).splitlines()[0]
+    with tempfile.TemporaryDirectory() as tmp:
+        proj = Path(tmp) / "proj"
+        shutil.copytree(a.project, proj, ignore=shutil.ignore_patterns("Debug", "Release"))
+        hal = Path(tmp) / "hal"
+        for i, (m, cfg, data, H) in enumerate(STREAM_CELLS, 1):
+            if a.only and str(i) not in a.only.split(","):
+                continue
+            D = cv.DATA_D[data]
+            tag = f"{i:2d}. {m:<11} {str(cfg):<11} {data:<12} D={D:<2} H={H:<3}"
+            base = dict(model=m, config=cfg or "", data=data, H=H, D=D, gcc=gcc_ver,
+                        timestamp=dt.datetime.now().isoformat(timespec="seconds"))
+            try:
+                bp.install(proj, m, H, D, "none", config=cfg, stream_ch=True,
+                           data=data if m in bp.CONFIG_MODELS else None, geo=cv.geo_of(m, data, H))
+                elf, fl, ram = build(proj, hal)
+            except Exception as e:
+                msg = str(e)
+                st = "NOFIT" if ("overflow" in msg or "will not fit" in msg) else "ERROR"
+                print(f"{tag}  {st}  {msg.splitlines()[-1][:140] if st == 'ERROR' else ''}", flush=True)
+                if st == "NOFIT":
+                    _append(OUT_STREAM, STREAM_COLS, {**base, "status": "NOFIT"})
+                continue
+            try:
+                flash_board(elf)
+                name = bp.MODELS[m][1] + (f"[{cfg}]" if cfg else "")
+                lines = read_lines(a.port, name, H, D, 2, a.max_s)
+            except Exception as e:
+                print(f"{tag}  ERROR  {str(e).splitlines()[0][:120]}", flush=True)
+                continue
+            if not lines:
+                print(f"{tag}  NO OUTPUT (flash {fl / 1024:.1f} KB, RAM {ram / 1024:.2f} KB)", flush=True)
+                continue
+            r = lines[0]
+            _append(OUT_STREAM, STREAM_COLS, {**base, "status": r["status"], "bad": r["bad"],
+                    "maxabs_e6": r["maxabs"], "cycles": r["cycles"], "latency_us": r["lat"],
+                    "latency_ms": f"{int(r['lat']) / 1000:.2f}", "stack_B": r["stack"],
+                    "flash_B": fl, "ram_B": ram})
+            print(f"{tag}  {r['status']}  {int(r['lat']) / 1000:9.2f} ms  stack {r['stack']} B  "
+                  f"flash {fl / 1024:.1f} KB  RAM {ram / 1024:.2f} KB  ({len(lines)} line(s))", flush=True)
+
+
+def _append(path, cols, row):
+    new = not path.exists()
+    with path.open("a", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
+        if new:
+            w.writeheader()
+        w.writerow(row)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -273,8 +339,14 @@ def main() -> None:
     ap.add_argument("--power", choices=["active", "idle", "max"], default=None,
                     help="flash ONE cell (--only N) in a power mode and stop: the harness "
                          "prints nothing, read the current on the multimeter in JP6")
+    ap.add_argument("--stream", action="store_true",
+                    help="10-12: the tightest cell of each channel-streaming port at its real channel "
+                         "count (STREAM_CELLS) -> results/board/board_stream_20261012.csv")
     a = ap.parse_args()
 
+    if a.stream:
+        run_stream(a)
+        return
     if a.candidates:
         run_candidates(a)
         return

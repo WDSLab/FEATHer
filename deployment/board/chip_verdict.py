@@ -14,8 +14,10 @@ What is charged:
   ram   = .data + .bss + the linker's heap/stack reserve (0x600 B) - includes the
           caller's input window s_x (L x D floats).
 Full-buffer ports (the harness owns an H x D output buffer s_y) also get ram_stream =
-ram - (H x D - H) x 4: the output emitted one channel at a time (porting rule 1), the
-same assumption the 09-29 board table made for H = 720.  Internal arenas stay as built.
+ram - H x D x 4: every forecast value is final when computed, so <pfx>_forward_emit hands
+it out at once and no output buffer is held (porting rule 1, the same way FEATHer emits its
+blocks; 10-13 - until 10-12 one channel's H floats were kept, ram - (H x D - H) x 4, which
+charged the baselines up to 2.8 KB that FEATHer was not charged).  Internal arenas stay as built.
 
 Stack is not measured here (only the reserve); cells that pass go to the board next.
 
@@ -102,7 +104,7 @@ def one_cell(model: str, data: str, H: int, config: str | None = None) -> dict:
     if "flash" not in r:
         return {**row, "build": "BUILD_FAIL", "verdict": "?", "why": r["why"][-200:]}
     flash_dep = r["flash"] - golden
-    ram_stream = r["ram"] - (H * D - H) * 4 if full else None
+    ram_stream = r["ram"] - H * D * 4 if full else None      # emit API: no output buffer (10-13)
     fits_flash = flash_dep <= bp.FLASH_BYTES
     fits_ram = (ram_stream if full else r["ram"]) <= bp.RAM_BYTES
     return {**row, "build": "LINK_OK", "flash_B": flash_dep, "ram_B": r["ram"],

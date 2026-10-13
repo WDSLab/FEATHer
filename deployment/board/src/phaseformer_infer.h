@@ -12,6 +12,8 @@
 #ifndef PHASEFORMER_INFER_H
 #define PHASEFORMER_INFER_H
 
+#include "fea_emit.h"
+
 #if defined(__has_include)
 #if __has_include("board_cfg.h")
 #include "board_cfg.h"
@@ -30,6 +32,10 @@
 
 /* x: (PF_L, PF_D) time-major -> y: (PF_H, PF_D) time-major */
 void phaseformer_forward(const float *x, float *y);
+/* one channel d -> yc[0..H-1] (stream per channel) */
+void phaseformer_forward_ch(const float *x, int d, float *yc);
+/* one channel d, each value to emit(d, t, v) as it is final (10-13, no H buffer) */
+void phaseformer_forward_emit(const float *x, int d, fea_emit_fn emit);
 
 #ifdef PF_CAPTURE_STAGES
 #include "phaseformer_weights.h"

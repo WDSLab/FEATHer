@@ -11,6 +11,8 @@
 #ifndef CMOS_INFER_H
 #define CMOS_INFER_H
 
+#include "fea_emit.h"
+
 /* Board builds: board_prep.py writes board_cfg.h into the CubeIDE project
  * (never into this repo).  x86 tests and measure_footprint.py do not see it. */
 #if defined(__has_include)
@@ -31,6 +33,10 @@
 
 /* x: (CMOS_L, CMOS_D) time-major -> y: (CMOS_H, CMOS_D) time-major */
 void cmos_forward(const float *x, float *y);
+/* one channel d -> yc[0..H-1] (stream per channel) */
+void cmos_forward_ch(const float *x, int d, float *yc);
+/* one channel d, each value to emit(d, t, v) as it is final (10-13, no H buffer) */
+void cmos_forward_emit(const float *x, int d, fea_emit_fn emit);
 
 /* stage buffers for golden comparison - test build only (the board build
  * works one channel at a time and never holds these) */

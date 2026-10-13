@@ -49,9 +49,10 @@ float tb_st_basis[TB_D * TB_P * TB_B];
 static float s_v[TB_NX];      /* one phase, centred */
 static float s_b[TB_B];       /* its basis coefficients */
 
-void timebase_forward(const float *x, float *y)
+static void timebase_run(const float *x, float *y, int d0, int d1, int ys, fea_emit_fn emit)
 {
-    for (int d = 0; d < TB_D; ++d) {
+    for (int d = d0; d < d1; ++d) {
+        float *yd = y ? ((ys == 1) ? y : y + d) : 0;   /* this channel's outputs */
         const float *w1 = &TB_W1[TB_CH(d) * TB_WSTRIDE_X];
         const float *b1 = &TB_B1[TB_CH(d) * TB_B];
         const float *w2 = &TB_W2[TB_CH(d) * TB_WSTRIDE_Y];
@@ -79,8 +80,19 @@ void timebase_forward(const float *x, float *y)
                 float acc = b2[j];
                 for (int b = 0; b < TB_B; ++b)
                     acc += w2[j * TB_B + b] * s_b[b];
-                y[(j * TB_P + p) * TB_D + d] = acc + m;
+                FEA_OUT(yd, ys, emit, d, j * TB_P + p, acc + m);
             }
         }
     }
 }
+
+/* Full buffer (caller owns H x D, time-major): the original API, same arithmetic. */
+void timebase_forward(const float *x, float *y) { timebase_run(x, y, 0, TB_D, TB_D, 0); }
+
+/* One channel d (10-12): its H forecasts to yc[0..H-1].  Lets the caller emit channel by
+ * channel with an H-float buffer (porting rule 1) instead of holding H x D. */
+void timebase_forward_ch(const float *x, int d, float *yc) { timebase_run(x, yc, d, d + 1, 1, 0); }
+
+/* One channel d (10-13): each forecast value goes to emit(d, t, v) the moment it is final -
+ * no H-float buffer (fea_emit.h).  Same values as timebase_forward_ch, bit for bit. */
+void timebase_forward_emit(const float *x, int d, fea_emit_fn emit) { timebase_run(x, 0, d, d + 1, 1, emit); }

@@ -4,6 +4,7 @@
  */
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "dipe_infer.h"
 #include "dipe_vectors.h"
@@ -44,10 +45,38 @@ static void check(const char *name, const float *got,
     }
 }
 
+/* 10-13: the per-value emit API must hand out exactly the buffered values (bit for bit),
+ * each (d, t) once.  Rebuilt time-major from the sink and compared with memcmp. */
+static float g_ye[DIPE_H * DIPE_D];
+static int g_cnt[DIPE_H * DIPE_D];
+static void emit_sink(int d, int t, float v)
+{
+    g_ye[t * DIPE_D + d] = v;
+    g_cnt[t * DIPE_D + d]++;
+}
+
+static int check_emit(const float *y)
+{
+    for (int d = 0; d < DIPE_D; ++d)
+        dipe_forward_emit(DG_X, d, emit_sink);
+    for (int i = 0; i < DIPE_H * DIPE_D; ++i)
+        if (g_cnt[i] != 1) {
+            printf("FAIL  emit   cell %d emitted %d times\n", i, g_cnt[i]);
+            return 1;
+        }
+    if (memcmp(g_ye, y, sizeof g_ye) != 0) {
+        printf("FAIL  emit   values differ from the buffered forward\n");
+        return 1;
+    }
+    printf("PASS  emit   n=%d bit-identical to the buffered forward\n", DIPE_H * DIPE_D);
+    return 0;
+}
+
 int main(void)
 {
     static float y[DIPE_H * DIPE_D];
     dipe_forward(DG_X, y);
+    g_fail += check_emit(y);
 
     check("mean", dipe_st_mean, DG_MEAN, DIPE_D);
     check("std",  dipe_st_std,  DG_STD,  DIPE_D);

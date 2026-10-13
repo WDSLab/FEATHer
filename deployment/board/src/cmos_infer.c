@@ -43,9 +43,10 @@ static float s_xn[CMOS_L];            /* one channel, normalised           */
 static float s_cv[CMOS_CONV_DIM];     /* conv output, one channel          */
 static float s_g[CMOS_NMAP];          /* gate logits -> softmax weights    */
 
-void cmos_forward(const float *x, float *y)
+static void cmos_run(const float *x, float *y, int d0, int d1, int ys, fea_emit_fn emit)
 {
-    for (int d = 0; d < CMOS_D; ++d) {
+    for (int d = d0; d < d1; ++d) {
+        float *yd = y ? ((ys == 1) ? y : y + d) : 0;   /* this channel's outputs */
         /* mean, then biased variance of the centred channel */
         float m = 0.0f;
         for (int t = 0; t < CMOS_L; ++t)
@@ -110,8 +111,19 @@ void cmos_forward(const float *x, float *y)
                         acc += w[i] * s_xn[i * CMOS_SEG + s];
                     out += acc * s_g[n];
                 }
-                y[(j * CMOS_SEG + s) * CMOS_D + d] = out * sd + m;
+                FEA_OUT(yd, ys, emit, d, j * CMOS_SEG + s, out * sd + m);
             }
         }
     }
 }
+
+/* Full buffer (caller owns H x D, time-major): the original API, same arithmetic. */
+void cmos_forward(const float *x, float *y) { cmos_run(x, y, 0, CMOS_D, CMOS_D, 0); }
+
+/* One channel d (10-12): its H forecasts to yc[0..H-1].  Lets the caller emit channel by
+ * channel with an H-float buffer (porting rule 1) instead of holding H x D. */
+void cmos_forward_ch(const float *x, int d, float *yc) { cmos_run(x, yc, d, d + 1, 1, 0); }
+
+/* One channel d (10-13): each forecast value goes to emit(d, t, v) the moment it is final -
+ * no H-float buffer (fea_emit.h).  Same values as cmos_forward_ch, bit for bit. */
+void cmos_forward_emit(const float *x, int d, fea_emit_fn emit) { cmos_run(x, 0, d, d + 1, 1, emit); }

@@ -57,11 +57,12 @@ float mixlinear_st_xt[ML_XT_N * ML_D];
 float mixlinear_st_xf[ML_XF_N * ML_D];
 #endif
 
-void mixlinear_forward(const float *x, float *y)
+static void mixlinear_run(const float *x, float *y, int d0, int d1, int ys, fea_emit_fn emit)
 {
     int c, s, p, j, k, sx, o, o2, i, r, col;
 
-    for (c = 0; c < ML_D; c++) {
+    for (c = d0; c < d1; c++) {
+        float *yd = y ? ((ys == 1) ? y : y + c) : 0;   /* this channel's outputs */
         /* 1. mean over time of this channel */
         float m = 0.0f;
         for (s = 0; s < ML_L; s++) m += x[s * ML_D + c];
@@ -165,9 +166,9 @@ void mixlinear_forward(const float *x, float *y)
                 float xf = a / (float)ML_SEGY;
 
                 s = k * ML_P + p;
-                y[s * ML_D + c] = xt * ML_ALPHA
+                FEA_OUT(yd, ys, emit, c, s, xt * ML_ALPHA
                                 + m
-                                + xf * (1.0f - ML_ALPHA);
+                                + xf * (1.0f - ML_ALPHA));
 #ifdef ML_CAPTURE_STAGES
                 mixlinear_st_xt[s * ML_D + c] = xt;
                 mixlinear_st_xf[s * ML_D + c] = xf;
@@ -176,3 +177,14 @@ void mixlinear_forward(const float *x, float *y)
         }
     }
 }
+
+/* Full buffer (caller owns H x D, time-major): the original API, same arithmetic. */
+void mixlinear_forward(const float *x, float *y) { mixlinear_run(x, y, 0, ML_D, ML_D, 0); }
+
+/* One channel d (10-12): its H forecasts to yc[0..H-1].  Lets the caller emit channel by
+ * channel with an H-float buffer (porting rule 1) instead of holding H x D. */
+void mixlinear_forward_ch(const float *x, int d, float *yc) { mixlinear_run(x, yc, d, d + 1, 1, 0); }
+
+/* One channel d (10-13): each forecast value goes to emit(d, t, v) the moment it is final -
+ * no H-float buffer (fea_emit.h).  Same values as mixlinear_forward_ch, bit for bit. */
+void mixlinear_forward_emit(const float *x, int d, fea_emit_fn emit) { mixlinear_run(x, 0, d, d + 1, 1, emit); }

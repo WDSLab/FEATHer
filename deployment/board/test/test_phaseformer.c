@@ -4,6 +4,7 @@
  */
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "phaseformer_infer.h"
 #include "phaseformer_vectors.h"
@@ -44,10 +45,38 @@ static void check(const char *name, const float *got,
 _Static_assert(PF_D == PF_D_GEN,
                "PF_D does not match the width the golden vectors were exported at - re-run export_golden_phaseformer.py --d_model");
 
+/* 10-13: the per-value emit API must hand out exactly the buffered values (bit for bit),
+ * each (d, t) once.  Rebuilt time-major from the sink and compared with memcmp. */
+static float g_ye[PF_H * PF_D];
+static int g_cnt[PF_H * PF_D];
+static void emit_sink(int d, int t, float v)
+{
+    g_ye[t * PF_D + d] = v;
+    g_cnt[t * PF_D + d]++;
+}
+
+static int check_emit(const float *y)
+{
+    for (int d = 0; d < PF_D; ++d)
+        phaseformer_forward_emit(PG_X, d, emit_sink);
+    for (int i = 0; i < PF_H * PF_D; ++i)
+        if (g_cnt[i] != 1) {
+            printf("FAIL  emit   cell %d emitted %d times\n", i, g_cnt[i]);
+            return 1;
+        }
+    if (memcmp(g_ye, y, sizeof g_ye) != 0) {
+        printf("FAIL  emit   values differ from the buffered forward\n");
+        return 1;
+    }
+    printf("PASS  emit   n=%d bit-identical to the buffered forward\n", PF_H * PF_D);
+    return 0;
+}
+
 int main(void)
 {
     static float y[PF_H * PF_D];
     phaseformer_forward(PG_X, y);
+    g_fail += check_emit(y);
 
     printf("PhaseFormer L=%d H=%d D=%d period=%d layers=%d latent=%d routers=%d heads=%d pos=%d\n",
            PF_L, PF_H, PF_D, PF_P, PF_NL, PF_DL, PF_R, PF_NH, PF_PE);

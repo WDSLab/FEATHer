@@ -4,6 +4,7 @@
  */
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "stsf_infer.h"
 #include "stsf_vectors.h"
@@ -44,10 +45,38 @@ static void check(const char *name, const float *got,
     }
 }
 
+/* 10-13: the per-value emit API must hand out exactly the buffered values (bit for bit),
+ * each (d, t) once.  Rebuilt time-major from the sink and compared with memcmp. */
+static float g_ye[STSF_H * STSF_D];
+static int g_cnt[STSF_H * STSF_D];
+static void emit_sink(int d, int t, float v)
+{
+    g_ye[t * STSF_D + d] = v;
+    g_cnt[t * STSF_D + d]++;
+}
+
+static int check_emit(const float *y)
+{
+    for (int d = 0; d < STSF_D; ++d)
+        stsf_forward_emit(SG_X, d, emit_sink);
+    for (int i = 0; i < STSF_H * STSF_D; ++i)
+        if (g_cnt[i] != 1) {
+            printf("FAIL  emit   cell %d emitted %d times\n", i, g_cnt[i]);
+            return 1;
+        }
+    if (memcmp(g_ye, y, sizeof g_ye) != 0) {
+        printf("FAIL  emit   values differ from the buffered forward\n");
+        return 1;
+    }
+    printf("PASS  emit   n=%d bit-identical to the buffered forward\n", STSF_H * STSF_D);
+    return 0;
+}
+
 int main(void)
 {
     static float y[STSF_H * STSF_D];
     stsf_forward(SG_X, y);
+    g_fail += check_emit(y);
 
     check("mean", stsf_st_mean, SG_MEAN, STSF_D);
     check("xagg", stsf_st_xagg, SG_XAGG, STSF_D * STSF_L);
