@@ -233,7 +233,8 @@ def main():
     df = pd.DataFrame(missing or [{}])
     print(f"stage {a.stage}: {len(cells)} cells planned, {len(cells) - len(missing)} done, {len(missing)} missing")
     if missing:
-        print(df.groupby(["model", "config_id"]).size().to_string())
+        by_cfg = df.groupby(["model", "config_id"]).size()
+        print((by_cfg if len(by_cfg) <= 60 else df.groupby("model").size()).to_string())
     if a.check or not missing:
         return
     os.makedirs(os.path.join(RES, "_incoming"), exist_ok=True)
