@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """Export golden vectors + weights for the SAMformer port (src/samformer_infer.c).
 
-SAMformer (ICML 2024) joined as the channel-mixing reference on 2026-10-06.
-Every candidate setting has the same structure (hid_dim 16; they differ in lr
-and SAM rho only), so --config / --data are accepted for a uniform interface
-with the other 10-07 exports and only checked to resolve.
+SAMformer (ICML 2024), the channel-mixing reference.  Every candidate setting
+has the same structure (hid_dim 16; they differ in lr and SAM rho only), so
+--config / --data are accepted for a uniform interface with the other config
+exports and only checked to resolve.
 
 Real upstream model via the benchmark wrapper; every weight re-drawn at
 random (README: blind-golden rule; Linear weights scaled by 1/sqrt(fan_in),
@@ -26,7 +26,7 @@ if str(_ROOT) not in sys.path:
 
 from baselines.SAMformer.wrapper import build     # noqa: E402
 from tools.results.protocol import resolve        # noqa: E402
-from export_golden import emit_array              # noqa: E402  (same dir)
+from golden_io import emit_array              # noqa: E402
 
 WEIGHT_SEED = 2025
 INPUT_SEED = 7

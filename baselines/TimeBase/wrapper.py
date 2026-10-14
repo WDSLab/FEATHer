@@ -6,7 +6,7 @@ Reference:
     Series Forecasting", ICML 2025 (PMLR 267:26227-26246).
     Code: github.com/hqh0728/TimeBase (commit 369b330, 2025-09-04, MIT).
 
-Added 2026-10-06 (user): smallest peer-reviewed long-horizon forecaster with an
+Smallest peer-reviewed long-horizon forecaster with an
 explicit edge claim; channel-independent (one shared segment->basis->segment map).
 
 Defaults = the official ETTh1 script (scripts/etth1.sh): period_len 24,

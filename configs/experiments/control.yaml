@@ -1,0 +1,12 @@
+# Control arms (run.py --stage control): SparseTSF(+MLP) with FEATHer's mixing bus, and FEATHer without parts.
+#   model  registry model the arm trains (baselines/__init__.py MODELS)
+#   flags  worker CLI flags added to the run
+#   host   the model whose chosen industrial setting the arm trains with; the config_id carries it
+#          ("ctrl:<arm>@<host config_id>"), so a host whose setting changes makes the arm's cells missing again.
+
+SparseTSF_mix:      {model: SparseTSF_mix,      flags: [],                host: SparseTSF}
+SparseTSF_mixM:     {model: SparseTSF_mixM,     flags: [],                host: SparseTSF}
+SparseTSF_MLP_mix:  {model: SparseTSF_MLP_mix,  flags: [],                host: SparseTSF_MLP}
+SparseTSF_MLP_mixM: {model: SparseTSF_MLP_mixM, flags: [],                host: SparseTSF_MLP}
+FEATHer_frontnone:  {model: FEATHer,            flags: [--front, none],   host: FEATHer_mix}   # no bands, no gate
+FEATHer_mixsep:     {model: FEATHer,            flags: [--mix_sep, "1"],  host: FEATHer_mix}   # 10-11: residual MLP per channel

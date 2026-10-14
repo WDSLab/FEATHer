@@ -26,6 +26,7 @@
 numpy>=1.21.0,<2.0.0
 pandas>=1.3.0
 scikit-learn>=1.0.0
+pyyaml>=5.4                      # configs/<Model>.yaml (model hyperparameters)
 
 # Visualization
 matplotlib>=3.4.0

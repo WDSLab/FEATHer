@@ -1,0 +1,16 @@
+# DiPE-Linear (DASFAA'26) - wintertee/DiPE-Linear configs/models/DiPE/base.yaml + scripts/DiPE.sh
+# Values = exactly what the experiments use (L = 96).  Key "<dataset>@<H>" = only for that horizon,
+# merged on top of "<dataset>".  Change a value in place, never by adding a second entry.
+# Keys: dipe_num_experts = number of linear experts | dipe_loss_alpha = weight between DiPE's two loss terms | dipe_use_revin = instance normalisation on/off
+
+default: {lr: 0.001, loss: mse}
+datasets:
+  # LTSF (official scripts)
+  ETTh1: {dipe_num_experts: 1, dipe_loss_alpha: 1.0, dipe_use_revin: true}
+  ETTh2: {dipe_num_experts: 3, dipe_loss_alpha: 0.9, dipe_use_revin: true}
+  ETTm1: {dipe_num_experts: 1, dipe_loss_alpha: 1.0, dipe_use_revin: true}
+  ETTm2: {dipe_num_experts: 1, dipe_loss_alpha: 0.9, dipe_use_revin: true}
+  Weather: {dipe_num_experts: 4, dipe_loss_alpha: 0.9, dipe_use_revin: false}
+  Exchange: {dipe_num_experts: 1, dipe_loss_alpha: 1.0, dipe_use_revin: true}     # no official setting -> chosen on validation among the candidates (protocol.py)
+  Electricity: {dipe_num_experts: 4, dipe_loss_alpha: 0.3, dipe_use_revin: false}
+  Traffic: {dipe_num_experts: 1, dipe_loss_alpha: 1.0, dipe_use_revin: true}     # no official setting -> chosen on validation among the candidates (protocol.py)

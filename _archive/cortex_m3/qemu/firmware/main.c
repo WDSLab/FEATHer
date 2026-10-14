@@ -23,7 +23,7 @@
  *                     -nographic -semihosting -icount shift=0
  *
  * The weights.h / arena.h headers are produced by
- *   python -m deployment.cortex_m3.qemu.codegen ...
+ *   python -m _archive.cortex_m3.qemu.codegen ...
  * and live in the gen/ subdirectory next to this file.
  */
 #include <stdint.h>

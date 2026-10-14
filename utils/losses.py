@@ -2,15 +2,7 @@ import torch
 
 
 def _power_spectrum(x: torch.Tensor) -> torch.Tensor:
-    """
-    Compute power spectrum averaged over features.
-
-    Args:
-        x: (B, L, D) input tensor
-
-    Returns:
-        (B, Lf) average power per frequency bin
-    """
+    """(B, L, D) -> (B, Lf): power per rfft bin, averaged over channels."""
     x32 = x.float()
     Xf = torch.fft.rfft(x32, dim=1)   # (B, Lf, D)
     P = (Xf.abs() ** 2).mean(dim=2)   # (B, Lf)
@@ -25,10 +17,10 @@ def spectral_separation_loss_scales(H: torch.Tensor, eps: float = 1e-6) -> torch
 
     Args:
         H: (S, B, L, D) tensor where:
-           S = num_scales (e.g., 3 or 4)
+           S = number of bands (1-3)
            B = batch size
            L = seq_len
-           D = feature dim
+           D = channels
         eps: small constant for numerical stability
 
     Returns:
@@ -36,13 +28,11 @@ def spectral_separation_loss_scales(H: torch.Tensor, eps: float = 1e-6) -> torch
     """
     S, B, L, D = H.shape
 
-    # Single-band ablation variants (e.g. FEATHer_ms_P) have no bands to
-    # disentangle — return 0 so spec loss is a no-op rather than crashing
-    # on torch.stack of an empty list.
+    # Single-band variants have nothing to separate: return 0 rather than
+    # crash on torch.stack of an empty list.
     if S < 2:
         return H.new_zeros(())
 
-    # Compute power spectrum for each scale: (B, L, D) -> (B, Lf)
     P_list = []
     for s in range(S):
         P_s = _power_spectrum(H[s])
@@ -59,7 +49,7 @@ def spectral_separation_loss_scales(H: torch.Tensor, eps: float = 1e-6) -> torch
         bands.append(slice(start, end))
 
     def band_ratio(P, band):
-        """Compute ratio of energy in band to total energy."""
+        """Energy in `band` / total energy, per sample."""
         band_e = P[:, band].sum(dim=1)       # (B,)
         total_e = P.sum(dim=1) + eps         # (B,)
         return band_e / total_e              # (B,)
@@ -67,31 +57,19 @@ def spectral_separation_loss_scales(H: torch.Tensor, eps: float = 1e-6) -> torch
     main_terms = []
     overlap_terms = []
 
-    # For each scale s:
-    #   - Maximize energy ratio in its own band (close to 1)
-    #   - Minimize energy ratio in other bands (close to 0)
-    #
-    # AUDIT-FIX (2026-07-14, commit cfd90c5): this mapping was INVERTED from
-    # inception — the code indexed bands[s] directly, pushing the POINT
-    # (high-freq) band into the lowest bins and demanding high-frequency
-    # energy from the band-limited LOW scale. Every FEATHer run trained
-    # before this fix (incl. the 2026-07-03 OFAT, so its "lambda flat"
-    # verdict is confounded) used the inverted loss.
-    # See manuscript/notes/code_audit_2026-07-14.md P1-1.
-    #
-    # Correct mapping: H is stacked in FEATHer.forward's bands_list order
-    # [POINT, (HIGH,) (MID,) LOW] — scale 0 is the HIGHEST-frequency band
-    # and scale S-1 the lowest (AvgPool-smoothed). Band slices run low→high
-    # along the rfft axis, so scale s owns bands[S-1-s].
+    # For each scale s: push its energy ratio in its own band toward 1 and
+    # in the other bands toward 0.
+    # H is stacked in FEATHer.forward's order [POINT, (MID,) LOW]: scale 0 is
+    # the HIGHEST-frequency band, scale S-1 the lowest (AvgPool-smoothed).
+    # Band slices run low -> high along the rfft axis, so scale s owns
+    # bands[S-1-s] (not bands[s]).
     for s in range(S):
         P_s = P_list[s]
         own = S - 1 - s
 
-        # Energy ratio in own frequency band
         r_main = band_ratio(P_s, bands[own])
         main_terms.append((1.0 - r_main) ** 2)
 
-        # Energy ratio in other bands (should be minimal)
         for t in range(S):
             if t == own:
                 continue

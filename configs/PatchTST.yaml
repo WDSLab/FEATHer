@@ -1,0 +1,16 @@
+# PatchTST (ICLR'23) - yuqinie98/PatchTST PatchTST_supervised/scripts/PatchTST/<dataset>.sh
+# Values = exactly what the experiments use (L = 96).  Key "<dataset>@<H>" = only for that horizon,
+# merged on top of "<dataset>".  Change a value in place, never by adding a second entry.
+# Keys: patchtst_d_model / _d_ff = width of the transformer | _n_heads = attention heads | _dropout / _fc_dropout
+
+default: {lr: 0.0001, loss: mse}
+datasets:
+  # LTSF (official scripts)
+  ETTh1: {patchtst_d_model: 16, patchtst_d_ff: 128, patchtst_n_heads: 4, patchtst_dropout: 0.3, patchtst_fc_dropout: 0.3, lr: 0.0001}
+  ETTh2: {patchtst_d_model: 16, patchtst_d_ff: 128, patchtst_n_heads: 4, patchtst_dropout: 0.3, patchtst_fc_dropout: 0.3, lr: 0.0001}
+  ETTm1: {patchtst_d_model: 128, patchtst_d_ff: 256, patchtst_n_heads: 16, patchtst_dropout: 0.2, patchtst_fc_dropout: 0.2, lr: 0.0001}
+  ETTm2: {patchtst_d_model: 128, patchtst_d_ff: 256, patchtst_n_heads: 16, patchtst_dropout: 0.2, patchtst_fc_dropout: 0.2, lr: 0.0001}
+  Weather: {patchtst_d_model: 128, patchtst_d_ff: 256, patchtst_n_heads: 16, patchtst_dropout: 0.2, patchtst_fc_dropout: 0.2, lr: 0.0001}
+  Exchange: {patchtst_d_model: 16, patchtst_d_ff: 128, patchtst_n_heads: 4, patchtst_dropout: 0.3, patchtst_fc_dropout: 0.3, lr: 0.0001}
+  Electricity: {patchtst_d_model: 128, patchtst_d_ff: 256, patchtst_n_heads: 16, patchtst_dropout: 0.2, patchtst_fc_dropout: 0.2, lr: 0.0001}
+  Traffic: {patchtst_d_model: 128, patchtst_d_ff: 256, patchtst_n_heads: 16, patchtst_dropout: 0.2, patchtst_fc_dropout: 0.2, lr: 0.0001}

@@ -4,15 +4,13 @@
 CycleNet (Lin et al., NeurIPS 2024) with the LINEAR backbone and RevIN - the
 configuration our sweeps run (baselines/CycleNet/wrapper.py).
 
-Why it is ported (2026-09-30): its weights fit the F103RB at H = 96 and 192
-(MetroPT3 cell: 44.5 / 80.9 KB), so without a port it sat in the tables as
-"weights fit, SRAM unverified" and was left out of the deployable ranking for
-a reason that was ours.  Same fairness argument as DLinear.  From H = 336 the
-weights alone exceed 128 KB; this script refuses those horizons.
+Its weights fit the F103RB at H = 96 and 192 (MetroPT3 cell: 44.5 / 80.9 KB),
+so it is ported to verify SRAM rather than excluded.  From H = 336 the weights
+alone exceed 128 KB; this script refuses those horizons.
 
 Weights are RANDOM, including the cycle table: upstream initialises the cycle
 to zeros, and a zero cycle would let a port that ignores it (or indexes it
-wrongly) pass the golden - the "blind golden" trap of 2026-09-14.
+wrongly) pass the golden (the "blind golden" trap).
 
 Writes:
     golden/cyclenet_weights.h   float32 weight arrays (flash constants)
@@ -38,7 +36,7 @@ from baselines._import_helper import isolated_import  # noqa: E402
 
 SEQ_LEN = 96
 D_MODEL = 7                 # MetroPT3 deployment cell, same as the other ports
-CYCLE = 298                 # CycleNet cycle for MetroPT3 (_DATASET_OVERRIDES)
+CYCLE = 298                 # CycleNet cycle for MetroPT3 (configs/CycleNet.yaml)
 FLASH_BYTES = 128 * 1024
 FIRMWARE_FLOOR = int(10.4 * 1024)      # measured, BOARD_RESULTS_20260824.md
 

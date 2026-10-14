@@ -1,0 +1,16 @@
+# SAMformer (ICML'24) - official run_script.sh (rho, lr)
+# Values = exactly what the experiments use (L = 96).  Key "<dataset>@<H>" = only for that horizon,
+# merged on top of "<dataset>".  Change a value in place, never by adding a second entry.
+# Keys: samformer_rho = SAM neighbourhood size
+
+default: {lr: 0.001, loss: mse}
+datasets:
+  # LTSF (official scripts)
+  ETTh1: {samformer_rho: 0.7, lr: 0.001}
+  ETTh2: {samformer_rho: 0.7, lr: 0.001}
+  ETTm1: {samformer_rho: 0.7, lr: 0.001}
+  ETTm2: {samformer_rho: 0.7, lr: 0.001}
+  Weather: {samformer_rho: 0.7, lr: 0.0001}
+  Exchange: {samformer_rho: 0.7, lr: 0.001}
+  Electricity: {samformer_rho: 0.7, lr: 0.0001}
+  Traffic: {samformer_rho: 0.7, lr: 0.0001}

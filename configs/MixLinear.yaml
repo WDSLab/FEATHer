@@ -1,0 +1,55 @@
+# MixLinear (ICLR'26) - official *_best.sh (lr, alpha, lpf per H)
+# Values = exactly what the experiments use (L = 96).  Key "<dataset>@<H>" = only for that horizon,
+# merged on top of "<dataset>".  Change a value in place, never by adding a second entry.
+# Keys: mixlinear_period_len = segment length | mixlinear_lpf = low-pass cut (kept frequencies) | mixlinear_alpha = weight of the time branch vs the frequency branch
+
+default: {lr: 0.03, loss: mse}
+datasets:
+  # LTSF (official scripts)
+  ETTh1: {mixlinear_period_len: 24, lr: 0.03}
+  ETTh1@96: {mixlinear_alpha: 0.95, mixlinear_lpf: 1}
+  ETTh1@192: {mixlinear_alpha: 0.95, mixlinear_lpf: 5}
+  ETTh1@336: {mixlinear_alpha: 0.99, mixlinear_lpf: 2}
+  ETTh1@720: {mixlinear_alpha: 0.99, mixlinear_lpf: 19}
+  ETTh2: {mixlinear_period_len: 24, lr: 0.02}
+  ETTh2@96: {mixlinear_alpha: 0.5, mixlinear_lpf: 19}
+  ETTh2@192: {mixlinear_alpha: 0.01, mixlinear_lpf: 19}
+  ETTh2@336: {mixlinear_alpha: 0.01, mixlinear_lpf: 15}
+  ETTh2@720: {mixlinear_alpha: 0.5, mixlinear_lpf: 19}
+  ETTm1: {mixlinear_period_len: 4, lr: 0.03}     # no official setting -> chosen on validation among the candidates (protocol.py)
+  ETTm1@96: {mixlinear_alpha: 0.95, mixlinear_lpf: 1}
+  ETTm1@192: {mixlinear_alpha: 0.95, mixlinear_lpf: 5}
+  ETTm1@336: {mixlinear_alpha: 0.99, mixlinear_lpf: 2}
+  ETTm1@720: {mixlinear_alpha: 0.99, mixlinear_lpf: 19}
+  ETTm2: {mixlinear_period_len: 4, lr: 0.03}     # no official setting -> chosen on validation among the candidates (protocol.py)
+  ETTm2@96: {mixlinear_alpha: 0.95, mixlinear_lpf: 1}
+  ETTm2@192: {mixlinear_alpha: 0.95, mixlinear_lpf: 5}
+  ETTm2@336: {mixlinear_alpha: 0.99, mixlinear_lpf: 2}
+  ETTm2@720: {mixlinear_alpha: 0.99, mixlinear_lpf: 19}
+  Weather: {mixlinear_period_len: 4, lr: 0.03}     # no official setting -> chosen on validation among the candidates (protocol.py)
+  Weather@96: {mixlinear_alpha: 0.95, mixlinear_lpf: 1}
+  Weather@192: {mixlinear_alpha: 0.95, mixlinear_lpf: 5}
+  Weather@336: {mixlinear_alpha: 0.99, mixlinear_lpf: 2}
+  Weather@720: {mixlinear_alpha: 0.99, mixlinear_lpf: 19}
+  Exchange: {mixlinear_period_len: 24, lr: 0.03}     # no official setting -> chosen on validation among the candidates (protocol.py)
+  Exchange@96: {mixlinear_alpha: 0.95, mixlinear_lpf: 1}
+  Exchange@192: {mixlinear_alpha: 0.95, mixlinear_lpf: 5}
+  Exchange@336: {mixlinear_alpha: 0.99, mixlinear_lpf: 2}
+  Exchange@720: {mixlinear_alpha: 0.99, mixlinear_lpf: 19}
+  Electricity: {mixlinear_period_len: 24, lr: 0.03}
+  Electricity@96: {mixlinear_alpha: 0.5, mixlinear_lpf: 19}
+  Electricity@192: {mixlinear_alpha: 0.99, mixlinear_lpf: 15}
+  Electricity@336: {mixlinear_alpha: 0.99, mixlinear_lpf: 15}
+  Electricity@720: {mixlinear_alpha: 0.5, mixlinear_lpf: 15}
+  Traffic: {mixlinear_period_len: 24, lr: 0.03}
+  Traffic@96: {mixlinear_alpha: 0.5, mixlinear_lpf: 19}
+  Traffic@192: {mixlinear_alpha: 0.01, mixlinear_lpf: 15}
+  Traffic@336: {mixlinear_alpha: 0.5, mixlinear_lpf: 19}
+  Traffic@720: {mixlinear_alpha: 0.9, mixlinear_lpf: 19}
+  # industrial: period-type keys only (FFT period <= 48 / daily cycle, EXPERIMENT_PROTOCOL.md §5)
+  Steel: {mixlinear_period_len: 24}
+  WindSCADA: {mixlinear_period_len: 48}
+  BlastFurnace: {mixlinear_period_len: 48}
+  MetroPT3: {mixlinear_period_len: 24}
+  N2O: {mixlinear_period_len: 24}
+  EWELD: {mixlinear_period_len: 24}

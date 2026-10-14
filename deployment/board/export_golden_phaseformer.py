@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Export golden vectors + weights for the PhaseFormer port (src/phaseformer_infer.c).
 
-PhaseFormer (ICLR 2026) joined the chip pool on 2026-10-06.  Layers, latent
+PhaseFormer (ICLR 2026).  Layers, latent
 width, routers, heads and the position embedding come from the candidate
 setting (per H), the period from the dataset's period rule; --config / --data
 resolve them exactly as the experiments do (tools/results/protocol.resolve,
@@ -27,7 +27,7 @@ if str(_ROOT) not in sys.path:
 
 from baselines.PhaseFormer.wrapper import build   # noqa: E402
 from tools.results.protocol import resolve        # noqa: E402
-from export_golden import emit_array              # noqa: E402  (same dir)
+from golden_io import emit_array              # noqa: E402
 
 WEIGHT_SEED = 2025
 INPUT_SEED = 7
@@ -71,7 +71,7 @@ def main() -> None:
             elif p.dim() == 2 and "router" not in name and "pos_embedding" not in name:
                 # Linear weights scaled by 1/sqrt(fan_in): with a flat 0.5 the wide settings
                 # (latent 32/128) blow activations up until float32 itself (PyTorch included)
-                # misses the 1e-5/1e-4 tolerance against float64 - checked 2026-10-07
+                # misses the 1e-5/1e-4 tolerance against float64
                 p.normal_(0.0, p.shape[1] ** -0.5)
             else:
                 p.normal_(0.0, 0.5)

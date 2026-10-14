@@ -1,0 +1,16 @@
+# iTransformer (ICLR'24) - thuml/iTransformer scripts/multivariate_forecasting/<dataset>/
+# Values = exactly what the experiments use (L = 96).  Key "<dataset>@<H>" = only for that horizon,
+# merged on top of "<dataset>".  Change a value in place, never by adding a second entry.
+# Keys: itrans_d_model / itrans_d_ff = width | itrans_e_layers = encoder layers
+
+default: {lr: 0.0001, loss: mse}
+datasets:
+  # LTSF (official scripts)
+  ETTh1: {itrans_d_model: 256, itrans_d_ff: 256, itrans_e_layers: 2, lr: 0.0001}
+  ETTh2: {itrans_d_model: 128, itrans_d_ff: 128, itrans_e_layers: 2, lr: 0.0001}
+  ETTm1: {itrans_d_model: 128, itrans_d_ff: 128, itrans_e_layers: 2, lr: 0.0001}
+  ETTm2: {itrans_d_model: 128, itrans_d_ff: 128, itrans_e_layers: 2, lr: 0.0001}
+  Weather: {itrans_d_model: 512, itrans_d_ff: 512, itrans_e_layers: 3, lr: 0.0001}
+  Exchange: {itrans_d_model: 128, itrans_d_ff: 128, itrans_e_layers: 2, lr: 0.0001}
+  Electricity: {itrans_d_model: 512, itrans_d_ff: 512, itrans_e_layers: 3, lr: 0.0005}
+  Traffic: {itrans_d_model: 512, itrans_d_ff: 512, itrans_e_layers: 4, lr: 0.001}

@@ -1,340 +1,73 @@
-import os
+"""Sliding-window datasets for one split (train / val / test) of a multichannel series.
+
+Each item = (input window, label + target window, their time marks).  The three classes differ only in where the
+splits are cut (and Dataset_Custom puts the target column last and can hide imputed target cells).
+"""
 import numpy as np
 import pandas as pd
-import torch
-from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
+from torch.utils.data import Dataset
+
 from utils.timefeatures import time_features
-import warnings
 
-warnings.filterwarnings('ignore')
-
-class Dataset_ETT_hour(Dataset):
-    def __init__(self, df, data_name, flag='train', size=None,
-                 features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, timeenc=0, freq='h',
-                 starting_percent=0,percent=100):
-        # size [seq_len, label_len, pred_len]
-        # info
-        if size == None:
-            self.seq_len = 24 * 4 * 4
-            self.label_len = 24 * 4
-            self.pred_len = 24 * 4
-        else:
-            self.seq_len = size[0]
-            self.label_len = size[1]
-            self.pred_len = size[2]
-        # init
-        assert flag in ['train', 'test', 'val']
-        type_map = {'train': 0, 'val': 1, 'test': 2}
-        self.set_type = type_map[flag]
-
-        self.features = features
-        self.target = target
-        self.scale = scale
-        self.timeenc = timeenc
-        self.freq = freq
-        self.percent = percent
-        self.starting_percent = starting_percent
-
-        self.df_raw = df
-
-        self.__read_data__()
-
-    def __read_data__(self):
-        self.scaler = StandardScaler()
-
-        border1s = [0, 12 * 30 * 24 - self.seq_len, 12 * 30 * 24 + 4 * 30 * 24 - self.seq_len]
-        border2s = [12 * 30 * 24, 12 * 30 * 24 + 4 * 30 * 24, 12 * 30 * 24 + 8 * 30 * 24]
-        border1 = border1s[self.set_type]
-        border2 = border2s[self.set_type]
-
-        if self.set_type == 0:
-            border1 = (border2 - self.seq_len) * self.starting_percent // 100
-            border2 = (border2 - self.seq_len) * (self.starting_percent+self.percent) // 100 + self.seq_len
-        print("Current border1, border2 is:",border1, border2)
-
-        if self.features == 'M' or self.features == 'MS':
-            cols_data = self.df_raw.columns[1:]
-            df_data = self.df_raw[cols_data]
-        elif self.features == 'S':
-            df_data = self.df_raw[[self.target]]
-
-        if self.scale:
-            train_data = df_data[border1s[0]:border2s[0]]
-            self.scaler.fit(train_data.values)
-            data = self.scaler.transform(df_data.values)
-        else:
-            data = df_data.values
-
-        df_stamp = self.df_raw[['date']][border1:border2]
-        df_stamp['date'] = pd.to_datetime(df_stamp.date)
-        if self.timeenc == 0:
-            df_stamp['month'] = df_stamp.date.apply(lambda row: row.month, 1)
-            df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)
-            df_stamp['weekday'] = df_stamp.date.apply(lambda row: row.weekday(), 1)
-            df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour, 1)
-            data_stamp = df_stamp.drop(columns=['date']).values
-        elif self.timeenc == 1:
-            data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=self.freq)
-            data_stamp = data_stamp.transpose(1, 0)
-
-        # Needed to map a window index back to its wall-clock timestamp
-        # (--dump_preds): window w spans raw rows border1+w+seq_len ...
-        self.border1 = border1
-        self.data_x = data[border1:border2]
-        self.data_y = data[border1:border2]
-        self.data_stamp = data_stamp
-
-    def __getitem__(self, index):
-        s_begin = index
-        s_end = s_begin + self.seq_len
-        r_begin = s_end - self.label_len
-        r_end = r_begin + self.label_len + self.pred_len
-
-        seq_x = self.data_x[s_begin:s_end]
-        seq_y = self.data_y[r_begin:r_end]
-        seq_x_mark = self.data_stamp[s_begin:s_end]
-        seq_y_mark = self.data_stamp[r_begin:r_end]
-
-        return seq_x, seq_y, seq_x_mark, seq_y_mark
-
-    def __len__(self):
-        return len(self.data_x) - self.seq_len - self.pred_len + 1
-
-    def inverse_transform(self, data):
-        return self.scaler.inverse_transform(data)
+SPLITS = {"train": 0, "val": 1, "test": 2}
 
 
-class Dataset_ETT_minute(Dataset):
-    def __init__(self, df, data_name, flag='train', size=None,
-                 features='S', data_path='ETTm1.csv',
-                 target='OT', scale=True, timeenc=0, freq='t',
-                 starting_percent=0, percent=100):
-        # size [seq_len, label_len, pred_len]
-        # info
-        if size == None:
-            self.seq_len = 24 * 4 * 4
-            self.label_len = 24 * 4
-            self.pred_len = 24 * 4
-        else:
-            self.seq_len = size[0]
-            self.label_len = size[1]
-            self.pred_len = size[2]
-        # init
-        assert flag in ['train', 'test', 'val']
-        type_map = {'train': 0, 'val': 1, 'test': 2}
-        self.set_type = type_map[flag]
+class _Windows(Dataset):
+    minute_marks = False                      # timeenc=0 marks: add a quarter-hour column (ETT minute)
 
-        self.features = features
-        self.target = target
-        self.scale = scale
-        self.timeenc = timeenc
-        self.freq = freq
-        self.percent = percent
-        self.starting_percent = starting_percent
+    def __init__(self, df, data_name, flag="train", size=None, features="S", target="OT", scale=True,
+                 timeenc=0, freq="h", mask_df=None):
+        self.seq_len, self.label_len, self.pred_len = size or (24 * 4 * 4, 24 * 4, 24 * 4)
+        self.set_type = SPLITS[flag]
+        self.data_name, self.features, self.target, self.scale = data_name, features, target, scale
+        self.timeenc, self.freq = timeenc, freq
+        self.df_raw = self._order_columns(df)
+        self._read(mask_df)
 
-        self.df_raw = df
+    def _order_columns(self, df):
+        return df
 
-        self.__read_data__()
+    def _borders(self, n_rows):
+        """([train, val, test] start rows, [train, val, test] end rows); val / test start seq_len early."""
+        raise NotImplementedError
 
-    def __read_data__(self):
-        self.scaler = StandardScaler()
-
-        border1s = [0, 12 * 30 * 24 * 4 - self.seq_len, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4 - self.seq_len]
-        border2s = [12 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 4 * 30 * 24 * 4, 12 * 30 * 24 * 4 + 8 * 30 * 24 * 4]
-        
-        border1 = border1s[self.set_type]
-        border2 = border2s[self.set_type]
-
-        if self.set_type == 0:
-            border1 = (border2 - self.seq_len) * self.starting_percent // 100
-            border2 = (border2 - self.seq_len) * (self.starting_percent+self.percent) // 100 + self.seq_len
-        print("Current border1, border2 is:",border1, border2)
-
-        if self.features == 'M' or self.features == 'MS':
-            cols_data = self.df_raw.columns[1:]
-            df_data = self.df_raw[cols_data]
-        elif self.features == 'S':
-            df_data = self.df_raw[[self.target]]
-
-        if self.scale:
-            train_data = df_data[border1s[0]:border2s[0]]
-            self.scaler.fit(train_data.values)
-            data = self.scaler.transform(df_data.values)
-        else:
-            data = df_data.values
-
-        df_stamp = self.df_raw[['date']][border1:border2]
-        df_stamp['date'] = pd.to_datetime(df_stamp.date)
-        if self.timeenc == 0:
-            df_stamp['month'] = df_stamp.date.apply(lambda row: row.month, 1)
-            df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)
-            df_stamp['weekday'] = df_stamp.date.apply(lambda row: row.weekday(), 1)
-            df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour, 1)
-            df_stamp['minute'] = df_stamp.date.apply(lambda row: row.minute, 1)
-            df_stamp['minute'] = df_stamp.minute.map(lambda x: x // 15)
-            data_stamp = df_stamp.drop(['date'], 1).values
-        elif self.timeenc == 1:
-            data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=self.freq)
-            data_stamp = data_stamp.transpose(1, 0)
-
-        # Needed to map a window index back to its wall-clock timestamp
-        # (--dump_preds): window w spans raw rows border1+w+seq_len ...
-        self.border1 = border1
-        self.data_x = data[border1:border2]
-        self.data_y = data[border1:border2]
-        self.data_stamp = data_stamp
-
-    def __getitem__(self, index):
-        s_begin = index
-        s_end = s_begin + self.seq_len
-        r_begin = s_end - self.label_len
-        r_end = r_begin + self.label_len + self.pred_len
-
-        seq_x = self.data_x[s_begin:s_end]
-        seq_y = self.data_y[r_begin:r_end]
-        seq_x_mark = self.data_stamp[s_begin:s_end]
-        seq_y_mark = self.data_stamp[r_begin:r_end]
-
-        return seq_x, seq_y, seq_x_mark, seq_y_mark
-
-    def __len__(self):
-        return len(self.data_x) - self.seq_len - self.pred_len + 1
-
-    def inverse_transform(self, data):
-        return self.scaler.inverse_transform(data)
-
-
-class Dataset_Custom(Dataset):
-    def __init__(self, df, data_name, flag='train', size=None,
-                 features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, timeenc=0, freq='h',
-                 starting_percent=0,percent=100, mask_df=None):
-        # size [seq_len, label_len, pred_len]
-        # info
-        if size == None:
-            self.seq_len = 24 * 4 * 4
-            self.label_len = 24 * 4
-            self.pred_len = 24 * 4
-        else:
-            self.seq_len = size[0]
-            self.label_len = size[1]
-            self.pred_len = size[2]
-        # init
-        assert flag in ['train', 'test', 'val']
-        type_map = {'train': 0, 'val': 1, 'test': 2}
-        self.set_type = type_map[flag]
-
-        self.data_name = data_name
-        self.features = features
-        self.target = target
-        self.scale = scale
-        self.timeenc = timeenc
-        self.freq = freq
-
-        self.percent = percent
-        self.starting_percent = starting_percent
-
-        self.df_raw = df
-        # MASK-FIX (2026-07-15): optional companion observed-mask (1=observed,
-        # 0=imputed), same rows/channel-columns as `df` (see prep mask.csv).
-        # When present, imputed TARGET cells are NaN-ed so the loss/metrics
-        # score observed values only; INPUT keeps the hold-last fill.
-        self.mask_df = mask_df
-
-        self.__read_data__()
-
-    def __read_data__(self):
-        
-        self.scaler = StandardScaler()
-        '''
-        df_raw.columns: ['date', ...(other features), target feature]
-        '''
-        cols = list(self.df_raw.columns)
-        cols.remove(self.target)
-        cols.remove('date')
-        self.df_raw = self.df_raw[['date'] + cols + [self.target]]
-
-        # Standard LTSF (Autoformer-convention) 0.7/0.1/0.2 contiguous split
-        # for EVERY Dataset_Custom dataset.
-        # AUDIT-FIX (2026-07-14, cfd90c5, P1-2): Weather previously hit a
-        # hard-coded legacy border branch here (train = first 33% of rows,
-        # ~49% of the data in no split, test truncated) inherited from an
-        # old project alongside dead PM/PEMS_BAY/METR branches; all removed.
-        # Weather rows produced before this fix are NOT comparable and must
-        # be purged + re-run (tools/audit/purge_rows.py).
-        num_train = int(len(self.df_raw) * 0.7)
-        num_test = int(len(self.df_raw) * 0.2)
-        num_vali = len(self.df_raw) - num_train - num_test
-        border1s = [0, num_train - self.seq_len, len(self.df_raw) - num_test - self.seq_len]
-        border2s = [num_train, num_train + num_vali, len(self.df_raw)]
-
-        border1 = border1s[self.set_type]
-        border2 = border2s[self.set_type]
-        
-        if self.set_type == 0:
-            border1 = (border2 - self.seq_len) * self.starting_percent // 100
-            border2 = (border2 - self.seq_len) * (self.starting_percent+self.percent) // 100 + self.seq_len
+    def _read(self, mask_df):
+        starts, ends = self._borders(len(self.df_raw))
+        border1, border2 = starts[self.set_type], ends[self.set_type]
         print("Current border1, border2 is:", border1, border2)
 
-        if self.features == 'M' or self.features == 'MS':
-            cols_data = self.df_raw.columns[1:]
-            df_data = self.df_raw[cols_data]
-        elif self.features == 'S':
-            df_data = self.df_raw[[self.target]]
+        cols = list(self.df_raw.columns[1:]) if self.features in ("M", "MS") else [self.target]
+        values = self.df_raw[cols].values
+        self.scaler = StandardScaler()
+        if self.scale:                        # fitted on the train split only
+            self.scaler.fit(values[starts[0]:ends[0]])
+            values = self.scaler.transform(values)
 
-        if self.scale:
-            train_data = df_data[border1s[0]:border2s[0]]
-            self.scaler.fit(train_data.values)
-            data = self.scaler.transform(df_data.values)
-        else:
-            data = df_data.values
-
-        df_stamp = self.df_raw[['date']][border1:border2]
-        df_stamp['date'] = pd.to_datetime(df_stamp.date)
-        if self.timeenc == 0:
-            df_stamp['month'] = df_stamp.date.apply(lambda row: row.month, 1)
-            df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)
-            df_stamp['weekday'] = df_stamp.date.apply(lambda row: row.weekday(), 1)
-            df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour, 1)
-            data_stamp = df_stamp.drop(columns=['date']).values
-        elif self.timeenc == 1:
-            data_stamp = time_features(pd.to_datetime(df_stamp['date'].values), freq=self.freq)
-            data_stamp = data_stamp.transpose(1, 0)
-
-        # Needed to map a window index back to its wall-clock timestamp
-        # (--dump_preds): window w spans raw rows border1+w+seq_len ...
-        self.border1 = border1
-        self.data_x = data[border1:border2]
-        self.data_y = data[border1:border2]
-        self.data_stamp = data_stamp
-
-        # MASK-FIX (2026-07-15): observed-only scoring. NaN-out imputed TARGET
-        # cells (data_y) via the companion mask so the loss/metrics ignore
-        # hold-last-filled values; INPUT (data_x) keeps the fill. No mask ->
-        # unchanged (all cells observed -> byte-identical to the old path).
-        if self.mask_df is not None:
-            assert len(self.mask_df) == len(self.df_raw), (
-                f"{self.data_name}: mask rows {len(self.mask_df)} != "
-                f"data rows {len(self.df_raw)}")
-            mcols = list(cols_data) if self.features in ('M', 'MS') else [self.target]
-            obs = self.mask_df[mcols].to_numpy().astype(bool)[border1:border2]
+        self.border1 = border1                # window w spans raw rows border1 + w ... (--dump_preds)
+        self.data_x = values[border1:border2]
+        self.data_y = values[border1:border2]
+        self.data_stamp = self._marks(pd.to_datetime(self.df_raw["date"].values[border1:border2]))
+        if mask_df is not None:               # observed-only scoring: imputed target cells -> NaN (input keeps them)
+            assert len(mask_df) == len(self.df_raw), f"{self.data_name}: mask rows != data rows"
+            observed = mask_df[cols].to_numpy().astype(bool)[border1:border2]
             self.data_y = np.asarray(self.data_y, dtype=float).copy()
-            self.data_y[~obs] = np.nan
+            self.data_y[~observed] = np.nan
+
+    def _marks(self, dates):
+        if self.timeenc == 1:
+            return time_features(dates, freq=self.freq).transpose(1, 0)
+        marks = [dates.month, dates.day, dates.weekday, dates.hour]
+        if self.minute_marks:
+            marks.append(dates.minute // 15)
+        return np.stack([np.asarray(m, dtype=np.int64) for m in marks], axis=1)
 
     def __getitem__(self, index):
-        s_begin = index
-        s_end = s_begin + self.seq_len
+        s_end = index + self.seq_len
         r_begin = s_end - self.label_len
         r_end = r_begin + self.label_len + self.pred_len
-
-        seq_x = self.data_x[s_begin:s_end]
-        seq_y = self.data_y[r_begin:r_end]
-        seq_x_mark = self.data_stamp[s_begin:s_end]
-        seq_y_mark = self.data_stamp[r_begin:r_end]
-
-        return seq_x, seq_y, seq_x_mark, seq_y_mark
+        return (self.data_x[index:s_end], self.data_y[r_begin:r_end],
+                self.data_stamp[index:s_end], self.data_stamp[r_begin:r_end])
 
     def __len__(self):
         return len(self.data_x) - self.seq_len - self.pred_len + 1
@@ -343,142 +76,31 @@ class Dataset_Custom(Dataset):
         return self.scaler.inverse_transform(data)
 
 
-class Dataset_CMAPSS(Dataset):
-    """Engine-aware loader for NASA C-MAPSS run-to-failure trajectories.
+class Dataset_ETT_hour(_Windows):
+    """ETTh1/ETTh2: 12 / 4 / 4 months of hourly rows."""
 
-    Unlike the continuous-stream datasets, C-MAPSS is a set of independent
-    short engine trajectories (~200 cycles). Two consequences, both handled
-    here and nowhere else:
-      * windows must NOT cross engine boundaries -> we enumerate valid window
-        starts WITHIN each engine (seq_len + pred_len must fit in the engine);
-      * train/val/test are split BY ENGINE id (70/10/20), so no trajectory is
-        shared across splits (no leakage). The scaler is fit on train engines.
-    Short horizons only (see run_forecast CMAPSS_PREDS). No real timestamps ->
-    zero time marks (cf. Dataset_PEMS). df columns: ['unit', <sensors..., target>].
-    """
-    def __init__(self, df, data_name, flag='train', size=None,
-                 features='M', data_path='', target='s11', scale=True,
-                 timeenc=0, freq='h', starting_percent=0, percent=100):
-        self.seq_len, self.label_len, self.pred_len = size[0], size[1], size[2]
-        assert flag in ['train', 'test', 'val']
-        self.set_type = {'train': 0, 'val': 1, 'test': 2}[flag]
-        self.features = features
-        self.target = target
-        self.scale = scale
-        self.df_raw = df
-        self.__read_data__()
-
-    def __read_data__(self):
-        self.scaler = StandardScaler()
-        df = self.df_raw
-        # channel columns = everything but the engine id; target kept last
-        chans = [c for c in df.columns if c != 'unit']
-        chans = [c for c in chans if c != self.target] + [self.target]
-        if self.features == 'S':
-            chans = [self.target]
-
-        units = sorted(df['unit'].unique())
-        n = len(units)
-        n_train, n_val = int(n * 0.7), int(n * 0.1)
-        split_units = [units[:n_train],
-                       units[n_train:n_train + n_val],
-                       units[n_train + n_val:]]
-
-        if self.scale:
-            train_rows = df[df['unit'].isin(split_units[0])]
-            self.scaler.fit(train_rows[chans].values)
-
-        xs, self.windows, offset = [], [], 0
-        for u in split_units[self.set_type]:
-            arr = df[df['unit'] == u][chans].values
-            if self.scale:
-                arr = self.scaler.transform(arr)
-            xs.append(arr)
-            last = len(arr) - self.seq_len - self.pred_len + 1
-            self.windows.extend(offset + s for s in range(max(0, last)))
-            offset += len(arr)
-        self.data_x = np.concatenate(xs, axis=0) if xs else np.empty((0, len(chans)))
-        self.data_y = self.data_x
-
-    def __getitem__(self, index):
-        s_begin = self.windows[index]
-        s_end = s_begin + self.seq_len
-        r_begin = s_end - self.label_len
-        r_end = r_begin + self.label_len + self.pred_len
-        seq_x = self.data_x[s_begin:s_end]
-        seq_y = self.data_y[r_begin:r_end]
-        seq_x_mark = np.zeros((seq_x.shape[0], 4), dtype=np.float32)
-        seq_y_mark = np.zeros((seq_y.shape[0], 4), dtype=np.float32)
-        return seq_x, seq_y, seq_x_mark, seq_y_mark
-
-    def __len__(self):
-        return len(self.windows)
-
-    def inverse_transform(self, data):
-        return self.scaler.inverse_transform(data)
+    def _borders(self, n_rows):
+        month = 30 * 24
+        return [0, 12 * month - self.seq_len, 16 * month - self.seq_len], [12 * month, 16 * month, 20 * month]
 
 
-class Dataset_PEMS(Dataset):
-    def __init__(self, df, data_name, flag='train', size=None,
-                 features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, timeenc=0, freq='h',
-                 starting_percent=0,percent=100):
-        # size [seq_len, label_len, pred_len]
-        # info
-        self.seq_len = size[0]
-        self.label_len = size[1]
-        self.pred_len = size[2]
-        # init
-        assert flag in ['train', 'test', 'val']
-        type_map = {'train': 0, 'val': 1, 'test': 2}
-        self.set_type = type_map[flag]
+class Dataset_ETT_minute(_Windows):
+    """ETTm1/ETTm2: 12 / 4 / 4 months of 15-minute rows."""
+    minute_marks = True
 
-        self.features = features
-        self.target = target
-        self.scale = scale
-        self.timeenc = timeenc
-        self.freq = freq
+    def _borders(self, n_rows):
+        month = 30 * 24 * 4
+        return [0, 12 * month - self.seq_len, 16 * month - self.seq_len], [12 * month, 16 * month, 20 * month]
 
-        self.data = df
 
-        self.__read_data__()
+class Dataset_Custom(_Windows):
+    """Every other dataset: target column last, contiguous 70 / 10 / 20 % split (Autoformer convention)."""
 
-    def __read_data__(self):
-        self.scaler = StandardScaler()
+    def _order_columns(self, df):
+        cols = [c for c in df.columns if c not in ("date", self.target)]
+        return df[["date"] + cols + [self.target]]
 
-        train_ratio = 0.6
-        valid_ratio = 0.2
-        train_data = self.data[:int(train_ratio * len(self.data))]
-        valid_data = self.data[int(train_ratio * len(self.data)): int((train_ratio + valid_ratio) * len(self.data))]
-        test_data = self.data[int((train_ratio + valid_ratio) * len(self.data)):]
-        total_data = [train_data, valid_data, test_data]
-        data = total_data[self.set_type]
-
-        if self.scale:
-            self.scaler.fit(train_data)
-            data = self.scaler.transform(data)
-
-        df = pd.DataFrame(data)
-        df = df.fillna(method='ffill', limit=len(df)).fillna(method='bfill', limit=len(df)).values
-
-        self.data_x = df
-        self.data_y = df
-
-    def __getitem__(self, index):
-        s_begin = index
-        s_end = s_begin + self.seq_len
-        r_begin = s_end - self.label_len
-        r_end = r_begin + self.label_len + self.pred_len
-
-        seq_x = self.data_x[s_begin:s_end]
-        seq_y = self.data_y[r_begin:r_end]
-        seq_x_mark = torch.zeros((seq_x.shape[0], 1))
-        seq_y_mark = torch.zeros((seq_x.shape[0], 1))
-
-        return seq_x, seq_y, seq_x_mark, seq_y_mark
-
-    def __len__(self):
-        return len(self.data_x) - self.seq_len - self.pred_len + 1
-
-    def inverse_transform(self, data):
-        return self.scaler.inverse_transform(data)
+    def _borders(self, n_rows):
+        n_train, n_test = int(n_rows * 0.7), int(n_rows * 0.2)
+        n_val = n_rows - n_train - n_test
+        return [0, n_train - self.seq_len, n_rows - n_test - self.seq_len], [n_train, n_train + n_val, n_rows]

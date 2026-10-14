@@ -1,0 +1,23 @@
+# TQNet (ICML'25) - ACAT-SCUT/TQNet scripts/TQNet/<dataset>.sh
+# Values = exactly what the experiments use (L = 96).  Key "<dataset>@<H>" = only for that horizon,
+# merged on top of "<dataset>".  Change a value in place, never by adding a second entry.
+# Keys: tqnet_cycle = length of the periodic queries (samples per day) | tqnet_dropout
+
+default: {lr: 0.001, loss: mse}
+datasets:
+  # LTSF (official scripts)
+  ETTh1: {tqnet_cycle: 24, tqnet_dropout: 0.5, lr: 0.001}
+  ETTh2: {tqnet_cycle: 24, tqnet_dropout: 0.5, lr: 0.001}
+  ETTm1: {tqnet_cycle: 96, tqnet_dropout: 0.5, lr: 0.001}
+  ETTm2: {tqnet_cycle: 96, tqnet_dropout: 0.5, lr: 0.001}
+  Weather: {tqnet_cycle: 144, tqnet_dropout: 0.5, lr: 0.001}
+  Exchange: {tqnet_cycle: 24, tqnet_dropout: 0.5, lr: 0.001}
+  Electricity: {tqnet_cycle: 168, lr: 0.003}
+  Traffic: {tqnet_cycle: 168, lr: 0.003}
+  # industrial: period-type keys only (FFT period <= 48 / daily cycle, EXPERIMENT_PROTOCOL.md §5)
+  Steel: {tqnet_cycle: 96}
+  WindSCADA: {tqnet_cycle: 144}
+  BlastFurnace: {tqnet_cycle: 24}
+  MetroPT3: {tqnet_cycle: 298}
+  N2O: {tqnet_cycle: 288}
+  EWELD: {tqnet_cycle: 96}

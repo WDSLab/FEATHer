@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """Export golden vectors + weights for FEATHer-mix WITHOUT bands + FFT gate.
 
-2026-10-07: the control arm FEATHer_frontnone (FEATHer.py front="none": hidden =
-x_norm, no band bank, no gate) costs about 1 % accuracy.  This export feeds the
-FEA2_FRONT_NONE build of the shipping recompute port (src/feather2r_infer.c), so
-flash / SRAM / board latency of "the 1 %" can be measured on the same chip.
+The control arm FEATHer_frontnone (variants.FEATHerNoFront: hidden = x_norm, no
+band bank, no gate).  This export feeds the FEA2_FRONT_NONE build of the shipping
+recompute port (src/feather2r_infer.c), so the flash / SRAM / board latency of the
+band + gate front end can be measured on the same chip.
 
 Writes golden/feather2fn_weights.h and golden/feather2fn_vectors.h (own files:
 the frozen model's feather2_*.h, which `make test` uses, stay untouched).  Every
@@ -24,7 +24,7 @@ _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from baselines.FEATHer.FEATHer import FEATHer           # noqa: E402
+from baselines.FEATHer.variants import FEATHerNoFront  # noqa: E402
 from export_golden_feather2 import ARCH, PERIOD, SEQ_LEN, emit_array   # noqa: E402
 
 WEIGHT_SEED = 2025
@@ -42,8 +42,8 @@ def main() -> None:
     arch = dict(ARCH, mlp_rank=a.mlp_rank)
 
     torch.manual_seed(WEIGHT_SEED)
-    m = FEATHer(seq_len=SEQ_LEN, pred_len=H, d_model=D, use_norm=True, period=PERIOD,
-                front="none", **arch).eval()
+    m = FEATHerNoFront(seq_len=SEQ_LEN, pred_len=H, d_model=D, use_norm=True, period=PERIOD,
+                       **arch).eval()
     with torch.no_grad():                       # blind-golden rule: all weights random
         for name, p in m.named_parameters():
             p.normal_(0.0, p.shape[-1] ** -0.5 if p.dim() >= 2 else 0.3)

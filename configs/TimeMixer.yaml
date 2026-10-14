@@ -1,0 +1,16 @@
+# TimeMixer (ICLR'24) - kwuking/TimeMixer scripts/long_term_forecast/*/TimeMixer_unify.sh
+# Values = exactly what the experiments use (L = 96).  Key "<dataset>@<H>" = only for that horizon,
+# merged on top of "<dataset>".  Change a value in place, never by adding a second entry.
+# Keys: tm_d_model / tm_d_ff = width | tm_e_layers = mixing layers
+
+default: {lr: 0.01, loss: mse}
+datasets:
+  # LTSF (official scripts)
+  ETTh1: {tm_d_model: 16, tm_d_ff: 32, tm_e_layers: 2, lr: 0.01}
+  ETTh2: {tm_d_model: 16, tm_d_ff: 32, tm_e_layers: 2, lr: 0.01}
+  ETTm1: {tm_d_model: 16, tm_d_ff: 32, tm_e_layers: 2, lr: 0.01}
+  ETTm2: {tm_d_model: 32, tm_d_ff: 32, tm_e_layers: 2, lr: 0.01}
+  Weather: {tm_d_model: 16, tm_d_ff: 32, tm_e_layers: 3, lr: 0.01}
+  Exchange: {tm_d_model: 16, tm_d_ff: 32, tm_e_layers: 2, lr: 0.01}
+  Electricity: {tm_d_model: 16, tm_d_ff: 32, tm_e_layers: 3, lr: 0.01}
+  Traffic: {tm_d_model: 32, tm_d_ff: 64, tm_e_layers: 3, lr: 0.01}

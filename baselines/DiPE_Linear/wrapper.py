@@ -42,7 +42,7 @@ def build(args, n_features, seq_len, pred_len):
         # Static frequency / time weights — paper main variant
         use_time_w=getattr(args, "dipe_use_time_w", True),
         use_freq_w=getattr(args, "dipe_use_freq_w", True),
-        # 2026-10-07: experts / loss_alpha per dataset as in scripts/DiPE.sh (was fixed 1 / 0.0)
+        # experts / loss_alpha per dataset as in scripts/DiPE.sh
         num_experts=num_experts,
         individual_f=getattr(args, "dipe_individual_f", False),
         individual_t=getattr(args, "dipe_individual_t", False),
@@ -54,8 +54,7 @@ def build(args, n_features, seq_len, pred_len):
     # model.loss() = (1 - alpha) * time MSE + alpha * L1 on the weighted rFFT, and with
     # experts > 1 the TemperatureScaling callback anneals the router temperature 30 -> 1 over
     # epochs 0..10 and uses 1 at test (timeprophet/utils/callbacks.py:31-51).  The worker calls
-    # these hooks; with the defaults (1 expert, alpha 0) none is attached, so the model trains
-    # exactly as before.
+    # these hooks; with the defaults (1 expert, alpha 0) none is attached.
     if loss_alpha > 0:
         def _train_loss(output, target, main_loss, m=model, a=loss_alpha):
             # observed-only scoring: imputed target cells (NaN) get zero error in the frequency

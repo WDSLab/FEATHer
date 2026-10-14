@@ -1,10 +1,9 @@
 """발산 의심 칸 스캔.
 
 증상: best_epoch 가 0~2 = 첫 에폭 근처가 가장 좋았고 이후 계속 나빠짐 = 학습률 과다.
-2026-08-27 발견: DLinear ETTh2 가 lr 0.05(공표값, 단 seq_len=336 기준)로 발산해
-MSE 0.483 으로 기록됨. lr 0.005 로 내리면 0.296 (논문 0.301 보다 좋음) = 63% 오차.
+예: DLinear ETTh2 는 lr 0.05(공표값, seq_len=336 기준)로 발산해 MSE 0.483, lr 0.005 면 0.296.
 
-원인 구조: baselines/_DATASET_OVERRIDES 의 lr 은 각 논문의 공식 스크립트에서
+원인 구조: configs/<모델>.yaml 의 lr 은 각 논문의 공식 스크립트에서
 가져온 값인데, 그 값들은 그 논문의 룩백(대개 336/720)에서 튜닝됐다. 우리는
 seq_len=96 을 강제하므로 같은 lr 이 과할 수 있다. 긴 룩백 네이티브 모델
 (DLinear/FITS/SparseTSF/MixLinear/DiPE/CycleNet)이 특히 위험하다.

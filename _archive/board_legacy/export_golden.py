@@ -30,9 +30,11 @@ _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from baselines.FEATHer.FEATHer import FEATHer  # noqa: E402
+sys.path.insert(0, str(_ROOT / "_archive" / "FEATHer_full_20261014"))   # the full-option FEATHer (archived 10-14)
+sys.path.insert(0, str(_ROOT / "deployment" / "board"))
+from FEATHer import FEATHer  # noqa: E402
 
-# Shipping mfg config = baselines/__init__.py:_FEATHER_MFG_N, on the MetroPT3
+# Shipping mfg config at the time (baselines/__init__.py:_FEATHER_MFG_N, pre-freeze), on the MetroPT3
 # deployment cell (D=7, FFT-detected period 24). The 07-27 export used the
 # pre-08 canonical (d8/p12/B3, no residual MLP, 453 params) and so measured a
 # model the paper no longer reports.
@@ -49,7 +51,7 @@ USE_RESIDUAL_MLP = True
 WEIGHT_SEED = 2025
 INPUT_SEED = 7
 
-OUT_DIR = Path(__file__).resolve().parent / "golden"
+OUT_DIR = _ROOT / "deployment" / "board" / "golden"
 
 
 def emit_array(f, name: str, t: torch.Tensor) -> None:

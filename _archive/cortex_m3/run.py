@@ -1,10 +1,10 @@
 """Sweep all (model, dataset, horizon) cells and write edge_estimates.csv.
 
 Usage:
-    python -m deployment.cortex_m3.run --check
-    python -m deployment.cortex_m3.run --model FEATHer --data ETTh1 --pred_len 96
-    python -m deployment.cortex_m3.run                          # full sweep
-    python -m deployment.cortex_m3.run --bit_width 32           # fp32 study
+    python -m _archive.cortex_m3.run --check
+    python -m _archive.cortex_m3.run --model FEATHer --data ETTh1 --pred_len 96
+    python -m _archive.cortex_m3.run                          # full sweep
+    python -m _archive.cortex_m3.run --bit_width 32           # fp32 study
 
 Each row of ``results/edge_estimates.csv`` is one EdgeEstimate; we use
 the same append-and-dedup convention as ``results/fcst_results.csv``
@@ -27,7 +27,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from baselines import get_model, list_models                 # noqa: E402
-from deployment.cortex_m3.estimator import (                  # noqa: E402
+from _archive.cortex_m3.estimator import (                  # noqa: E402
     EdgeEstimate,
     estimate_model,
 )

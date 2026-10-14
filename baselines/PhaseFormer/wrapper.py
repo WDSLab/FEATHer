@@ -7,14 +7,13 @@ Reference:
     Code: github.com/neumyor/PhaseFormer_TSL (Time-Series-Library port of
     github.com/neumyor/PhaseFormer; commit ed1db61, 2026-03-10, MIT).
 
-Added 2026-10-06 (user): newest peer-reviewed ~1K-parameter forecaster.
-Channel-independent ("without cross-channel fusion": every channel is routed
+Newest peer-reviewed ~1K-parameter forecaster.  Channel-independent ("without cross-channel fusion": every channel is routed
 on its own with shared weights).
 
 Defaults = the official ETTh1 setting for H = 96/192/336 in the original repo's
 run_etth1.py (the ~1K lightweight configuration): 3 layers, latent_dim 4,
 8 routers, 1 attention head, attention dropout 0.1, phase positional embedding,
-RevIN without affine, lr 1e-3.  2026-10-07: every (dataset, H) now takes its own
+RevIN without affine, lr 1e-3.  Every (dataset, H) takes its own
 official setting (docs/EXPERIMENT_PROTOCOL.md), including the wider ETTh1 H = 720
 setting; the widths are arguments.  The paper trains with a Huber loss; we use MSE
 like every other model (protocol).  period_len follows the SparseTSF FFT rule.
@@ -50,8 +49,7 @@ def build(args, n_features, seq_len, pred_len):
         period_len=int(getattr(args, "phaseformer_period_len", 24)),
         phase_layers=int(getattr(args, "phaseformer_layers", 3)),
         latent_dim=int(getattr(args, "phaseformer_latent_dim", 4)),
-        # 2026-10-07: widths per (dataset, H) as in the original repo's get_best_config_for_horizon
-        # (were fixed at the ETTh1 H<=336 values 16 / 32)
+        # widths per (dataset, H) as in the original repo's get_best_config_for_horizon
         phase_encoder_hidden=int(getattr(args, "phaseformer_enc_hidden", 16)),
         predictor_hidden=int(getattr(args, "phaseformer_pred_hidden", 32)),
         phase_num_routers=int(getattr(args, "phaseformer_routers", 8)),

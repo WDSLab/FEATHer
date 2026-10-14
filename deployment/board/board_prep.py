@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-"""Prepare the CubeIDE project for ONE board measurement (2026-09-29).
+"""Prepare the CubeIDE project for ONE board measurement.
 
-The board harness (main.c.board) no longer has model switches to edit by hand.
 For each measurement cell this script:
 
   1. exports the golden vectors + weights of the model under test at (H, D)
@@ -49,8 +48,8 @@ RAM_BYTES = 20 * 1024
 MODELS = {
     "feather_mix": ("RUN_FEATHER_MIX", "FEATHer-mix", "feather2",   ["--mlp_rank", "4"], False),
     "feather_ci":  ("RUN_FEATHER_CI",  "FEATHer-CI",  "feather2ci", ["--mlp_rank", "4"], False),
-    # 10-07: FEATHer-mix without bands + FFT gate (control arm FEATHer_frontnone) - the
-    # chip cost of the ~1 % the band/gate front end buys; same recompute schedule
+    # FEATHer-mix without bands + FFT gate (control arm FEATHer_frontnone): the chip
+    # cost of the band/gate front end; same recompute schedule
     "feather_fn":  ("RUN_FEATHER_FN",  "FEATHer-frontnone", "feather2fn", ["--mlp_rank", "4"], False),
     "dlinear":     ("RUN_DLINEAR",     "DLinear",     "dlinear",    [], False),
     "cyclenet":    ("RUN_CYCLENET",    "CycleNet",    "cyclenet",   [], False),
@@ -60,18 +59,17 @@ MODELS = {
     "dipe":        ("RUN_DIPE",        "DiPE",        "dipe",       [], True),
     "fits":        ("RUN_FITS",        "FITS",        "fits",       [], True),
     "pers":        ("RUN_PERS",        "persist",     "stsf",       [], True),
-    # 2026-10-07 additions.  Their structure depends on the chosen author setting
-    # (see config_args): the export resolves it the way the experiments do.
+    # Structure depends on the chosen author setting (see config_args): the export
+    # resolves it the way the experiments do.
     "cmos":        ("RUN_CMOS",        "CMoS",        "cmos",        [], True),
     "timebase":    ("RUN_TIMEBASE",    "TimeBase",    "timebase",    [], True),
     "phaseformer": ("RUN_PHASEFORMER", "PhaseFormer", "phaseformer", [], True),
     "samformer":   ("RUN_SAMFORMER",   "SAMformer",   "samformer",   [], True),
 }
 
-# board model -> registry model, for the models whose export takes --config.
-# The four older ports joined on 10-07: their chosen industrial setting can change
-# the structure (SparseTSF-MLP width, DiPE experts / RevIN, MixLinear lpf, FITS
-# cut / per-channel).  Before the selection their export default is the 09-29 setting.
+# board model -> registry model, for the models whose export takes --config (the
+# chosen setting can change the structure: SparseTSF-MLP width, DiPE experts / RevIN,
+# MixLinear lpf, FITS cut / per-channel).
 CONFIG_MODELS = {"cmos": "CMoS", "timebase": "TimeBase", "phaseformer": "PhaseFormer",
                  "samformer": "SAMformer", "stsf_mlp": "SparseTSF_MLP", "dipe": "DiPE_Linear",
                  "mixlinear": "MixLinear", "fits": "FITS"}
@@ -85,17 +83,16 @@ PREFIX = {"dlinear": "DL", "cyclenet": "CN", "stsf": "STSF", "stsf_mlp": "SMLP",
 # so the paper can show how much of each latency is the transform implementation.
 AB_PLAN = [("feather_mix", 96, 7), ("dipe", 96, 7), ("fits", 96, 7)]
 
-# Cells added after the 2026-09-29 run.  They go AFTER the A/B cells so the plan
-# numbers of the finished cells (board_run.py resumes by number) do not move.
-# CycleNet (2026-09-30): ported for fairness; H = 720 does not fit the flash.
+# Extra cells go AFTER the A/B cells so the plan numbers of earlier cells
+# (board_run.py resumes by number) do not move.  CycleNet H = 720 does not fit the flash.
 EXTRA_PLAN = [("cyclenet", 96, 7)]
-# 2026-10-07: the four models added on 10-06, at their chosen industrial setting
-# (docs/chosen_mfg.json; measure after select_verdict.py --write).  SAMformer
-# mixes channels, so it cannot be scaled from D = 1 - and only H = 96 fits.
+# At the chosen industrial setting (docs/chosen_mfg.json; measure after
+# select_verdict.py --write).  SAMformer mixes channels, so it cannot be scaled
+# from D = 1 - and only H = 96 fits.
 EXTRA_PLAN += ([(m, 96, 7) for m in ("cmos", "timebase", "phaseformer", "samformer")]
                + [(m, 96, 1) for m in ("cmos", "timebase", "phaseformer")]
                + [(m, 720, 1) for m in ("cmos", "timebase", "phaseformer")])
-# 10-07 (later): band + gate cost - FEATHer-mix without them, same cells as FEATHer-mix
+# band + gate cost: FEATHer-mix without them, same cells as FEATHer-mix
 EXTRA_PLAN += [("feather_fn", 96, 7), ("feather_fn", 720, 7)]
 
 # The measurement list.  Channel-independent ports that only expose a full
@@ -120,14 +117,14 @@ def cfg_header(model: str, H: int, D: int, power: str, direct_dft: bool = False,
         name += " (direct DFT)"
     if config:
         # candidate sweep: consecutive cells share model / H / D, so the printed name must
-        # carry the setting, or the reader matches the previous firmware's lines (10-07)
+        # carry the setting, or the reader matches the previous firmware's lines
         name += f"[{config}]"
     lines = ["/* Generated by deployment/board/board_prep.py - do not edit.",
              f" * {name}  H={H}  D={D}  power={power} */",
              "#ifndef BOARD_CFG_H", "#define BOARD_CFG_H",
              f"#define {run}", f'#define BOARD_NAME "{name}"',
              f"#define BOARD_H {H}", f"#define BOARD_D {D}"]
-    # period (10-12): ports whose period is a compile-time macro rather than a generated
+    # period: ports whose period is a compile-time macro rather than a generated
     # geometry header (SparseTSF-MLP / MixLinear carry it in their geom header)
     if period and model in ("feather_mix", "feather_fn", "feather_ci"):
         lines.append(f"#define FEA2_PERIOD {period}")
@@ -136,7 +133,7 @@ def cfg_header(model: str, H: int, D: int, power: str, direct_dft: bool = False,
     if model in ("feather_mix", "feather_fn"):
         lines += [f"#define FEA2_H {H}", f"#define FEA2_D {D}", "#define FEA2_MLP_R 4",
                   "#define BOARD_SKIP_CI"]
-        # 10-13 size dial (FEATHer head_seg / agg_shared); absent = the frozen model
+        # size dial (head_seg / agg_shared); absent = the frozen model
         if (geo or {}).get("seg"):
             lines.append(f"#define FEA2_SEG {geo['seg']}")
         if (geo or {}).get("agg_shared"):
@@ -153,11 +150,11 @@ def cfg_header(model: str, H: int, D: int, power: str, direct_dft: bool = False,
         elif model == "mixlinear":
             lines.append(f"#define ML_D {D}")
     if stream_ch:
-        lines.append("#define BOARD_STREAM_CH")     # one channel at a time, H-float output (10-12)
+        lines.append("#define BOARD_STREAM_CH")     # one channel at a time, H-float output
     if stream:
         lines.append("#define STREAM_MODE")        # main.c.stream (replay.py), trained weights
     if direct_dft:
-        lines.append("#define FEA_DFT_DIRECT")      # A/B: the pre-2026-09-29 96-point DFT
+        lines.append("#define FEA_DFT_DIRECT")      # A/B: direct 96-point DFT
     if power == "active":
         lines.append("#define POWER_ACTIVE")
     elif power == "idle":
@@ -184,7 +181,7 @@ def check_cell(model: str, H: int, D: int) -> None:
 
 
 def config_args(model: str, config: str | None = None) -> list[str]:
-    """--config for the 10-07 models = `config` if given (candidate sweep, board_run.py
+    """--config for CONFIG_MODELS = `config` if given (candidate sweep, board_run.py
     --candidates), else the chosen industrial setting (docs/chosen_mfg.json).  Before the
     selection is written, the export's default is used and a warning printed: such a
     measurement is a dry run, not a number for the paper.  SAMformer is exempt - its
@@ -206,12 +203,12 @@ def config_args(model: str, config: str | None = None) -> list[str]:
 
 
 def geo_args(model: str, geo: dict | None) -> list[str]:
-    """The dataset's period / CycleNet cycle (10-12, chip_verdict.py) for the exports that do
+    """The dataset's period / CycleNet cycle (chip_verdict.py) for the exports that do
     not resolve the dataset themselves.  geo = None keeps every export's default."""
     if not geo:
         return []
     if model == "feather_mix":
-        # 10-13 size dial passes through to the export (absent = the frozen model)
+        # size dial passes through to the export (absent = the frozen model)
         return ((["--period", str(geo["period"])] if geo.get("period") else [])
                 + (["--head_seg", str(geo["seg"])] if geo.get("seg") else [])
                 + (["--agg_shared", "1"] if geo.get("agg_shared") else []))
@@ -225,8 +222,8 @@ def geo_args(model: str, geo: dict | None) -> list[str]:
 def export(model: str, H: int, D: int, ckpt: str | None = None, config: str | None = None,
            data: str | None = None, geo: dict | None = None) -> None:
     _, _, stem, extra, _ = MODELS[model]
-    # data (10-12, chip_verdict.py): the industrial dataset whose period rule the config
-    # models resolve with; None = each export's default (MetroPT3), as before
+    # data (chip_verdict.py): the industrial dataset whose period rule the config
+    # models resolve with; None = each export's default (MetroPT3)
     cmd = [sys.executable, str(HERE / f"export_golden_{stem}.py"),
            "--pred_len", str(H), "--d_model", str(D)] + extra + config_args(model, config) \
         + (["--data", data] if data and model in CONFIG_MODELS else []) \
@@ -244,7 +241,7 @@ def export(model: str, H: int, D: int, ckpt: str | None = None, config: str | No
         export("feather_mix", H, D)
 
 
-# full-buffer ports with a <pfx>_forward_ch API (10-12): vectors header and output symbol
+# full-buffer ports with a <pfx>_forward_ch API: vectors header and output symbol
 STREAM_CH = {"cmos": ("cmos_vectors.h", "CG_Y"), "dipe": ("dipe_vectors.h", "DG_Y"),
              "fits": ("fits_vectors.h", "FG_Y"), "stsf_mlp": ("stsf_mlp_vectors.h", "SM_Y"),
              "mixlinear": ("mixlinear_vectors.h", "MG_Y"), "timebase": ("timebase_vectors.h", "TG_Y"),
@@ -277,7 +274,7 @@ def install(project: Path, model: str, H: int, D: int, power: str,
             geo: dict | None = None, stream_ch: bool = False) -> None:
     """Export, copy into `project`, write board_cfg.h, restore golden/.
 
-    stream_ckpt (2026-10-04): install the STREAMING REPLAY firmware (main.c.stream,
+    stream_ckpt: install the STREAMING REPLAY firmware (main.c.stream,
     driven by replay.py) with the TRAINED weights of that checkpoint instead of the
     timing harness with random golden weights.  FEATHer-mix only."""
     if stream_ckpt and model != "feather_mix":
@@ -292,8 +289,6 @@ def install(project: Path, model: str, H: int, D: int, power: str,
         try:
             export(model, H, D, stream_ckpt, config, data, geo)
             for f in SRC.glob("*.c"):
-                if f.name == "feather2in_infer.c":      # rejected candidate, not measured
-                    continue
                 shutil.copy2(f, src_dir / f.name)
             for f in list(SRC.glob("*.h")) + list(GOLDEN.glob("*.h")):
                 shutil.copy2(f, inc_dir / f.name)
@@ -307,9 +302,9 @@ def install(project: Path, model: str, H: int, D: int, power: str,
             for f in GOLDEN.iterdir():
                 if not (bak / f.name).exists():
                     f.unlink()
-    stale = src_dir / "feather2in_infer.c"
-    if stale.exists():
-        stale.unlink()
+    for old in ("feather2in_infer.c", "feather_infer.c"):    # retired ports left in the CubeIDE project
+        if (src_dir / old).exists():
+            (src_dir / old).unlink()
     with (inc_dir / "board_cfg.h").open("w", encoding="utf-8", newline="\n") as f:
         f.write(cfg_header(model, H, D, power, direct_dft, stream=bool(stream_ckpt),
                            config=config, period=(geo or {}).get("period"), stream_ch=stream_ch,
@@ -317,7 +312,7 @@ def install(project: Path, model: str, H: int, D: int, power: str,
     main_c = src_dir / "main.c"
     keep = src_dir / "main.c.bak_pre_board_prep"
     if main_c.exists() and not keep.exists():
-        shutil.copy2(main_c, keep)                  # the 08-24 harness, once
+        shutil.copy2(main_c, keep)                  # the original harness, once
     shutil.copy2(HERE / ("main.c.stream" if stream_ckpt else "main.c.board"), main_c)
 
 
@@ -344,7 +339,7 @@ def dry_build(project: Path, model: str, H: int, D: int, direct_dft: bool = Fals
               keep_elf: Path | None = None, relax_ld: bool = False,
               geo: dict | None = None, config: str | None = None, stream_ch: bool = False) -> dict:
     """Build the whole firmware for one cell in a scratch copy; never touches `project`.
-    stream_ch (10-13): the BOARD_STREAM_CH harness (per-value emit, no output buffer)."""
+    stream_ch: the BOARD_STREAM_CH harness (per-value emit, no output buffer)."""
     with tempfile.TemporaryDirectory() as tmp:
         scratch = Path(tmp) / "proj"
         shutil.copytree(project, scratch, ignore=shutil.ignore_patterns("Debug", "Release"))

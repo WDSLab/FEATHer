@@ -3,8 +3,7 @@
 The R2 column written by the workers uses `utils.metrics.r2_mean`, which
 normalises each (window, channel) series by its WITHIN-WINDOW variance along
 the time axis.  On near-constant channels that denominator collapses and the
-score explodes to ~-1e12, which makes the stored column unusable (see the
-2026-08-05 decision to drop R2 from the tables).
+score explodes to ~-1e12, which makes the stored column unusable.
 
 The standard forecasting definition instead compares the error against the
 variance of the target over the whole evaluation set:

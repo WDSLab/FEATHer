@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Build + flash the streaming replay firmware (main.c.stream) with a trained checkpoint (2026-10-06).
+"""Build + flash the streaming replay firmware (main.c.stream) with a trained checkpoint.
 
 Same toolchain, flags and scratch-copy discipline as board_run.py (the CubeIDE project itself is
 never modified); then drive the board with replay.py.

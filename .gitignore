@@ -243,3 +243,6 @@ data/
 edge/results_*.csv
 # Obsidian literature vault (personal notes + third-party paper PDFs) - local only
 analysis/lit_review/
+
+# generated golden headers of the retired board ports (like deployment/board/golden/)
+_archive/board_legacy/golden/

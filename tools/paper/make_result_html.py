@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""One local HTML page with the paper's result tables, rebuilt from the raw results (2026-10-13).
+"""One local HTML page with the paper's result tables, rebuilt from the raw results.
 
     python tools/paper/make_result_html.py            # -> results/result.html
 
@@ -440,7 +440,7 @@ def sec_ltsf_summary(lc):
     return table(head, body)
 
 
-# ------------------------------------------------------------------ experiment setup (10-13)
+# ------------------------------------------------------------------ experiment setup
 MIXES = {"FEATHer_mix", "SAMformer"}          # lightweight models whose forecast of one channel reads other channels
 COMMIT = {"CMoS": "b696a0c", "CycleNet": "d807e51", "DLinear": "0c11366", "DiPE_Linear": "b26e250", "FITS": "d040bb0",
           "LMS_AutoTSF": "412884a", "MDMLP_EIA": "0d68442", "MixLinear": "71b5db6", "PatchTST": "204c21e",

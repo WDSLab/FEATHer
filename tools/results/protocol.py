@@ -2,7 +2,7 @@
 
 config_id                      meaning
   frozen                       FEATHer frozen configuration (+ the dataset's period), every group
-  official / official-exc      LTSF: the model's per-(dataset, H) setting in baselines/__init__.py
+  official / official-exc      LTSF: the model's per-(dataset, H) setting in configs/<model>.yaml
                                (official scripts; -exc = DLinear ETTh2, re-selected after divergence)
   ref-default                  server-class reference models on the industrial data: defaults
   cand:<DS>                    industrial candidate = the model's LTSF setting for <DS> (every H),
@@ -15,6 +15,8 @@ resolve(model, group, data, H, config_id) -> (lr, loss, overrides) for the worke
 import json
 import os
 import sys
+
+import yaml
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if ROOT not in sys.path:
@@ -38,7 +40,7 @@ PERIOD_KEYS = {"period", "sparsetsf_period_len", "mixlinear_period_len", "cyclen
                "timebase_period_len", "phaseformer_period_len", "cmos_period", "fits_base_t"}
 
 # Industrial candidates (docs/EXPERIMENT_PROTOCOL.md §5).  Distinct settings only; datasets whose setting
-# equals another's are listed once.  No chip filter on candidates (10-07, after the Fable review): every
+# equals another's are listed once.  No chip filter on candidates: every
 # model is selected on accuracy alone, and a chosen setting that exceeds the chip in a cell is reported
 # as "does not fit" in that cell, the same treatment as DLinear / CycleNet / SAMformer.
 CANDIDATES = {
@@ -55,15 +57,7 @@ CANDIDATES = {
     "SAMformer": ["ETTh1", "Weather", "default"],
 }
 
-# Industrial base values of period-type keys that have no row in baselines/__init__.py yet:
-# CMoS period hint = the FFT period (<= 48) rule; FITS base_T = the daily cycle (same values as CycleNet).
-_MFG_EXTRA = {}
-for _d in MFG:
-    _p = B.get_dataset_overrides("SparseTSF", _d).get("sparsetsf_period_len", 24)
-    _MFG_EXTRA[("CMoS", _d)] = {"cmos_period": _p}
-    _MFG_EXTRA[("FITS", _d)] = {"fits_base_t": B.get_dataset_overrides("CycleNet", _d)["cyclenet_cycle"]}
-
-# LTSF cells whose authors left no final setting (docs/EXPERIMENT_PROTOCOL.md §5.3, 10-07): no script for the
+# LTSF cells whose authors left no final setting (docs/EXPERIMENT_PROTOCOL.md §5.3): no script for the
 # dataset, or only a sweep script.  These are chosen like the industrial data: the model's published
 # settings (CANDIDATES) compete on that dataset's validation loss.  Everything else on LTSF = "official".
 LTSF_NO_OFFICIAL = {
@@ -74,90 +68,36 @@ LTSF_NO_OFFICIAL = {
     ("CMoS", "Exchange"), ("TimeBase", "Exchange"), ("PhaseFormer", "Exchange"),
 }
 
-# ---- FEATHer ablation arms (moved from the old orchestrator's ABLATION_ARMS, 10-07) -------------------
-# arm -> (what it removes, worker CLI flags, frozen-setting keys the flags displace).  Applied on top of
-# the frozen industrial FEATHer-mix.  Rows: role "ablation", config_id "abl:<arm>", model "FEATHer",
-# exp_tag "abl_<arm>" for the pre-10-07 rows.
-ABLATION_ARMS = {
-    "band1":      ("single-scale (1 band)",            ["--num_bands", "1"], {"num_bands"}),
-    "band2":      ("dual-scale (2 bands)",             ["--num_bands", "2"], {"num_bands"}),
-    "gatenone":   ("w/o gating (unweighted sum)",      ["--gate_mode", "none"], {"gate_mode"}),
-    "gateuni":    ("uniform gating (1/S)",             ["--gate_uniform"], {"gate_uniform", "use_gate"}),
-    "gatesm":     ("softmax gating (no FFT)",          ["--gate_mode", "softmax"], {"gate_mode"}),
-    "gatestatic": ("static learned mixture (no FFT)",  ["--gate_mode", "static"], {"gate_mode"}),
-    "headmlp":    ("SPK -> 2-layer MLP head",          ["--head_mode", "mlp"], {"head_mode"}),
-    "headconv":   ("SPK -> depthwise conv head",       ["--head_mode", "conv"], {"head_mode"}),
-    "headlin":    ("SPK -> dense linear head",         ["--head_mode", "linear"], {"head_mode"}),
-    "norevin":    ("RevIN off",                        ["--no_revin"], {"no_revin", "use_norm"}),
-    "spec0":      ("spectral loss off (lambda 0)",     ["--lambda_spec", "0.0"], {"lambda_spec"}),
-    "specHi":     ("spectral loss lambda 0.1",         ["--lambda_spec", "0.1"], {"lambda_spec"}),
-    "noresid":    ("residual MLP off",                 [], {"use_residual_mlp", "mlp_rank"}),   # worker default = off
-    "r2":         ("mixing width R = 2",               ["--mlp_rank", "2"], {"mlp_rank"}),
-    "r8":         ("mixing width R = 8",               ["--mlp_rank", "8"], {"mlp_rank"}),
-    "readd_dtk":  ("DTK back (mlp variant)",           ["--dtk_mode", "mlp"], {"dtk_mode"}),
-    "readd_inproj": ("linear channel mixer back",      [], {"no_in_proj"}),
-}
-# the arms and horizons that the paper's ablation tables use (3 seeds each)
-ABLATION_PLAN = {"band1": HS, "gatenone": HS, "headlin": HS, "band2": [96], "gatestatic": [96], "gateuni": [96],
-                 "noresid": [96], "norevin": [96], "r2": [96], "r8": [96], "spec0": [96]}
-
-# ---- control arms: SparseTSF(+MLP) + FEATHer's mixing bus, FEATHer without bands/gate ---------------
-# arm -> (registry model, extra worker flags, host model).  An arm trains with its HOST's industrial
-# setting (the chosen candidate / frozen), and its config_id carries it: "ctrl:<arm>@<host config_id>",
-# so a host whose chosen setting changes makes the arm's cells missing again (10-07, Fable review).
-CONTROL_ARMS = {
-    "SparseTSF_mix": ("SparseTSF_mix", [], "SparseTSF"), "SparseTSF_mixM": ("SparseTSF_mixM", [], "SparseTSF"),
-    "SparseTSF_MLP_mix": ("SparseTSF_MLP_mix", [], "SparseTSF_MLP"),
-    "SparseTSF_MLP_mixM": ("SparseTSF_MLP_mixM", [], "SparseTSF_MLP"),
-    "FEATHer_frontnone": ("FEATHer", ["--front", "none"], "FEATHer_mix"),
-    # 10-11 mixing-only control: FEATHer-mix with a channel-separate residual MLP (docs/prereg_mixsep_1011.md)
-    "FEATHer_mixsep": ("FEATHer", ["--mix_sep", "1"], "FEATHer_mix"),
-}
+# ---- experiment definitions: configs/experiments/*.yaml (the YAML holds the comments) ----------------
+def _experiments(name):
+    return yaml.safe_load(open(os.path.join(ROOT, "configs", "experiments", f"{name}.yaml"), encoding="utf-8"))
 
 
-# ---- 10-12 redesign: FEATHer-mix under the baselines' rule (docs/prereg_redesign_1012.md) ----------
-# config_id "rd:<arm>" (frozen lr) or "rd:<arm>@lr<value>" (stage 2).  Seed 2025 only, L 96, 6 x 4 H,
-# validation loss decides; rows go to raw_mfg.csv with role "redesign", model FEATHer_mix.
-REDESIGN_ARMS = {
-    "frozen": [],                                        # A (stage 2 lr arms only; stage 1 = the main rows)
-    "mean": ["--revin_mode", "mean"],                    # B mean-only centering, window scale kept
-    "norevin": ["--no_revin"],                           # C no instance normalisation
-    "learnlevel": ["--revin_mode", "learn_level"],       # D learned fraction of the level removed
-    "mixstats": ["--mix_stats", "1"],                    # E mixer also reads window mean / log-std
-}
-REDESIGN_STAGE1 = ["rd:mean", "rd:norevin", "rd:learnlevel", "rd:mixstats"]
-# stage 2 (lr x 0.3 / x 3 of the stage-1 winner) is appended here after the stage-1 verdict
-REDESIGN_STAGE2 = ["rd:norevin@lr0.0003", "rd:norevin@lr0.003"]   # stage-1 winner (10-12 verdict)
+_abl = _experiments("ablation")
+ABLATION_ARMS = {arm: (a["what"], a["flags"], set(a["replaces"])) for arm, a in _abl.items()}   # arm -> (what, flags, keys)
+ABLATION_PLAN = {arm: a["horizons"] for arm, a in _abl.items()}
+CONTROL_ARMS = {arm: (a["model"], a["flags"], a["host"]) for arm, a in _experiments("control").items()}
+_size = _experiments("size")
+SIZE_TIERS, SIZE_SELECT_HS, SIZE_FIXED = _size["tiers"], _size["select_horizons"], _size["fixed"]
+SIZE_LR_BY_N = {int(n): v for n, v in _size["lr_points"].items()}
+SIZE_CANDIDATES = {m: [(c["fill"], c.get("fix", {})) for c in cs] for m, cs in _size["candidates"].items()}
+_DOCS = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "docs")
+SIZE_CAND_FILE = os.path.join(_DOCS, "size_candidates.json")
+CHOSEN_SIZE_FILE = os.path.join(_DOCS, "chosen_size.json")
 
 
-# ---- 10-13 size-matched comparison (docs/EXPERIMENT_PROTOCOL.md §10, the main comparison from 10-13) --------
-# Each baseline starts from its chosen industrial setting and changes ONE size dial; lr is re-chosen from
-# SIZE_LR_MULT x the setting's lr on the validation loss (seed 2025, one choice per model and tier).
-# Tiers: "1k" = per dataset the largest dial value whose numbers stored on the chip (complex x2) are <= 1,000 at
-# all four H; "max" = per dataset the largest dial value whose firmware fits 128 KB flash / 20 KB SRAM at all four
-# H (real builds).  Dial values per (tier, model, dataset) come from the chip builds -> docs/size_dials.json
-# (tools/results/size_dials.py); the chosen lr multiplier -> docs/chosen_size.json (tools/results/size_verdict.py).
-# config_id "sz<tier>:<candidate>+<dial>=<value>@x<lr multiplier>", e.g. "sz1k:Weather+cmos_seg_size=24@x0.1".
-SIZE_TIERS = ["1k", "max"]
-SIZE_DIALS = {"CMoS": "cmos_seg_size", "SparseTSF_MLP": "sparsetsf_d_model", "TimeBase": "timebase_basis_num",
-              "PhaseFormer": "phaseformer_latent_dim", "DiPE_Linear": "dipe_num_experts", "FITS": "fits_cut_freq",
-              "FEATHer_mix": "head_seg"}
-# fixed structural switches of a size-matched model (FEATHer: one aggregation kernel shared by all channels)
-SIZE_FIXED = {"FEATHer_mix": {"agg_shared": 1}}
-SIZE_LR_MULT = [0.1, 1, 10]
-SIZE_DIALS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-                               "docs", "size_dials.json")
-CHOSEN_SIZE_FILE = os.path.join(os.path.dirname(SIZE_DIALS_FILE), "chosen_size.json")
+def size_candidates(tier, model):
+    """Candidates of one model in one tier: [{"name", "knobs": {data: {key: value}}, "stored", "over_budget"}, ...]."""
+    return _load(SIZE_CAND_FILE).get(tier, {}).get(model, [])
 
 
-def size_config_id(tier, model, data, mult):
-    """config_id of one size-matched cell, or None while the dial value / base setting is not known."""
-    v = _load(SIZE_DIALS_FILE).get(tier, {}).get(model, {}).get(data)
-    base = mfg_main_config_id(model)
-    if v is None or base is None or not (base.startswith("cand:") or base == "frozen"):
-        return None
-    fixed = "".join(f"+{k}={x}" for k, x in SIZE_FIXED.get(model, {}).items())
-    return f"sz{tier}:{base.replace('cand:', '')}{fixed}+{SIZE_DIALS[model]}={v}@x{mult:g}"
+def size_config_id(tier, model, mult, knobs):
+    """config_id of one size-matched cell; knobs = {key: value} of a candidate on one dataset.
+    A one-knob candidate keeps the original id format, so existing runs are reused."""
+    base = mfg_main_config_id(model).replace("cand:", "")
+    fixed = "".join(f"+{k}={v}" for k, v in SIZE_FIXED.get(model, {}).items())
+    body = "".join(f"+{k}={knobs[k]}" for k in sorted(knobs))
+    return f"sz{tier}:{base}{fixed}{body}@x{mult:g}"
 
 
 def _sz(config_id):
@@ -168,13 +108,8 @@ def _sz(config_id):
 
 
 def chosen_size():
-    """"<tier>|<model>" -> chosen lr multiplier (written by size_verdict.py)."""
+    """"<tier>|<model>" -> {"cand": candidate name, "mult": lr multiplier} (written by size_verdict.py)."""
     return _load(CHOSEN_SIZE_FILE)
-
-
-def _rd(config_id):
-    arm, _, lr = config_id[3:].partition("@lr")
-    return arm, (float(lr) if lr else None)
 
 
 def control_config_id(arm):
@@ -189,7 +124,7 @@ def _ctrl(config_id):
 
 
 def control_row_model(arm):
-    """Model name written in the results rows (the FEATHer arm keeps the pre-10-07 name "FEATHer")."""
+    """Model name written in the results rows (the FEATHer arm keeps the name "FEATHer" its existing rows use)."""
     return "FEATHer" if arm == "FEATHer_frontnone" else arm
 
 
@@ -199,8 +134,6 @@ def cli_flags(model, config_id):
         return list(ABLATION_ARMS[config_id[4:]][1])
     if config_id.startswith("ctrl:"):
         return list(CONTROL_ARMS[_ctrl(config_id)[0]][1])
-    if config_id.startswith("rd:"):
-        return list(REDESIGN_ARMS[_rd(config_id)[0]])
     return []
 
 # chosen settings live in docs/ (committed) so that the public repository reproduces the main runs
@@ -239,15 +172,10 @@ def resolve(model, group, data, H, config_id):
     """Worker settings for one cell: (lr, loss, overrides dict)."""
     m = registry_name(model, config_id)
     if config_id.startswith("abl:"):
-        # frozen industrial FEATHer-mix minus the keys the arm's flags replace (old orchestrator logic)
+        # frozen industrial FEATHer-mix minus the keys the arm's flags replace
         s = _merge("FEATHer", data, H)
         for k in ABLATION_ARMS[config_id[4:]][2]:
             s.pop(k, None)
-    elif config_id.startswith("rd:"):
-        # the frozen industrial FEATHer-mix setting; the arm's flags go through cli_flags
-        arm, lr_x = _rd(config_id)
-        lr, loss, ov = resolve("FEATHer_mix", group, data, H, "frozen")
-        return (lr_x if lr_x is not None else lr), loss, ov
     elif config_id.startswith("sz"):
         # size-matched variant: the candidate with its dial set, lr scaled by the multiplier
         _, body, mult = _sz(config_id)
@@ -274,13 +202,13 @@ def resolve(model, group, data, H, config_id):
     elif config_id.startswith("cand:"):
         # a candidate = the model's setting for LTSF dataset <src> (every H); period-type keys always come
         # from the dataset being trained (industrial: FFT / daily-cycle rule; LTSF: that dataset's entry)
-        # 10-13 size-matched variants: "cand:<src>+<key>=<value>[+...]" = candidate <src> with the size knob(s)
+        # size-matched variants: "cand:<src>+<key>=<value>[+...]" = candidate <src> with the size knob(s)
         # replaced (the 1K-parameter budget study); everything else stays the author setting
         src, _, knobs = config_id.split(":", 1)[1].partition("+")
         base = dict(B.get_method_defaults(m))
         if src != "default":
             base.update({k: v for k, v in B.get_dataset_overrides(m, src, H).items() if k not in PERIOD_KEYS})
-        own = {**B.get_dataset_overrides(m, data), **_MFG_EXTRA.get((m, data), {})}
+        own = B.get_dataset_overrides(m, data)
         base.update({k: v for k, v in own.items() if k in PERIOD_KEYS})
         for kv in filter(None, knobs.split("+")):
             k, v = kv.split("=", 1)
@@ -291,6 +219,14 @@ def resolve(model, group, data, H, config_id):
     lr = s.pop("lr", 1e-3)
     loss = s.pop("loss", "mse")
     return lr, loss, s
+
+
+def hparams(model, group, data, H, config_id):
+    """Every hyperparameter of one cell as a JSON line (stored with the result; a change -> the cell runs again)."""
+    lr, loss, ov = resolve(model, group, data, H, config_id)
+    run = {"model": registry_name(model, config_id), "lr": lr, "loss": loss, "settings": ov,
+           "flags": cli_flags(model, config_id)}
+    return json.dumps(run, sort_keys=True, separators=(",", ":"))
 
 
 def ltsf_candidates(model, data):

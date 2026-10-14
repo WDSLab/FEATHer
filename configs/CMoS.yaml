@@ -1,0 +1,44 @@
+# CMoS (ICML'25) - official model/CMoS/config.toml + scripts (per H)
+# Values = exactly what the experiments use (L = 96).  Key "<dataset>@<H>" = only for that horizon,
+# merged on top of "<dataset>".  Change a value in place, never by adding a second entry.
+# Keys: cmos_seg_size = segment length of the chunk-wise mapping (smaller = larger model) | cmos_num_map = number of mappings mixed per channel | cmos_kernel_size / cmos_conv_stride = the conv that weights the mappings | cmos_use_pi = period-informed init | cmos_period = the period used by that init | cmos_dropout
+
+default: {lr: 0.0008, loss: mse}
+datasets:
+  # LTSF (official scripts)
+  ETTh1: {cmos_seg_size: 24, cmos_num_map: 4, cmos_kernel_size: 8, cmos_conv_stride: 4, cmos_dropout: 0.05, cmos_use_pi: true, cmos_period: 24, lr: 8.0e-05}
+  ETTh1@96: {cmos_num_map: 2, cmos_kernel_size: 8, lr: 5.0e-05}
+  ETTh1@192: {cmos_num_map: 4, cmos_kernel_size: 4, lr: 0.0002}
+  ETTh1@336: {cmos_num_map: 4, cmos_kernel_size: 8, lr: 8.0e-05}
+  ETTh1@720: {cmos_num_map: 2, cmos_kernel_size: 24, lr: 2.0e-05}
+  ETTh2: {cmos_seg_size: 4, cmos_num_map: 2, cmos_kernel_size: 8, cmos_conv_stride: 4, cmos_dropout: 0.05, cmos_use_pi: true, cmos_period: 24, lr: 5.0e-05}
+  ETTh2@96: {cmos_num_map: 8, cmos_kernel_size: 4, lr: 2.0e-05}
+  ETTh2@192: {cmos_num_map: 8, cmos_kernel_size: 4, lr: 5.0e-05}
+  ETTh2@336: {cmos_num_map: 4, cmos_kernel_size: 12, lr: 2.0e-05}
+  ETTh2@720: {cmos_num_map: 2, cmos_kernel_size: 12, lr: 2.0e-05}
+  ETTm1: {cmos_seg_size: 2, cmos_num_map: 4, cmos_kernel_size: 8, cmos_conv_stride: 4, cmos_dropout: 0.05, cmos_use_pi: true, cmos_period: 96, lr: 5.0e-05}
+  ETTm1@96: {cmos_num_map: 8, cmos_kernel_size: 4, lr: 5.0e-05}
+  ETTm1@192: {cmos_num_map: 4, cmos_kernel_size: 8, lr: 0.0008}
+  ETTm1@336: {cmos_num_map: 8, cmos_kernel_size: 24, lr: 5.0e-05}
+  ETTm1@720: {cmos_num_map: 4, cmos_kernel_size: 24, lr: 2.0e-05}
+  ETTm2: {cmos_seg_size: 2, cmos_num_map: 4, cmos_kernel_size: 8, cmos_conv_stride: 4, cmos_dropout: 0.05, cmos_use_pi: true, cmos_period: 96, lr: 2.0e-05}
+  ETTm2@96: {cmos_num_map: 2, cmos_kernel_size: 4}
+  ETTm2@192: {cmos_num_map: 4, cmos_kernel_size: 8}
+  ETTm2@336: {cmos_num_map: 4, cmos_kernel_size: 4}
+  ETTm2@720: {cmos_num_map: 2, cmos_kernel_size: 4}
+  Weather: {cmos_seg_size: 4, cmos_num_map: 4, cmos_kernel_size: 4, cmos_conv_stride: 2, cmos_dropout: 0.0008, cmos_use_pi: false, cmos_period: 144, lr: 0.0008}
+  Weather@96: {cmos_seg_size: 4, cmos_num_map: 4, cmos_kernel_size: 4, cmos_conv_stride: 4, lr: 0.0005}
+  Exchange: {cmos_seg_size: 24, cmos_num_map: 4, cmos_kernel_size: 8, cmos_conv_stride: 4, cmos_dropout: 0.05, cmos_use_pi: true, cmos_period: 24, lr: 8.0e-05}     # no official setting -> chosen on validation among the candidates (protocol.py)
+  Exchange@96: {cmos_num_map: 2, cmos_kernel_size: 8, lr: 5.0e-05}
+  Exchange@192: {cmos_num_map: 4, cmos_kernel_size: 4, lr: 0.0002}
+  Exchange@336: {cmos_num_map: 4, cmos_kernel_size: 8, lr: 8.0e-05}
+  Exchange@720: {cmos_num_map: 2, cmos_kernel_size: 24, lr: 2.0e-05}
+  Electricity: {cmos_seg_size: 8, cmos_num_map: 4, cmos_kernel_size: 8, cmos_conv_stride: 4, cmos_dropout: 0.05, cmos_use_pi: true, cmos_period: 168, lr: 0.0008}
+  Traffic: {cmos_seg_size: 4, cmos_num_map: 8, cmos_kernel_size: 8, cmos_conv_stride: 4, cmos_dropout: 0.05, cmos_use_pi: true, cmos_period: 168, lr: 0.0008}
+  # industrial: period-type keys only (FFT period <= 48 / daily cycle, EXPERIMENT_PROTOCOL.md §5)
+  Steel: {cmos_period: 24}
+  WindSCADA: {cmos_period: 48}
+  BlastFurnace: {cmos_period: 48}
+  MetroPT3: {cmos_period: 24}
+  N2O: {cmos_period: 24}
+  EWELD: {cmos_period: 24}

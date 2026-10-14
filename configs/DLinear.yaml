@@ -1,0 +1,17 @@
+# DLinear (AAAI'23) - cure-lab/LTSF-Linear scripts/EXP-LongForecasting/Linear/<dataset>.sh
+# Values = exactly what the experiments use (L = 96).  Key "<dataset>@<H>" = only for that horizon,
+# merged on top of "<dataset>".  Change a value in place, never by adding a second entry.
+
+default: {lr: 0.005, loss: mse}
+datasets:
+  # LTSF (official scripts)
+  ETTh1: {lr: 0.005}
+  ETTh2: {lr: 0.005}     # official 5e-2 diverges under our cosine schedule; re-selected on validation (08-31)
+  ETTm1: {lr: 0.0001}
+  ETTm2: {lr: 0.001}
+  ETTm2@336: {lr: 0.01}
+  ETTm2@720: {lr: 0.01}
+  Weather: {lr: 0.0001}     # weather.sh passes no lr -> argparse default
+  Exchange: {lr: 0.0005}
+  Electricity: {lr: 0.001}
+  Traffic: {lr: 0.05}

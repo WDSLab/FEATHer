@@ -1,4 +1,4 @@
-"""Merge run shards from results/_incoming/ into the managed result files (2026-10-07).
+"""Merge run shards from results/_incoming/ into the managed result files.
 
     python tools/results/merge_incoming.py            # merge (shards stay; re-merging is harmless)
     python tools/results/merge_incoming.py --archive  # merge, then move the shards to _archive/incoming_merged/

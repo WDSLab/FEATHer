@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Export golden vectors + weights for the CMoS port (src/cmos_infer.c).
 
-CMoS (ICML 2025) joined the chip pool on 2026-10-06.  Its structure depends on
+CMoS (ICML 2025).  Its structure depends on
 which of the authors' per-dataset settings is used (seg_size, num_map, kernel,
 stride), so --config picks one candidate, resolved exactly as the experiments
 resolve it (tools/results/protocol.resolve, industrial group, --data): a dataset
@@ -31,7 +31,7 @@ if str(_ROOT) not in sys.path:
 
 from tools.results.protocol import resolve     # noqa: E402
 from baselines.CMoS.wrapper import build       # noqa: E402
-from export_golden import emit_array           # noqa: E402  (same dir)
+from golden_io import emit_array           # noqa: E402
 
 WEIGHT_SEED = 2025
 INPUT_SEED = 7

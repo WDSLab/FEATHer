@@ -22,14 +22,12 @@ Complex arithmetic is expanded into the real operations it compiles down to:
 one complex multiply is 4 real multiplies and 2 real adds, one complex add is
 2 real adds.
 
-TRANSFORMS ARE COUNTED AS THE BOARD IMPLEMENTS THEM, NOT AS PyTorch DOES.
-deployment/board/fea_kernels.c computes a direct O(N^2) DFT against a flash
-twiddle table (`fea_rfft96`, nested f x t loops) rather than a radix-2 FFT —
-at N=96 a table-driven DFT beats pulling in an FFT library, and it keeps the
-golden vectors exact. Charging N*log2(N) here would understate every
-frequency-domain model by ~15x and is the single largest error in the
-MAC-style accounting: it is why FITS and DiPE looked cheap on paper and ran
-slowest on the chip. Set --transform fft to see the difference.
+TRANSFORMS. transform="dft" (default) charges the direct O(N^2) DFT against a
+flash twiddle table (`fea_rfft96` in deployment/board/src/fea_kernels.c);
+transform="fft" charges the radix-2 N*log2(N) cost, as for the fast 96-point
+kernel (`fea_rfft96_fast`). The two differ by ~15x on frequency-domain models,
+which a MAC counter misses entirely. tools/paper/ops_vs_latency.py regresses
+both against the board latency.
 
 The buckets are then weighted by their soft-float cost relative to a multiply,
 using figures in the range gcc's libgcc routines take on an M3:
@@ -37,15 +35,14 @@ using figures in the range gcc's libgcc routines take on an M3:
     WEIGHTS = arith 1, div 3, sqrt 4, trans 15
 
 `ops_weighted` is therefore a cycle proxy, not a physical count — it is only
-meaningful because it is validated. `--validate` regresses it against the four
-board-measured latencies; report that fit alongside any use of this column.
+meaningful because it is validated against the board: tools/paper/ops_vs_latency.py
+(frozen models, results/board/board_latency_20260929.csv).
 
 Both the raw per-bucket counts and the weighted total are written, so a reader
 who disagrees with the weights can re-weight from the same measurements.
 
 Usage:
     python tools/paper/measure_complexity.py --out results/analysis/complexity.csv
-    python tools/paper/measure_complexity.py --validate
 """
 import argparse
 import math
@@ -70,46 +67,8 @@ LTSF = ["ETTh1", "ETTh2", "ETTm1", "ETTm2", "Weather", "Exchange",
 # Relative soft-float cost per operation, normalised to a multiply. libgcc's
 # __aeabi_fdiv runs a few times __aeabi_fmul, and expf/erff are library calls
 # an order of magnitude beyond that. Deliberately coarse — the point is the
-# ordering, and --validate reports how well it holds.
+# ordering, and tools/paper/ops_vs_latency.py reports how well it holds.
 WEIGHTS = {"arith": 1.0, "div": 3.0, "sqrt": 4.0, "trans": 15.0}
-
-# Board measurements — 2026-08-24 session, all seven models re-measured in one
-# sitting at one build setting (NUCLEO-F103RB, 72 MHz, no FPU, -O2 soft-float,
-# D=7, seq_len=96, pred_len=96). Four of them reproduced the 07-27 numbers to
-# the microsecond across a different session and rebuild, which is the evidence
-# that the timing harness itself is sound; FEATHer's own figure moved 349 -> 655
-# ms because the model did (453p pre-08 config -> the shipping 938p FEATHer-N).
-#
-# !! These two dicts are a MATCHED PAIR and are used ONLY by --validate, which
-#    checks that the weighted-op model predicts measured latency (r2=0.87).
-#    FEATHer's entry is the 938p architecture that was actually flashed, paired
-#    with the latency that architecture actually produced -- internally
-#    consistent, so the fit stays valid.  It is NOT the shipping model.
-#    !! The FROZEN 452p FEATHer HAS NO BOARD LATENCY.  It needs hardware and has
-#    not been measured.  Never copy 655.1 ms into a table describing the 452p
-#    model: roughly half the weighted ops were removed with the DTK, so the real
-#    number is expected near ~350 ms -- expected, not measured.  Leave the cell
-#    empty until the board runs.
-BOARD_MS = {
-    "SparseTSF": 47.4,
-    "MixLinear": 79.7,
-    "SparseTSF_MLP": 430.6,
-    "FEATHer": 655.1,
-    "FITS": 796.2,
-    "DiPE_Linear": 1312.1,
-}
-BOARD_CFG = {
-    # pre-freeze 938p config, stated in full so it cannot drift when
-    # _DATASET_OVERRIDES changes (build() with data_name=None applies only
-    # _METHOD_DEFAULTS + this dict)
-    "FEATHer": dict(d_state=16, period=24, num_bands=4, use_residual_mlp=True,
-                    mlp_rank=16, channel_mode="mix", lambda_spec=0.01),
-    "SparseTSF": dict(sparsetsf_period_len=24, sparsetsf_model_type="linear"),
-    "SparseTSF_MLP": dict(sparsetsf_period_len=24, sparsetsf_d_model=128),
-    "MixLinear": dict(mixlinear_period_len=24),
-    "FITS": dict(fits_individual=False, fits_cut_freq=0),
-    "DiPE_Linear": dict(),
-}
 
 _MATMUL = ("mm", "bmm", "addmm", "baddbmm", "matmul", "linear", "convolution",
            "conv1d", "conv2d", "einsum")
@@ -262,73 +221,13 @@ def measure(model, D, seq_len, pred_len, transform="dft"):
     return params, oc.c, int(weighted)
 
 
-def _fit(xs, ys):
-    n = len(xs)
-    mx, my = sum(xs) / n, sum(ys) / n
-    sxy = sum((a - mx) * (b - my) for a, b in zip(xs, ys))
-    sxx = sum((a - mx) ** 2 for a in xs)
-    syy = sum((b - my) ** 2 for b in ys)
-    r = sxy / math.sqrt(sxx * syy) if sxx and syy else float("nan")
-    slope = sxy / sxx if sxx else float("nan")
-    return r, slope, my - slope * mx
-
-
-def _matmul_only_macs(model, D, seq_len):
-    """What a conventional counter would report, for contrast."""
-    from torch.utils.flop_counter import FlopCounterMode
-    x = torch.randn(1, seq_len, D)
-    fc = FlopCounterMode(display=False)
-    with fc, torch.no_grad():
-        model(x)
-    return fc.get_total_flops() // 2
-
-
-def validate():
-    """Regress each accounting against the four board latencies."""
-    print("Board configs: D=7, L=96, H=96 (deployment/board/export_*.py)\n")
-    rows = []
-    for m, ms in BOARD_MS.items():
-        model, _, _ = build(m, None, 96, extra=BOARD_CFG[m], D=7)
-        params, c, w = measure(model, 7, 96, 96, transform="dft")
-        _, _, w_fft = measure(model, 7, 96, 96, transform="fft")
-        mac = _matmul_only_macs(model, 7, 96)
-        rows.append((m, params, c, w, w_fft, mac, ms))
-
-    print(f"{'model':13s} {'params':>7s} {'arith':>13s} {'div':>7s} {'sqrt':>6s} "
-          f"{'trans':>7s} {'weighted':>13s} {'board ms':>9s} {'ns/op':>7s}")
-    for m, p, c, w, wf, mac, ms in sorted(rows, key=lambda r: r[6]):
-        print(f"{m:13s} {p:>7,} {c['arith']:>13,} {c['div']:>7,} {c['sqrt']:>6,} "
-              f"{c['trans']:>7,} {w:>13,} {ms:>9.0f} {ms*1e6/w:>7.1f}")
-
-    ys = [r[6] for r in rows]
-    print()
-    for label, xs in [
-        ("matmul/conv MACs only (conventional)", [r[5] for r in rows]),
-        ("all ops, transforms as FFT  N log2 N", [r[4] for r in rows]),
-        ("all ops, transforms as DFT  N^2 (board)", [r[3] for r in rows]),
-    ]:
-        r, slope, icpt = _fit(xs, ys)
-        print(f"  {label:42s} r={r:+.4f}  r^2={r*r:.4f}  "
-              f"fit {slope*1e6:8.2f} ms/Mop  intercept {icpt:+7.1f} ms")
-
-    print(f"\n  weights: {WEIGHTS}")
-    print("  The board computes a direct O(N^2) DFT (fea_kernels.c:fea_rfft96),")
-    print("  so charging N log2 N understates every frequency-domain model.")
-    return 0
-
-
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--models", default=None)
     p.add_argument("--data", default=None)
     p.add_argument("--pred_len", default="96,192,336,720")
     p.add_argument("--out", default="results/analysis/complexity.csv")
-    p.add_argument("--validate", action="store_true",
-                   help="regress the weighted count against board latency")
     args = p.parse_args()
-
-    if args.validate:
-        return validate()
 
     from baselines import list_models
     models = ([s.strip() for s in args.models.split(",")] if args.models

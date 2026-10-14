@@ -1,21 +1,18 @@
 # -*- coding: utf-8 -*-
 """
-(10-07: default file is results/raw_mfg.csv; the old fcst_results.csv no longer exists.)
-
 Compact results TABLE (not the line-by-line coverage dump).
 
 Prints one matrix: rows = model (or config), columns = dataset x horizon,
 cells = mean metric over seeds. Sorted by row mean; best per column marked *.
 
-Works for the main sweep (rows = model) and the FEATHer arch searches
-(single model -> rows = config exp_tag, auto-detected).
+With several models, rows = model; with a single model, rows = exp_tag
+(auto-detected).
 
 Usage:
-    python tools/audit/results_table.py                         # fcst_results.csv, MSE
+    python tools/audit/results_table.py                         # raw_mfg.csv, MSE
     python tools/audit/results_table.py --metric MAE
     python tools/audit/results_table.py --data Steel,WindSCADA,EWELD
-    python tools/audit/results_table.py --csv results/feather_mfg_search.csv
-    python tools/audit/results_table.py --csv results/feather_mfg_search_mse.csv --metric MSE
+    python tools/audit/results_table.py --csv results/raw_ltsf.csv
 """
 
 import argparse

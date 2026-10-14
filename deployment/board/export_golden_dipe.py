@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 """Export golden vectors + weights for the DiPE-Linear companion port.
 
-EDGE_EXPERIMENT.md decision #3 (optional tier): DiPE-Linear measured on the
-same board. Config = benchmark defaults (no per-dataset override for DiPE):
-use_revin + static freq/time weights + single-expert FFT big-conv,
-L = H = 96, D = 7.
+Default config = benchmark defaults: use_revin + static freq/time weights +
+single-expert FFT big-conv, L = H = 96, D = 7.
 
 Uses the real upstream model via the benchmark wrapper; staged replication
 is asserted equal to model(x) (eval mode - dropout inactive) before writing.
@@ -12,11 +10,10 @@ is asserted equal to model(x) (eval mode - dropout inactive) before writing.
 Also emits the 193-point DFT twiddle tables the expert conv needs
 (time_len = L + H - 1 + 2*pad = 193, pad = 1).
 
-2026-10-07: --config / --data export an industrial candidate setting (resolved by
+--config / --data export an industrial candidate setting (resolved by
 tools/results/protocol.resolve): num_experts (static router, temperature 1 at test as
 upstream's TemperatureScaling callback sets it) and use_revin.  They go to
-golden/dipe_geom.h (DIPE_E, DIPE_REVIN).  Without --config: the old default,
-byte-identical to before.
+golden/dipe_geom.h (DIPE_E, DIPE_REVIN).  Without --config: the default above.
 
 Run:  python deployment/board/export_golden_dipe.py [--config ETTh2] [--data MetroPT3]
 """
@@ -36,7 +33,7 @@ if str(_ROOT) not in sys.path:
 
 from baselines.DiPE_Linear.wrapper import build  # noqa: E402
 from tools.results.protocol import resolve       # noqa: E402
-from export_golden import emit_array             # noqa: E402
+from golden_io import emit_array             # noqa: E402
 
 SEQ_LEN = 96
 PRED_LEN = 96
@@ -54,11 +51,9 @@ def randomize_golden_weights(model) -> None:
     DiPE's init is an identity: freq and time weights all 1, the expert passes
     only bin 0 (weight [1, 0, 0, ...], bias 0).  Exported as-is the forecast is
     ~the window mean, so the whole expert path - padding, the long DFT, the
-    complex weights, the slice - went untested; a hardcoded pad of 1 (wrong
-    for every H >= 192) passed its H=720 golden run (found 2026-09-14).
-    Randomize all four.  Uses its own generator, so the result does not depend
-    on the global RNG state; export_batch.py calls this too, which is what
-    keeps its reference MSE on the same weights as dipe_weights.h.
+    complex weights, the slice - would go untested (a hardcoded pad of 1,
+    wrong for every H >= 192, would pass).  Randomize all four.  Uses its own
+    generator, so the result does not depend on the global RNG state.
     """
     gw = torch.Generator().manual_seed(WEIGHT_SEED + 1)
     with torch.no_grad():
@@ -103,10 +98,8 @@ def main() -> None:
     ex = model.expert
     pad = ex.pad_len
     tlen = ex.time_len
-    # geometry guard: these constants describe the FROZEN H=96 cell
-    # (the reference the 08-24 board numbers were taken at).  At other
-    # horizons the geometry legitimately changes - print it instead, and
-    # the C header must be given matching -D overrides.
+    # geometry guard for the reference H=96 cell; at other horizons the
+    # geometry legitimately changes (the C header takes matching -D overrides).
     if PRED_LEN == 96:
         assert (pad, tlen) == (1, 193), f"unexpected expert geometry {pad}/{tlen}"
 
@@ -173,8 +166,7 @@ def main() -> None:
         # silently producing a plausible wrong forecast.
         f.write(f"#define DIPE_H_GEN {PRED_LEN}\n")
         # ...and the expert padding, which changes with H (1/2/4/8 at
-        # H=96/192/336/720).  The port once hardcoded 1 and was wrong at
-        # every longer horizon without failing to build.
+        # H=96/192/336/720); a hardcoded pad would build and be wrong.
         f.write(f"#define DIPE_PAD_GEN {pad}\n")
         f.write(f"#define DIPE_E_GEN {E}\n#define DIPE_REVIN_GEN {int(revin)}\n"
                 f"#define DIPE_RD_GEN {D_MODEL if E > 1 else 1}\n\n")

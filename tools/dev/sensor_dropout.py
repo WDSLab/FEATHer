@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
-"""One dead sensor at inference: can channel mixing cover for it?  (2026-10-04)
+"""One dead sensor at inference: can channel mixing cover for it?
 
-Different question from the archived August robustness track (_archive/robustness:
-noise / spikes / random missing / quantisation sprinkled over ALL sensors, scored on
-the overall error).  Here exactly ONE sensor d fails and is scored on its own:
+Exactly ONE sensor d fails and is scored on its own:
 
     fault k = 48 (primary)  the last 48 of the 96 input steps are stuck at the last
                             good value (sensor dies mid-window, logger holds the value)
@@ -35,7 +33,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, "tools", "dev"))
 os.chdir(REPO)
-from gate_swap import load_worker  # noqa: E402
+from worker import load_worker  # noqa: E402
 from baselines import get_method_defaults, get_dataset_overrides  # noqa: E402
 
 DATA = ["Steel", "WindSCADA", "BlastFurnace", "N2O", "MetroPT3", "EWELD"]
@@ -92,8 +90,7 @@ def main():
             df, _, _ = worker.data_factory.data_select(data, a0.root_path)
             nf = df.shape[1] - 1
             test, _ = worker.data_factory.data_provider(
-                a0.root_path, data, a0.features, a0.batch_size, a0.seq_len, a0.label_len, H, "test",
-                starting_percent=a0.starting_percent, percent=a0.percent)
+                a0.root_path, data, a0.features, a0.batch_size, a0.seq_len, a0.label_len, H, "test")
             xs, ys = [], []
             for i in range(len(test)):
                 bx, by, _, _ = test[i]

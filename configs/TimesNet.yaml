@@ -1,0 +1,16 @@
+# TimesNet (ICLR'23) - thuml/Time-Series-Library scripts/long_term_forecast/*/TimesNet*.sh
+# Values = exactly what the experiments use (L = 96).  Key "<dataset>@<H>" = only for that horizon,
+# merged on top of "<dataset>".  Change a value in place, never by adding a second entry.
+# Keys: tn_d_model / tn_d_ff = width
+
+default: {lr: 0.0001, loss: mse}
+datasets:
+  # LTSF (official scripts)
+  ETTh1: {tn_d_model: 16, tn_d_ff: 32, lr: 0.0001}
+  ETTh2: {tn_d_model: 32, tn_d_ff: 32, lr: 0.0001}
+  ETTm1: {tn_d_model: 64, tn_d_ff: 64, lr: 0.0001}
+  ETTm2: {tn_d_model: 32, tn_d_ff: 32, lr: 0.0001}
+  Weather: {tn_d_model: 32, tn_d_ff: 32, lr: 0.0001}
+  Exchange: {tn_d_model: 64, tn_d_ff: 64, lr: 0.0001}
+  Electricity: {tn_d_model: 256, tn_d_ff: 512, lr: 0.0001}
+  Traffic: {tn_d_model: 512, tn_d_ff: 512, lr: 0.0001}

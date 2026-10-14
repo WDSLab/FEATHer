@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 """Export golden vectors + weights for the SparseTSF companion port.
 
-EDGE_EXPERIMENT.md decision #3: SparseTSF must be measured on the same
-board with the same pipeline. Config = the shipping MetroPT3 cell
-(_DATASET_OVERRIDES: sparsetsf_period_len=24, model_type=linear) ->
+Config = the MetroPT3 deployment cell
+(configs/SparseTSF.yaml: sparsetsf_period_len=24, model_type=linear) ->
 n=m=4, conv k=25 => exactly 41 parameters (the paper headline count).
 
 Uses the real upstream model via the benchmark wrapper (no re-implementation
@@ -24,12 +23,12 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from baselines.SparseTSF.wrapper import build  # noqa: E402
-from export_golden import emit_array           # noqa: E402  (same dir)
+from golden_io import emit_array           # noqa: E402
 
 SEQ_LEN = 96
 PRED_LEN = 96
 D_MODEL = 7
-PERIOD = 24            # _DATASET_OVERRIDES (SparseTSF, MetroPT3)
+PERIOD = 24            # configs/SparseTSF.yaml (SparseTSF, MetroPT3)
 
 WEIGHT_SEED = 2025
 INPUT_SEED = 7
@@ -46,7 +45,7 @@ def main() -> None:
                       help="board horizon; the C header takes -D<PFX>_H to match")
     _cli.add_argument("--d_model", type=int, default=D_MODEL,
                       help="channel count; the C header takes -D<PFX>_D to match")
-    # 10-12: the industrial period rule gives 48 on WindSCADA / BlastFurnace; the C
+    # the industrial period rule gives 48 on WindSCADA / BlastFurnace; the C
     # header takes -DSTSF_P to match (stamped below as STSF_P_GEN)
     _cli.add_argument("--period", type=int, default=PERIOD)
     _a = _cli.parse_args()
@@ -61,10 +60,8 @@ def main() -> None:
 
     n_params = sum(p.numel() for p in model.parameters())
     print(f"params = {n_params}")
-    # geometry guard: these constants describe the FROZEN H=96 cell
-    # (the reference the 08-24 board numbers were taken at).  At other
-    # horizons the geometry legitimately changes - print it instead, and
-    # the C header must be given matching -D overrides.
+    # geometry guard for the reference H=96, P=24 cell; elsewhere the
+    # geometry legitimately changes (the C header takes matching -D overrides).
     if PRED_LEN == 96 and PERIOD == 24:
         assert n_params == 41, f"expected the 41-param linear variant, got {n_params}"
 

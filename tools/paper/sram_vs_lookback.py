@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Chip budget of every lightweight forecaster against the input length L (2026-10-06).
+"""Chip budget of every lightweight forecaster against the input length L.
 
-User 10-06: the reason for L = 96 is not specific to FEATHer, so Table 12 shows every model.
+L = 96 is not a FEATHer-specific choice, so Table 12 shows every model.
 Per model and horizon H (MetroPT3 cell, D = 7, NUCLEO-F103RB 128 KB / 20 KB):
 
   SRAM - an UPPER BOUND on the channels one chip can serve.  Every port holds the caller's input

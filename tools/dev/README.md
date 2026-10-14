@@ -1,5 +1,5 @@
 > **10-07**: dev 루프(`run_dev.py`, `dev_summary.py`, `dev_cost.py`)와 끝난 진단 도구는 `tools/dev/_archive/` 로 옮김.
-> 남은 것: control_verdict · gate_swap(보드 replay 가 씀) · sensor_dropout · sensor_lag · sensor_mixing_probe.
+> 남은 것 (10-14): sensor_dropout · worker.py(train.py 를 모듈로 불러오는 load_worker; 보드 replay 가 씀). 끝난 도구는 _archive/tools_20261014/dev/.
 
 # Fast dev loop (2026-08-26)
 

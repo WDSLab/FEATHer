@@ -258,7 +258,7 @@ the sub-1K regime alongside SparseTSF / DiPE-Linear / FITS.
 
 Per-(method, dataset) learning rates, depths, and architecture HPs are
 pulled from each baseline's upstream `scripts/<dataset>.sh` and stored in
-`baselines/__init__.py:_DATASET_OVERRIDES`. FEATHer deliberately uses a
+`configs/<Model>.yaml`. FEATHer deliberately uses a
 single configuration across every dataset, demonstrating generalization
 without dataset-specific tuning.
 

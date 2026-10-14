@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Streaming replay of a test split through the board (2026-10-04).
+"""Streaming replay of a test split through the board.
 
 The deployed loop, end to end: the PC plays the sensors - it sends the test split of
 one dataset to the NUCLEO one time step at a time (exactly the scaled values the
@@ -25,7 +25,7 @@ the same window.
 Writes results/board_replay_<data>_H<H>_s<seed>_<mode>.csv (one row per forecast)
 and prints a summary: forecasts, MSE board vs PyTorch, max |board - PyTorch|,
 latency, and the duty cycle / energy per day at the dataset's real sampling interval
-(from the 09-29 current measurements: active 29.75 mA, WFI sleep 10.38 mA - the sleep
+(from the board current measurements: active 29.75 mA, WFI sleep 10.38 mA - the sleep
 figure is the whole NUCLEO board, not a deployment figure, so energy/day is reported
 as compute-only and as an upper bound with the board's sleep current).
 """
@@ -47,7 +47,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, REPO)
 sys.path.insert(0, os.path.join(REPO, "tools", "dev"))
 os.chdir(REPO)
-from gate_swap import load_worker            # noqa: E402
+from worker import load_worker            # noqa: E402
 from sensor_dropout import build_args        # noqa: E402  (same rebuild as the dropout check)
 
 SAMPLING_S = {"MetroPT3": 60, "Steel": 900, "EWELD": 900, "N2O": 300, "WindSCADA": 600,
@@ -135,8 +135,7 @@ def main():
         args = build_args(worker, "mix", a.data, a.H, a.seed)
         df, _, _ = worker.data_factory.data_select(a.data, args.root_path)
         test, _ = worker.data_factory.data_provider(
-            args.root_path, a.data, args.features, args.batch_size, 96, args.label_len, a.H, "test",
-            starting_percent=args.starting_percent, percent=args.percent)
+            args.root_path, a.data, args.features, args.batch_size, 96, args.label_len, a.H, "test")
     D = df.shape[1] - 1
     m = worker.get_model("FEATHer", args, n_features=D, seq_len=96, pred_len=a.H).float()
     ckpt = worker.checkpoint_path(args.exp_tag, "FEATHer", a.data, a.H, 96, a.seed)

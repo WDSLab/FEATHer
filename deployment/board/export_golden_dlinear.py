@@ -5,11 +5,9 @@ DLinear (Zeng et al., AAAI 2023) with individual=False — shared linear heads
 across channels, which is the configuration our sweeps run
 (baselines/DLinear/wrapper.py).
 
-Why it is ported at all: at H=96 DLinear fits the F103RB (18,624 params =
-74.5 KB of flash) AND beats FEATHer by 3.2%, so the deployability table has to
-carry a measured row for it.  At H>=192 its weights alone exceed 128 KB, which
-excludes it by arithmetic — no port needed there, and this script will refuse
-to pretend otherwise.
+At H=96 DLinear fits the F103RB (18,624 params = 74.5 KB of flash), so it gets
+a measured board row.  At H>=192 its weights alone exceed 128 KB, which excludes
+it by arithmetic; this script refuses those horizons.
 
 Writes:
     golden/dlinear_weights.h   float32 weight arrays (flash constants)

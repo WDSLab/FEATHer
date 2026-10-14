@@ -8,7 +8,7 @@ Reference:
     Code: github.com/romilbert/samformer, PyTorch port `samformer_pytorch/`
     (commit 71f10ea, 2025-06-05, Apache-2.0).
 
-Added 2026-10-06 (user): the established peer-reviewed lightweight model that
+The established peer-reviewed lightweight model that
 MIXES channel values (attention over channel tokens), about DLinear's size.
 
 Defaults = the PyTorch trainer's defaults: hid_dim 16, RevIN (affine), Adam

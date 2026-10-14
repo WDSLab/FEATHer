@@ -12,7 +12,7 @@ set per-dataset like our other period-tied models (FFT-detected).
 
 Upstream forward is `forward(x, cycle_index)`: it needs the per-sample cyclic
 phase. Our DataLoader has no per-sample cycle position, so we feed zeros —
-identical treatment to TQNet (see CLAUDE.md gotcha). This holds the cycle phase
+identical treatment to TQNet. This holds the cycle phase
 fixed across all batches (a documented, consistent limitation).
 """
 

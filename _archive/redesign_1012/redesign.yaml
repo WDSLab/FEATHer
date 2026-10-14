@@ -1,0 +1,12 @@
+# 10-12 redesign of FEATHer-mix under the baselines' rule (run.py --stage redesign; finished, kept for the record).
+# config_id "rd:<arm>" (frozen lr) or "rd:<arm>@lr<value>" (stage 2).  Seed 2025, L 96, 6 datasets x 4 H, chosen on the
+# validation loss; rows: role "redesign", model FEATHer_mix.
+
+arms:                                       # arm -> worker CLI flags
+  frozen: []                                # A (stage 2 lr arms only; stage 1 = the main rows)
+  mean: [--revin_mode, mean]                # B mean-only centring, window scale kept
+  norevin: [--no_revin]                     # C no instance normalisation
+  learnlevel: [--revin_mode, learn_level]   # D learned share of the window level removed
+  mixstats: [--mix_stats, "1"]              # E mixer also reads window mean / log-std
+stage1: ["rd:mean", "rd:norevin", "rd:learnlevel", "rd:mixstats"]
+stage2: ["rd:norevin@lr0.0003", "rd:norevin@lr0.003"]   # lr x0.3 / x3 of the stage-1 winner (10-12 verdict)

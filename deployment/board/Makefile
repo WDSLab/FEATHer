@@ -1,5 +1,4 @@
-# x86 golden-vector build (week 1-2). ARM targets arrive in week 3;
-# flags must stay identical on both (EDGE_EXPERIMENT.md §7).
+# x86 golden-vector tests of the C ports (make test).  Same flags as the ARM build.
 CC      ?= gcc
 CFLAGS  = -O2 -ffp-contract=off -fno-fast-math -Wall -Wextra \
           -Isrc -Igolden
@@ -12,13 +11,6 @@ CN_GEOM   ?=
 
 BUILD   = build
 KERN    = src/fea_kernels.c src/fea_kernels.h golden/fea_twiddle.h
-
-$(BUILD)/test_golden: src/feather_infer.c test/test_golden.c \
-                      src/feather_infer.h $(KERN) \
-                      golden/feather_weights.h golden/feather_vectors.h
-	@mkdir -p $(BUILD)
-	$(CC) $(CFLAGS) -DFEA_CAPTURE_STAGES src/fea_kernels.c \
-	      src/feather_infer.c test/test_golden.c -o $@ $(LDLIBS)
 
 $(BUILD)/test_feather2: src/feather2_infer.c test/test_feather2.c                     src/feather2_infer.h $(KERN)                     golden/feather2_weights.h golden/feather2_vectors.h
 	@mkdir -p $(BUILD)
@@ -36,25 +28,6 @@ $(BUILD)/test_feather2ci: src/feather2_infer.c src/feather2ci_infer.c \
 	@mkdir -p $(BUILD)
 	$(CC) $(CFLAGS) $(FEA2_GEOM) src/fea_kernels.c src/feather2_infer.c \
 	      src/feather2ci_infer.c test/test_feather2ci.c -o $@ $(LDLIBS)
-
-# FEATHer in1 (2026-09-15 candidate): mixer reads the input, sensors finish one
-# at a time.  Both schedules are built; see src/feather2in_infer.h.  Kept out of
-# `test` because it is not the frozen model.  Regenerate the goldens first:
-#   python deployment/board/export_golden_feather2in.py [--pred_len H --d_model D]
-FEA2I_GEOM ?=
-$(BUILD)/test_feather2in: src/feather2in_infer.c test/test_feather2in.c \
-                    src/feather2in_infer.h $(KERN) \
-                    golden/feather2in_weights.h golden/feather2in_vectors.h
-	@mkdir -p $(BUILD)
-	$(CC) $(CFLAGS) -DFEA2I_CAPTURE_STAGES -DFEA2I_RECOMPUTE_NORM=1 $(FEA2I_GEOM) \
-	      src/fea_kernels.c src/feather2in_infer.c test/test_feather2in.c -o $@ $(LDLIBS)
-
-$(BUILD)/test_feather2in_strict: src/feather2in_infer.c test/test_feather2in.c \
-                    src/feather2in_infer.h $(KERN) \
-                    golden/feather2in_weights.h golden/feather2in_vectors.h
-	@mkdir -p $(BUILD)
-	$(CC) $(CFLAGS) -DFEA2I_CAPTURE_STAGES -DFEA2I_RECOMPUTE_NORM=0 $(FEA2I_GEOM) \
-	      src/fea_kernels.c src/feather2in_infer.c test/test_feather2in.c -o $@ $(LDLIBS)
 
 $(BUILD)/test_dlinear: src/dlinear_infer.c test/test_dlinear.c src/dlinear_infer.h golden/dlinear_weights.h golden/dlinear_vectors.h
 	@mkdir -p $(BUILD)
@@ -163,20 +136,7 @@ $(BUILD)/test_fits: src/fits_infer.c test/test_fits.c \
 	$(CC) $(CFLAGS) -DFITS_CAPTURE_STAGES src/fea_kernels.c src/fits_infer.c \
 	      test/test_fits.c -o $@ $(LDLIBS)
 
-$(BUILD)/test_batch: test/test_batch.c $(KERN) \
-                     src/feather_infer.c src/stsf_infer.c \
-                     src/dipe_infer.c src/fits_infer.c src/pers_infer.h \
-                     golden/batch_ref.h
-	@mkdir -p $(BUILD)
-	$(CC) $(CFLAGS) src/fea_kernels.c src/feather_infer.c \
-	      src/stsf_infer.c src/dipe_infer.c src/fits_infer.c \
-	      test/test_batch.c -o $@ $(LDLIBS)
-
-.PHONY: test clean feather2 feather2r feather2ci feather2in dlinear cyclenet feather2fn cmos timebase phaseformer samformer realcheck realcheck_r
-feather2in: $(BUILD)/test_feather2in $(BUILD)/test_feather2in_strict
-	./$(BUILD)/test_feather2in
-	./$(BUILD)/test_feather2in_strict
-
+.PHONY: test clean feather2 feather2r feather2ci dlinear cyclenet feather2fn cmos timebase phaseformer samformer realcheck realcheck_r
 realcheck: $(BUILD)/test_realcheck
 	./$(BUILD)/test_realcheck
 
@@ -213,9 +173,9 @@ feather2: $(BUILD)/test_feather2
 feather2ci: $(BUILD)/test_feather2ci
 	./$(BUILD)/test_feather2ci
 
-test: $(BUILD)/test_feather2 $(BUILD)/test_feather2r $(BUILD)/test_feather2fn $(BUILD)/test_dlinear $(BUILD)/test_cyclenet $(BUILD)/test_cmos $(BUILD)/test_timebase $(BUILD)/test_phaseformer $(BUILD)/test_samformer $(BUILD)/test_golden $(BUILD)/test_stsf $(BUILD)/test_stsf_mlp \
+test: $(BUILD)/test_feather2 $(BUILD)/test_feather2r $(BUILD)/test_feather2fn $(BUILD)/test_dlinear $(BUILD)/test_cyclenet $(BUILD)/test_cmos $(BUILD)/test_timebase $(BUILD)/test_phaseformer $(BUILD)/test_samformer $(BUILD)/test_stsf $(BUILD)/test_stsf_mlp \
       $(BUILD)/test_mixlinear $(BUILD)/test_dipe $(BUILD)/test_pers \
-      $(BUILD)/test_fits $(BUILD)/test_batch
+      $(BUILD)/test_fits
 	./$(BUILD)/test_feather2
 	./$(BUILD)/test_feather2r
 	./$(BUILD)/test_feather2fn
@@ -225,14 +185,12 @@ test: $(BUILD)/test_feather2 $(BUILD)/test_feather2r $(BUILD)/test_feather2fn $(
 	./$(BUILD)/test_timebase
 	./$(BUILD)/test_phaseformer
 	./$(BUILD)/test_samformer
-	./$(BUILD)/test_golden
 	./$(BUILD)/test_stsf
 	./$(BUILD)/test_stsf_mlp
 	./$(BUILD)/test_mixlinear
 	./$(BUILD)/test_dipe
 	./$(BUILD)/test_pers
 	./$(BUILD)/test_fits
-	./$(BUILD)/test_batch
 
 clean:
 	rm -rf $(BUILD)

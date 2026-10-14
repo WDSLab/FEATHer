@@ -1,0 +1,504 @@
+{
+ "1k": {
+  "CMoS": [
+   {
+    "name": "fill:cmos_seg_size",
+    "knobs": {
+     "Steel": {
+      "cmos_seg_size": 24
+     },
+     "WindSCADA": {
+      "cmos_seg_size": 24
+     },
+     "BlastFurnace": {
+      "cmos_seg_size": 24
+     },
+     "N2O": {
+      "cmos_seg_size": 24
+     },
+     "MetroPT3": {
+      "cmos_seg_size": 24
+     },
+     "EWELD": {
+      "cmos_seg_size": 24
+     }
+    },
+    "stored": {
+     "Steel": 822,
+     "WindSCADA": 862,
+     "BlastFurnace": 932,
+     "N2O": 862,
+     "MetroPT3": 827,
+     "EWELD": 862
+    },
+    "over_budget": false
+   },
+   {
+    "name": "cmos_num_map=1+fill:cmos_seg_size",
+    "knobs": {
+     "Steel": {
+      "cmos_num_map": 1,
+      "cmos_seg_size": 12
+     },
+     "WindSCADA": {
+      "cmos_num_map": 1,
+      "cmos_seg_size": 12
+     },
+     "BlastFurnace": {
+      "cmos_num_map": 1,
+      "cmos_seg_size": 12
+     },
+     "N2O": {
+      "cmos_num_map": 1,
+      "cmos_seg_size": 12
+     },
+     "MetroPT3": {
+      "cmos_num_map": 1,
+      "cmos_seg_size": 12
+     },
+     "EWELD": {
+      "cmos_num_map": 1,
+      "cmos_seg_size": 12
+     }
+    },
+    "stored": {
+     "Steel": 618,
+     "WindSCADA": 658,
+     "BlastFurnace": 728,
+     "N2O": 658,
+     "MetroPT3": 623,
+     "EWELD": 658
+    },
+    "over_budget": false
+   },
+   {
+    "name": "cmos_seg_size=48+fill:cmos_num_map",
+    "knobs": {
+     "Steel": {
+      "cmos_seg_size": 48,
+      "cmos_num_map": 10
+     },
+     "WindSCADA": {
+      "cmos_seg_size": 48,
+      "cmos_num_map": 10
+     },
+     "BlastFurnace": {
+      "cmos_seg_size": 48,
+      "cmos_num_map": 9
+     },
+     "N2O": {
+      "cmos_seg_size": 48,
+      "cmos_num_map": 10
+     },
+     "MetroPT3": {
+      "cmos_seg_size": 48,
+      "cmos_num_map": 10
+     },
+     "EWELD": {
+      "cmos_seg_size": 48,
+      "cmos_num_map": 10
+     }
+    },
+    "stored": {
+     "Steel": 960,
+     "WindSCADA": 1000,
+     "BlastFurnace": 977,
+     "N2O": 1000,
+     "MetroPT3": 965,
+     "EWELD": 1000
+    },
+    "over_budget": false
+   }
+  ],
+  "SparseTSF_MLP": [
+   {
+    "name": "fill:sparsetsf_d_model",
+    "knobs": {
+     "Steel": {
+      "sparsetsf_d_model": 27
+     },
+     "WindSCADA": {
+      "sparsetsf_d_model": 52
+     },
+     "BlastFurnace": {
+      "sparsetsf_d_model": 52
+     },
+     "N2O": {
+      "sparsetsf_d_model": 27
+     },
+     "MetroPT3": {
+      "sparsetsf_d_model": 27
+     },
+     "EWELD": {
+      "sparsetsf_d_model": 27
+     }
+    },
+    "stored": {
+     "Steel": 1000,
+     "WindSCADA": 1000,
+     "BlastFurnace": 1000,
+     "N2O": 1000,
+     "MetroPT3": 1000,
+     "EWELD": 1000
+    },
+    "over_budget": false
+   },
+   {
+    "name": "sparsetsf_period_len=96+fill:sparsetsf_d_model",
+    "knobs": {
+     "Steel": {
+      "sparsetsf_period_len": 96,
+      "sparsetsf_d_model": 99
+     },
+     "WindSCADA": {
+      "sparsetsf_period_len": 96,
+      "sparsetsf_d_model": 99
+     },
+     "BlastFurnace": {
+      "sparsetsf_period_len": 96,
+      "sparsetsf_d_model": 99
+     },
+     "N2O": {
+      "sparsetsf_period_len": 96,
+      "sparsetsf_d_model": 99
+     },
+     "MetroPT3": {
+      "sparsetsf_period_len": 96,
+      "sparsetsf_d_model": 99
+     },
+     "EWELD": {
+      "sparsetsf_period_len": 96,
+      "sparsetsf_d_model": 99
+     }
+    },
+    "stored": {
+     "Steel": 995,
+     "WindSCADA": 995,
+     "BlastFurnace": 995,
+     "N2O": 995,
+     "MetroPT3": 995,
+     "EWELD": 995
+    },
+    "over_budget": false
+   }
+  ],
+  "TimeBase": [
+   {
+    "name": "fill:timebase_basis_num",
+    "knobs": {
+     "Steel": {
+      "timebase_basis_num": 27
+     },
+     "WindSCADA": {
+      "timebase_basis_num": 54
+     },
+     "BlastFurnace": {
+      "timebase_basis_num": 54
+     },
+     "N2O": {
+      "timebase_basis_num": 27
+     },
+     "MetroPT3": {
+      "timebase_basis_num": 27
+     },
+     "EWELD": {
+      "timebase_basis_num": 27
+     }
+    },
+    "stored": {
+     "Steel": 975,
+     "WindSCADA": 987,
+     "BlastFurnace": 987,
+     "N2O": 975,
+     "MetroPT3": 975,
+     "EWELD": 975
+    },
+    "over_budget": false
+   },
+   {
+    "name": "timebase_period_len=96+fill:timebase_basis_num",
+    "knobs": {
+     "Steel": {
+      "timebase_period_len": 96,
+      "timebase_basis_num": 99
+     },
+     "WindSCADA": {
+      "timebase_period_len": 96,
+      "timebase_basis_num": 99
+     },
+     "BlastFurnace": {
+      "timebase_period_len": 96,
+      "timebase_basis_num": 99
+     },
+     "N2O": {
+      "timebase_period_len": 96,
+      "timebase_basis_num": 99
+     },
+     "MetroPT3": {
+      "timebase_period_len": 96,
+      "timebase_basis_num": 99
+     },
+     "EWELD": {
+      "timebase_period_len": 96,
+      "timebase_basis_num": 99
+     }
+    },
+    "stored": {
+     "Steel": 998,
+     "WindSCADA": 998,
+     "BlastFurnace": 998,
+     "N2O": 998,
+     "MetroPT3": 998,
+     "EWELD": 998
+    },
+    "over_budget": false
+   }
+  ],
+  "PhaseFormer": [
+   {
+    "name": "fill:phaseformer_latent_dim",
+    "knobs": {
+     "Steel": {
+      "phaseformer_latent_dim": 3
+     },
+     "WindSCADA": {
+      "phaseformer_latent_dim": 2
+     },
+     "BlastFurnace": {
+      "phaseformer_latent_dim": 2
+     },
+     "N2O": {
+      "phaseformer_latent_dim": 3
+     },
+     "MetroPT3": {
+      "phaseformer_latent_dim": 3
+     },
+     "EWELD": {
+      "phaseformer_latent_dim": 3
+     }
+    },
+    "stored": {
+     "Steel": 984,
+     "WindSCADA": 678,
+     "BlastFurnace": 678,
+     "N2O": 984,
+     "MetroPT3": 984,
+     "EWELD": 984
+    },
+    "over_budget": false
+   },
+   {
+    "name": "phaseformer_layers=1+fill:phaseformer_latent_dim",
+    "knobs": {
+     "Steel": {
+      "phaseformer_layers": 1,
+      "phaseformer_latent_dim": 5
+     },
+     "WindSCADA": {
+      "phaseformer_layers": 1,
+      "phaseformer_latent_dim": 5
+     },
+     "BlastFurnace": {
+      "phaseformer_layers": 1,
+      "phaseformer_latent_dim": 5
+     },
+     "N2O": {
+      "phaseformer_layers": 1,
+      "phaseformer_latent_dim": 5
+     },
+     "MetroPT3": {
+      "phaseformer_layers": 1,
+      "phaseformer_latent_dim": 5
+     },
+     "EWELD": {
+      "phaseformer_layers": 1,
+      "phaseformer_latent_dim": 5
+     }
+    },
+    "stored": {
+     "Steel": 860,
+     "WindSCADA": 880,
+     "BlastFurnace": 880,
+     "N2O": 860,
+     "MetroPT3": 860,
+     "EWELD": 860
+    },
+    "over_budget": false
+   },
+   {
+    "name": "phaseformer_period_len=16+fill:phaseformer_latent_dim",
+    "knobs": {
+     "Steel": {
+      "phaseformer_period_len": 16,
+      "phaseformer_latent_dim": 3
+     },
+     "WindSCADA": {
+      "phaseformer_period_len": 16,
+      "phaseformer_latent_dim": 3
+     },
+     "BlastFurnace": {
+      "phaseformer_period_len": 16,
+      "phaseformer_latent_dim": 3
+     },
+     "N2O": {
+      "phaseformer_period_len": 16,
+      "phaseformer_latent_dim": 3
+     },
+     "MetroPT3": {
+      "phaseformer_period_len": 16,
+      "phaseformer_latent_dim": 3
+     },
+     "EWELD": {
+      "phaseformer_period_len": 16,
+      "phaseformer_latent_dim": 3
+     }
+    },
+    "stored": {
+     "Steel": 954,
+     "WindSCADA": 954,
+     "BlastFurnace": 954,
+     "N2O": 954,
+     "MetroPT3": 954,
+     "EWELD": 954
+    },
+    "over_budget": false
+   }
+  ],
+  "DiPE_Linear": [
+   {
+    "name": "fill:dipe_num_experts",
+    "knobs": {
+     "Steel": {
+      "dipe_num_experts": 1
+     },
+     "WindSCADA": {
+      "dipe_num_experts": 1
+     },
+     "BlastFurnace": {
+      "dipe_num_experts": 1
+     },
+     "N2O": {
+      "dipe_num_experts": 1
+     },
+     "MetroPT3": {
+      "dipe_num_experts": 1
+     },
+     "EWELD": {
+      "dipe_num_experts": 1
+     }
+    },
+    "stored": {
+     "Steel": 1809,
+     "WindSCADA": 1809,
+     "BlastFurnace": 1809,
+     "N2O": 1809,
+     "MetroPT3": 1809,
+     "EWELD": 1809
+    },
+    "over_budget": true
+   }
+  ],
+  "FITS": [
+   {
+    "name": "fill:fits_cut_freq",
+    "knobs": {
+     "Steel": {
+      "fits_cut_freq": 7
+     },
+     "WindSCADA": {
+      "fits_cut_freq": 7
+     },
+     "BlastFurnace": {
+      "fits_cut_freq": 7
+     },
+     "N2O": {
+      "fits_cut_freq": 7
+     },
+     "MetroPT3": {
+      "fits_cut_freq": 7
+     },
+     "EWELD": {
+      "fits_cut_freq": 7
+     }
+    },
+    "stored": {
+     "Steel": 944,
+     "WindSCADA": 944,
+     "BlastFurnace": 944,
+     "N2O": 944,
+     "MetroPT3": 944,
+     "EWELD": 944
+    },
+    "over_budget": false
+   }
+  ],
+  "SparseTSF": [
+   {
+    "name": "fill:sparsetsf_period_len",
+    "knobs": {
+     "Steel": {
+      "sparsetsf_period_len": 12
+     },
+     "WindSCADA": {
+      "sparsetsf_period_len": 12
+     },
+     "BlastFurnace": {
+      "sparsetsf_period_len": 12
+     },
+     "N2O": {
+      "sparsetsf_period_len": 12
+     },
+     "MetroPT3": {
+      "sparsetsf_period_len": 12
+     },
+     "EWELD": {
+      "sparsetsf_period_len": 12
+     }
+    },
+    "stored": {
+     "Steel": 493,
+     "WindSCADA": 493,
+     "BlastFurnace": 493,
+     "N2O": 493,
+     "MetroPT3": 493,
+     "EWELD": 493
+    },
+    "over_budget": false
+   }
+  ],
+  "MixLinear": [
+   {
+    "name": "fill:mixlinear_period_len",
+    "knobs": {
+     "Steel": {
+      "mixlinear_period_len": 4
+     },
+     "WindSCADA": {
+      "mixlinear_period_len": 4
+     },
+     "BlastFurnace": {
+      "mixlinear_period_len": 4
+     },
+     "N2O": {
+      "mixlinear_period_len": 4
+     },
+     "MetroPT3": {
+      "mixlinear_period_len": 4
+     },
+     "EWELD": {
+      "mixlinear_period_len": 4
+     }
+    },
+    "stored": {
+     "Steel": 941,
+     "WindSCADA": 941,
+     "BlastFurnace": 941,
+     "N2O": 941,
+     "MetroPT3": 941,
+     "EWELD": 941
+    },
+    "over_budget": false
+   }
+  ]
+ }
+}

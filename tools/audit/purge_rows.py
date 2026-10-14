@@ -1,29 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Surgical row removal from a results CSV, so the orchestrators' resume logic
-re-runs exactly the invalidated cells.
+Surgical row removal from a results CSV, so that run.py re-runs exactly the
+removed cells (it only runs cells missing from the results).
 
-Written for the 2026-07-14 audit fixes (see
-manuscript/notes/code_audit_2026-07-14.md):
-
-  * Weather split fix (P1-2) — every Weather row in every CSV was produced
-    under the legacy hard-coded split and is invalid:
-        python tools/audit/purge_rows.py --csv results/fcst_results.csv --data Weather --apply
-        python tools/audit/purge_rows.py --csv results/hp_search.csv    --data Weather --apply
-  * Spectral-separation loss inversion fix (P1-1) — FEATHer-only training
-    runs (baselines never use the spec loss). Frozen OFAT rows in
-    hp_search.csv are deliberately KEPT (lambda axis was flat); purge the
-    main/lr streams:
-        python tools/audit/purge_rows.py --csv results/fcst_results.csv --model FEATHer --apply
-        python tools/audit/purge_rows.py --csv results/lr_search.csv    --model FEATHer --apply
+    python tools/audit/purge_rows.py --csv results/raw_ltsf.csv --data Weather --apply
 
 Dry-run by default — prints what WOULD be deleted; add --apply to write.
 A timestamped .bak copy of the CSV is made before any modification.
 
-Generic: works on any results CSV (fcst / lr / hp / robust) because it only
-filters on the columns you pass. Filters combine with AND across flags and
-OR within a comma-separated list, e.g.
-    --model FEATHer --data Weather      -> FEATHer rows on Weather only
+Works on any results CSV because it only filters on the columns you pass.
+Filters combine with AND across flags and OR within a comma-separated list, e.g.
+    --model FEATHer_CI --data Weather   -> FEATHer_CI rows on Weather only
     --data Weather,ETTh1                -> all models on Weather or ETTh1
 """
 
@@ -41,7 +28,7 @@ FILTER_COLUMNS = {
     "model":    ("model",    str),
     "data":     ("data",     str),
     "exp_tag":  ("exp_tag",  str),
-    "train_exp_tag": ("train_exp_tag", str),  # robust CSV: arm key (exp_tag there == "robust")
+    "train_exp_tag": ("train_exp_tag", str),
     "pred_len": ("pred_len", int),
     "seed":     ("seed",     int),
 }
@@ -137,7 +124,7 @@ def main():
     print(f"\n[APPLIED] {len(to_drop)} rows deleted "
           f"({n_before} -> {len(kept)}).")
     print(f"Backup: {backup}")
-    print("The orchestrators' resume (--check) will now show these cells as "
+    print("run.py --check will now show these cells as "
           "missing and refill them on the next run.")
 
 

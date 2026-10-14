@@ -6,9 +6,6 @@ Reference:
     Lens of Chunk-wise Spatial Correlations", ICML 2025 (PMLR 267:55493-55510),
     arXiv 2505.19090.  Code: github.com/CSTCloudOps/CMoS (commit b696a0c, 2025-06-19).
 
-Added 2026-10-06 (user): CMoS is a super-lightweight model with an edge-device
-claim and is the paper we cite for "lightweight models avoid channel mixing".
-
 Channel handling: CMoS does NOT mix channel values.  Each channel is forecast
 from its own past; what is shared is K basis chunk-to-chunk mappings, mixed per
 channel by a softmax gate computed from that channel's own (private) conv.

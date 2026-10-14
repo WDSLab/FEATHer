@@ -1,0 +1,23 @@
+# CycleNet (NeurIPS'24) - ACAT-SCUT/CycleNet Linear-Input-96 scripts (lr 0.01)
+# Values = exactly what the experiments use (L = 96).  Key "<dataset>@<H>" = only for that horizon,
+# merged on top of "<dataset>".  Change a value in place, never by adding a second entry.
+# Keys: cyclenet_cycle = length of the learned cycle (samples per day)
+
+default: {lr: 0.01, loss: mse}
+datasets:
+  # LTSF (official scripts)
+  ETTh1: {cyclenet_cycle: 24}
+  ETTh2: {cyclenet_cycle: 24}
+  ETTm1: {cyclenet_cycle: 96}
+  ETTm2: {cyclenet_cycle: 96}
+  Weather: {cyclenet_cycle: 144}
+  Exchange: {cyclenet_cycle: 24}     # no official setting -> chosen on validation among the candidates (protocol.py)
+  Electricity: {cyclenet_cycle: 168}
+  Traffic: {cyclenet_cycle: 168}
+  # industrial: period-type keys only (FFT period <= 48 / daily cycle, EXPERIMENT_PROTOCOL.md §5)
+  Steel: {cyclenet_cycle: 96}
+  WindSCADA: {cyclenet_cycle: 144}
+  BlastFurnace: {cyclenet_cycle: 24}
+  MetroPT3: {cyclenet_cycle: 298}
+  N2O: {cyclenet_cycle: 288}
+  EWELD: {cyclenet_cycle: 96}

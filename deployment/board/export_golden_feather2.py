@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """Export float32 weights + golden vectors for the FEATHer v2 C port.
 
-Builds the SHIPPING model frozen in docs/MODEL_FINAL.md (2026-09-04):
+Builds the SHIPPING model frozen in docs/MODEL_FINAL.md:
 
-    --no_in_proj --num_bands 3 --point_kernel 3 --dtk_mode none
+    --num_bands 3 --point_kernel 3
     --gate_mode banded          (mfg: channel_mode=mix)
 
 runs one forward pass stage by stage (mirroring FEATHer.forward), asserts the
@@ -39,8 +39,8 @@ if str(_ROOT) not in sys.path:
 
 from baselines.FEATHer.FEATHer import FEATHer  # noqa: E402
 
-# MetroPT3 deployment cell (D=7, FFT-detected period 24) — the same cell the
-# 07-27 and 08-24 board runs used, so latency is comparable across ports.
+# MetroPT3 deployment cell (D=7, FFT-detected period 24) - the same cell as the
+# other ports, so latency is comparable across ports.
 SEQ_LEN = 96
 D_MODEL = 7
 PERIOD = 24
@@ -49,16 +49,9 @@ PERIOD = 24
 ARCH = dict(
     num_bands=3,
     point_kernel=3,
-    dtk_mode="none",
-    gate_mode="banded",
-    use_in_proj=False,
     use_residual_mlp=True,
     mlp_rank=16,
     channel_mode="mix",
-    # d_state / kernel_size are dead once dtk_mode="none" (dense_kernel is
-    # nn.Identity) but the constructor still takes them.
-    d_state=16,
-    kernel_size=7,
 )
 
 WEIGHT_SEED = 2025
@@ -111,10 +104,10 @@ def staged_forward(m: FEATHer, x: torch.Tensor, pred_len: int):
         stdev = torch.sqrt(x.var(1, keepdim=True, unbiased=False) + 1e-5)
         x_norm = (x - means) / stdev
 
-        # use_in_proj=False -> in_proj is nn.Identity
+        # no linear channel mixer before the bands
         h_t = x_norm.permute(0, 2, 1)
 
-        # dtk_mode="none" -> dense_kernel is nn.Identity, so band == conv out
+        # no temporal kernel after the band convs: band == conv out
         bP = m.conv_point(h_t).permute(0, 2, 1)
         bM = m.conv_mid(h_t).permute(0, 2, 1)
         bL_ds = m.pool_low(h_t).permute(0, 2, 1)
@@ -140,7 +133,7 @@ def staged_forward(m: FEATHer, x: torch.Tensor, pred_len: int):
         mlp = hidden + m.nl_up(F.gelu(m.nl_down(hidden)))
 
         hh_t = mlp.permute(0, 2, 1)
-        if m.sparse_head.agg_shared:                       # 10-13: one kernel for all channels
+        if m.sparse_head.agg_shared:                       # one kernel for all channels
             h_agg = hh_t + m.sparse_head.agg_conv(hh_t.reshape(D_MODEL, 1, SEQ_LEN)).reshape(1, D_MODEL, SEQ_LEN)
         else:
             h_agg = hh_t + m.sparse_head.agg_conv(hh_t)     # (1, D, L)
@@ -188,10 +181,10 @@ def main() -> None:
                     help="residual MLP rank; the C header takes -DFEA2_MLP_R to match")
     ap.add_argument("--d_model", type=int, default=D_MODEL,
                     help="channel count; the C header takes -D<PFX>_D to match")
-    # 10-12: SPK period (FFT rule <= 48: 48 on WindSCADA / BlastFurnace); the C header
+    # SPK period (FFT rule <= 48: 48 on WindSCADA / BlastFurnace); the C header
     # takes -DFEA2_PERIOD to match, stamped as FEA2_P_GEN
     ap.add_argument("--period", type=int, default=PERIOD)
-    # 10-13 size dial: SPK segment length (0 = the period) and the shared aggregation kernel;
+    # size dial: SPK segment length (0 = the period) and the shared aggregation kernel;
     # the C header takes -DFEA2_SEG / -DFEA2_AGG_SHARED, stamped as FEA2_SEG_GEN / FEA2_AGGS_GEN
     ap.add_argument("--head_seg", type=int, default=0)
     ap.add_argument("--agg_shared", type=int, default=0)
@@ -228,8 +221,8 @@ def main() -> None:
         # from one H, code built for another) fails to COMPILE instead of
         # silently producing a plausible wrong forecast.
         f.write(f"#define FEA2_H_GEN {H}\n")
-        # same guard for the residual-MLP rank (2026-09-29): a rank-16 header
-        # built at -DFEA2_MLP_R=4 compiled silently and gave a wrong forecast
+        # same guard for the residual-MLP rank: a rank-16 header built at
+        # -DFEA2_MLP_R=4 would otherwise compile and give a wrong forecast
         f.write(f"#define FEA2_R_GEN {ARCH['mlp_rank']}\n")
         f.write(f"#define FEA2_P_GEN {PERIOD}\n")
         if "head_seg" in ARCH:

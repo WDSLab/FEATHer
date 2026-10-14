@@ -1,0 +1,41 @@
+# Size-matched comparison (run.py --stage size_select / size; docs/EXPERIMENT_PROTOCOL.md §10).
+# Tiers: "1k" = numbers stored on the chip (complex x2) <= 1,000 at all four H; "max" = firmware fits 128 KB flash /
+# 20 KB SRAM at all four H (real builds).
+# Each model starts from its chosen author setting (docs/chosen_mfg.json) and changes only width / depth / segment
+# hyperparameters: (a) one of them fills the budget, or (b) one is first set to its smallest-model value and another
+# fills the budget.  Everything else keeps the author value.  Dropped: candidates that end at width 1, that equal the
+# author setting, or that do not fit on all six datasets (checked 10-14).
+# candidates: per model, {fill: key that fills the budget, fix: keys set first}; tools/results/size_candidates.py
+# finds the fill value per dataset -> docs/size_candidates.json.
+
+tiers: [1k, max]
+select_horizons: [96, 720]              # the selection runs (seed 2025); the chosen trial then runs all 4 H x 3 seeds
+lr_points:                              # by number of candidates, so every model gets ~9 selection trials (2 -> 10)
+  1: [0.01, 0.03, 0.1, 0.3, 1, 3, 10, 30, 100]
+  2: [0.1, 0.3, 1, 3, 10]
+  3: [0.1, 1, 10]
+fixed:                                  # switches that are always on in a size-matched model
+  FEATHer_mix: {agg_shared: 1}          # one SPK smoothing kernel shared by all channels
+candidates:
+  CMoS:
+    - {fill: cmos_seg_size}
+    - {fill: cmos_seg_size, fix: {cmos_num_map: 1}}
+    - {fill: cmos_num_map, fix: {cmos_seg_size: 48}}
+  SparseTSF_MLP:
+    - {fill: sparsetsf_d_model}
+    - {fill: sparsetsf_d_model, fix: {sparsetsf_period_len: 96}}
+  TimeBase:
+    - {fill: timebase_basis_num}
+    - {fill: timebase_basis_num, fix: {timebase_period_len: 96}}
+  PhaseFormer:
+    - {fill: phaseformer_latent_dim}
+    - {fill: phaseformer_latent_dim, fix: {phaseformer_layers: 1}}
+    - {fill: phaseformer_latent_dim, fix: {phaseformer_period_len: 16}}
+  DiPE_Linear:
+    - {fill: dipe_num_experts}          # nothing fits 1K: the smallest (1 expert), reported unranked
+  FITS:
+    - {fill: fits_cut_freq}
+  SparseTSF:
+    - {fill: sparsetsf_period_len}
+  MixLinear:
+    - {fill: mixlinear_period_len}

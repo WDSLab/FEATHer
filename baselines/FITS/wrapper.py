@@ -38,7 +38,7 @@ class _FITSWrap(nn.Module):
 def _cut_freq(args, seq_len):
     """Low-pass cut-off (number of rFFT bins kept).
 
-    2026-10-07: official rule (FITS-main/run_longExp_F.py:112-113, every script leaves --cut_freq 0):
+    Official rule (FITS-main/run_longExp_F.py:112-113, every script leaves --cut_freq 0):
         cut_freq = (seq_len // base_T + 1) * H_order + 10
     with H_order / base_T from the dataset's final script. The official values were tuned for
     L = 360/720; when the formula exceeds what our input length allows it is set to that maximum
@@ -46,7 +46,7 @@ def _cut_freq(args, seq_len):
     allows).  The maximum is seq_len // 2, not seq_len // 2 + 1: FITS upsamples the kept bins by
     (L + H) / L and the result must fit the (L + H) // 2 + 1 output bins (49 * 2 = 98 > 97 at
     L = H = 96 crashes upstream as well). An explicit fits_cut_freq still wins; without
-    H_order the old seq_len // 4 default is kept (byte-identical to the pre-10-07 runs).
+    H_order the default is seq_len // 4.
     """
     explicit = int(getattr(args, "fits_cut_freq", 0) or 0)
     if explicit:

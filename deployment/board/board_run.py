@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Automated board measurement (2026-09-29): build -> flash -> read -> CSV.
+"""Automated board measurement: build -> flash -> read -> CSV.
 
 For every cell of board_prep.PLAN (+ the direct-DFT A/B cells) this script
   1. installs the cell into ONE scratch copy of the CubeIDE project
@@ -19,8 +19,9 @@ need the multimeter in JP6 and stay manual (BOARD_RUNBOOK.md section 3).
     python deployment/board/board_run.py                 # all cells, resumable
     python deployment/board/board_run.py --only 9,21     # plan numbers (see --plan)
     python deployment/board/board_run.py --plan
-    python deployment/board/board_run.py --candidates --plan   # 10-07: every candidate setting
-    python deployment/board/board_run.py --candidates          # of CMoS / TimeBase / PhaseFormer
+    python deployment/board/board_run.py --candidates --plan   # every candidate setting
+    python deployment/board/board_run.py --candidates          # of the CAND_MODELS
+    python deployment/board/board_run.py --stream              # STREAM_CELLS at real channel count
 """
 from __future__ import annotations
 
@@ -43,14 +44,12 @@ CLI = Path(r"C:\ST\STM32CubeIDE_2.2.0\STM32CubeIDE\plugins"
            r"\STM32_Programmer_CLI.exe")
 GCC, SIZE = TOOLS / "arm-none-eabi-gcc.exe", TOOLS / "arm-none-eabi-size.exe"
 OUT = bp.ROOT / "results" / "board" / "board_latency_20260929.csv"
-# 10-07: CMoS / TimeBase / PhaseFormer change structure with the author setting, and the
-# industrial setting is chosen on validation later.  Every candidate is measured up front
-# (at the MetroPT3 deployment cell, whose period rule gives period 24), so the chosen one is
-# read off this file without another board session.  Candidates with the same structure at
-# a horizon build the same firmware: measured once, the others listed in `same_as`.
+# These models change structure with the author setting, which is chosen on validation.
+# Every candidate is measured up front (at the MetroPT3 deployment cell, period 24), so the
+# chosen one is read off this file without another board session.  Candidates with the same
+# structure at a horizon build the same firmware: measured once, the others in `same_as`.
 OUT_CAND = bp.ROOT / "results" / "board" / "board_latency_candidates_20261007.csv"
 CAND_MODELS = {"cmos": "CMoS", "timebase": "TimeBase", "phaseformer": "PhaseFormer",
-               # 10-07 (second pass): older ports whose candidates differ in structure
                "stsf_mlp": "SparseTSF_MLP", "dipe": "DiPE_Linear", "mixlinear": "MixLinear",
                "fits": "FITS"}
 
@@ -258,7 +257,7 @@ def run_candidates(a) -> None:
                   f"flash {fl / 1024:.1f} KB  RAM {ram / 1024:.2f} KB", flush=True)
 
 
-# 10-12: the tightest on-chip cell of every channel-streaming port at its chip-best setting
+# The tightest on-chip cell of every channel-streaming port at its chip-best setting
 # (deployment/board/chip_verdict.py --candidates), run at the dataset's REAL channel count with
 # <pfx>_forward_ch (one channel at a time, H-float output).  (board model, setting, dataset, H)
 STREAM_CELLS = [("cmos", "Weather", "BlastFurnace", 720), ("dipe", "Electricity", "BlastFurnace", 720),
@@ -392,7 +391,7 @@ def main() -> None:
                 flash_board(elf)
                 name = bp.MODELS[m][1] + (" (direct DFT)" if direct else "")
                 lines = read_lines(a.port, name, H, D, 2, a.max_s)
-            except Exception as e:                         # keep going, record the failure
+            except Exception as e:                         # keep going
                 print(f"{tag}  ERROR  {str(e).splitlines()[0][:120]}", flush=True)
                 continue
             if len(lines) < 2 or lines[0]["cycles"] != lines[1]["cycles"]:

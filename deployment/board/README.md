@@ -87,4 +87,4 @@ H 에서 계산하도록 수정 (이전 값 1 은 H=96 에서만 맞았다).
 - 트위들 테이블은 Python double로 계산해 float32로 반올림한 flash 상수
   (768B) → x86/ARM에서 동일 상수 보장.
 - 2주차 (07-21f): 아레나 재작성 + 100윈도우 배치 MSE 5모델 일치
-  (`export_batch.py` + `test/test_batch.c`).
+  (`export_batch.py` + `test/test_batch.c`, 10-14 에 `_archive/board_legacy/` 로 보관).

@@ -1,0 +1,18 @@
+# FEATHer ablation (run.py --stage ablation).  Each arm = the frozen industrial FEATHer-mix with one thing changed.
+#   what      what the arm removes or changes
+#   flags     worker CLI flags added to the run
+#   replaces  keys of configs/FEATHer.yaml that the flags take over (dropped from the frozen setting)
+#   horizons  where the paper runs the arm (6 industrial datasets x 3 seeds each)
+# Results: role "ablation", config_id "abl:<arm>", model "FEATHer" (pre-10-07 rows: exp_tag "abl_<arm>").
+
+band1:      {what: "single-scale (1 band)",           flags: [--num_bands, "1"],     replaces: [num_bands],                  horizons: [96, 192, 336, 720]}
+band2:      {what: "dual-scale (2 bands)",            flags: [--num_bands, "2"],     replaces: [num_bands],                  horizons: [96]}
+gatenone:   {what: "w/o gating (unweighted sum)",     flags: [--gate_mode, none],    replaces: [gate_mode],                  horizons: [96, 192, 336, 720]}
+gateuni:    {what: "uniform gating (1/S)",            flags: [--gate_uniform],       replaces: [gate_uniform, use_gate],     horizons: [96]}
+gatestatic: {what: "static learned mixture (no FFT)", flags: [--gate_mode, static],  replaces: [gate_mode],                  horizons: [96]}
+headlin:    {what: "SPK -> dense linear head",        flags: [--head_mode, linear],  replaces: [head_mode],                  horizons: [96, 192, 336, 720]}
+norevin:    {what: "RevIN off",                       flags: [--no_revin],           replaces: [no_revin, use_norm],         horizons: [96]}
+spec0:      {what: "spectral loss off (lambda 0)",    flags: [--lambda_spec, "0.0"], replaces: [lambda_spec],                horizons: [96]}
+noresid:    {what: "residual MLP off",                flags: [],                     replaces: [use_residual_mlp, mlp_rank], horizons: [96]}   # worker default = off
+r2:         {what: "mixing width R = 2",              flags: [--mlp_rank, "2"],      replaces: [mlp_rank],                   horizons: [96]}
+r8:         {what: "mixing width R = 8",              flags: [--mlp_rank, "8"],      replaces: [mlp_rank],                   horizons: [96]}

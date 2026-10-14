@@ -109,7 +109,7 @@ batch 32 · 최대 50 epoch · patience 10 · Adam + CosineAnnealing(T_max 50) �
 | N2O | 24 | 288 |
 | EWELD | 24 | 96 |
 
-코드: LTSF 설정 = `baselines/__init__.py` (`_DATASET_OVERRIDES`, 10-07 수정 블록) · mfg 후보·해석 = `tools/results/protocol.py`
+코드: LTSF 설정 = `configs/<모델>.yaml` (10-14 부터; 이전 `baselines/__init__.py`) · mfg 후보·해석 = `tools/results/protocol.py`
 (`CANDIDATES`, `resolve()`) · 판정 = `tools/results/select_verdict.py`.
 
 ## 6. FEATHer 설정과 개발 이력 (공개할 사실)
@@ -163,6 +163,26 @@ batch 32 · 최대 50 epoch · patience 10 · Adam + CosineAnnealing(T_max 50) �
   복사 실수(주석의 의도대로 설정 사용) · CMoS 주기 힌트는 L 보다 크면 효과 없음.
 
 ## 10. 변경 이력
+
+- 2026-10-14 (버그 수정, 사용자 결정): 분 단위 데이터(ETTm1·ETTm2·Weather·Steel·WindSCADA·MetroPT3·N2O·EWELD)의 시간 특징
+  주기가 `"m"` 이었는데 pandas 는 이를 "월"로 읽어 시간 특징이 '몇 월'뿐이었다 → `"min"`(분)으로 수정. 시간 특징을 쓰는 모델은
+  iTransformer(참고 모델) 하나뿐이라 그 96칸(제조 5 × LTSF 3 데이터)만 다시 돌린다; 옛 줄은
+  `results/_archive/itransformer_month_marks_20261014.csv` 로 옮김. FEATHer·경량 베이스라인은 시간 특징을 쓰지 않아 영향 없음.
+
+- 2026-10-14 (코드 정리, 값 변화 없음): 모델 하이퍼파라미터를 `baselines/__init__.py` 에서 `configs/<모델>.yaml` 로 이전
+  (덮어쓰기 없이 실제로 쓰이던 최종값만; 전후 설정·모델 가중치 전부 동일 확인). 결과 줄마다 `hparams` 열(그 칸이 쓴 하이퍼
+  파라미터 전체 JSON)을 기록하고, `run.py` 는 기록된 값이 지금 YAML 값과 다른 칸을 다시 돌린다(10-14 이전 줄은 기록 없음 = 완료로 봄).
+  실험 정의(ablation · 대조 · 재설계 · 크기 비교 후보)도 `configs/experiments/*.yaml` 로 이전(읽힌 정의 동일 확인). 한 번도 돌리지 않은
+  ablation 6개(readd_dtk · readd_inproj · headmlp · headconv · gatesm · specHi)와 그것만 쓰던 FEATHer 코드는 삭제(원본 `_archive/FEATHer_full_20261014/`).
+  10-12 재설계는 종료(채택 없음, 2단계 중단): `--stage redesign`·revin_mode(mean/learn_level)·mix_stats 삭제, 정의·판정 도구는 `_archive/redesign_1012/`.
+
+- 2026-10-14 (사용자 결정, 결과 보기 전): 크기 맞춘 비교의 **후보를 여러 개로**. 크기 하이퍼파라미터는 폭 · 깊이 · 구간 종류만
+  (`protocol.SIZE_KNOBS`), (가) 하나로 예산을 채움 / (나) 하나를 최소로 두고 다른 하나로 채움, 나머지는 저자 값, 폭 1 · 저자와 같음 ·
+  6데이터 중 하나라도 안 되는 후보는 제외 (`tools/results/size_candidates.py` → `docs/size_candidates.json`). 모든 모델 시도 수
+  동일(후보 수 × lr 점: 3×3, 2×5, 1×9), 고르기 = 시드 2025 · **H96 + H720** 검증 손실의 데이터별 순위 평균
+  (`size_verdict.py`, 모든 시도 기록 `results/analysis/size_selection_audit.csv`). SparseTSF · MixLinear 도 주기로 1K 에 맞춤.
+  DiPE 는 1K 안에 들어가는 후보가 없어(최소 1,809) 1K판 참고 줄(순위 제외), 최대판은 정식. 설정 하나를 6데이터에 공통으로 쓰는
+  것은 저자 논문(데이터별 설정)보다 엄격한 조건. 칩 최대판 후보는 실제 빌드로 따로 만듦. 10-13 단일 다이얼 결과는 후보 ① 로 재사용.
 
 - 2026-10-13 (사용자 결정): **메인 비교 = 크기를 맞춘 비교**(1K판 · 칩 최대판). 각 베이스라인은 고른 저자 설정에서 크기
   다이얼 하나만 바꾸고(CMoS 구간 길이 · SparseTSF-MLP 은닉 폭 · TimeBase 기저 수 · PhaseFormer 잠재 폭 · DiPE 전문가 수 ·

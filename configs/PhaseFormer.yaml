@@ -1,0 +1,55 @@
+# PhaseFormer (ICLR'26) - official run_<dataset>.py get_best_config_for_horizon
+# Values = exactly what the experiments use (L = 96).  Key "<dataset>@<H>" = only for that horizon,
+# merged on top of "<dataset>".  Change a value in place, never by adding a second entry.
+# Keys: phaseformer_period_len = phase period | _latent_dim = token width | _layers = routing layers | _routers = learned routers | _heads = attention heads | _enc_hidden / _pred_hidden = MLP widths (unused, use_mlp off) | _pos_embed = phase position embedding | _attn_dropout
+
+default: {lr: 0.001, loss: mse}
+datasets:
+  # LTSF (official scripts)
+  ETTh1: {phaseformer_period_len: 24, phaseformer_layers: 3, phaseformer_pos_embed: true}
+  ETTh1@96: {phaseformer_latent_dim: 4, phaseformer_enc_hidden: 16, phaseformer_pred_hidden: 32, phaseformer_routers: 8, phaseformer_heads: 1, phaseformer_attn_dropout: 0.1, lr: 0.001}
+  ETTh1@192: {phaseformer_latent_dim: 4, phaseformer_enc_hidden: 16, phaseformer_pred_hidden: 32, phaseformer_routers: 8, phaseformer_heads: 1, phaseformer_attn_dropout: 0.1, lr: 0.001}
+  ETTh1@336: {phaseformer_latent_dim: 4, phaseformer_enc_hidden: 16, phaseformer_pred_hidden: 32, phaseformer_routers: 8, phaseformer_heads: 1, phaseformer_attn_dropout: 0.1, lr: 0.001}
+  ETTh1@720: {phaseformer_latent_dim: 32, phaseformer_enc_hidden: 128, phaseformer_pred_hidden: 256, phaseformer_routers: 16, phaseformer_heads: 2, phaseformer_attn_dropout: 0.0, lr: 0.00015}
+  ETTh2: {phaseformer_period_len: 24, phaseformer_layers: 1, phaseformer_heads: 1, phaseformer_attn_dropout: 0.1, phaseformer_pos_embed: true, lr: 0.001}
+  ETTh2@96: {phaseformer_latent_dim: 8, phaseformer_enc_hidden: 32, phaseformer_pred_hidden: 64, phaseformer_routers: 8}
+  ETTh2@192: {phaseformer_latent_dim: 8, phaseformer_enc_hidden: 32, phaseformer_pred_hidden: 64, phaseformer_routers: 8}
+  ETTh2@336: {phaseformer_latent_dim: 8, phaseformer_enc_hidden: 32, phaseformer_pred_hidden: 64, phaseformer_routers: 8}
+  ETTh2@720: {phaseformer_latent_dim: 4, phaseformer_enc_hidden: 8, phaseformer_pred_hidden: 8, phaseformer_routers: 4}
+  ETTm1: {phaseformer_period_len: 24, phaseformer_latent_dim: 8, phaseformer_enc_hidden: 32, phaseformer_pred_hidden: 64, phaseformer_routers: 8, phaseformer_heads: 1, phaseformer_attn_dropout: 0.1, phaseformer_pos_embed: true, lr: 0.001}
+  ETTm1@96: {phaseformer_layers: 2}
+  ETTm1@192: {phaseformer_layers: 2}
+  ETTm1@336: {phaseformer_layers: 1}
+  ETTm1@720: {phaseformer_layers: 2}
+  ETTm2: {phaseformer_period_len: 24, phaseformer_latent_dim: 8, phaseformer_enc_hidden: 32, phaseformer_pred_hidden: 64, phaseformer_routers: 8, phaseformer_heads: 1, phaseformer_attn_dropout: 0.1, phaseformer_pos_embed: true, lr: 0.001}
+  ETTm2@96: {phaseformer_layers: 2}
+  ETTm2@192: {phaseformer_layers: 1}
+  ETTm2@336: {phaseformer_layers: 1}
+  ETTm2@720: {phaseformer_layers: 1}
+  Weather: {phaseformer_period_len: 24, phaseformer_latent_dim: 8, phaseformer_enc_hidden: 32, phaseformer_pred_hidden: 64, phaseformer_routers: 8, phaseformer_heads: 1, phaseformer_attn_dropout: 0.1, phaseformer_pos_embed: true, lr: 0.001}
+  Weather@96: {phaseformer_layers: 3}
+  Weather@192: {phaseformer_layers: 2}
+  Weather@336: {phaseformer_layers: 2}
+  Weather@720: {phaseformer_layers: 2}
+  Exchange: {phaseformer_period_len: 24, phaseformer_layers: 3, phaseformer_pos_embed: true}     # no official setting -> chosen on validation among the candidates (protocol.py)
+  Exchange@96: {phaseformer_latent_dim: 4, phaseformer_enc_hidden: 16, phaseformer_pred_hidden: 32, phaseformer_routers: 8, phaseformer_heads: 1, phaseformer_attn_dropout: 0.1, lr: 0.001}
+  Exchange@192: {phaseformer_latent_dim: 4, phaseformer_enc_hidden: 16, phaseformer_pred_hidden: 32, phaseformer_routers: 8, phaseformer_heads: 1, phaseformer_attn_dropout: 0.1, lr: 0.001}
+  Exchange@336: {phaseformer_latent_dim: 4, phaseformer_enc_hidden: 16, phaseformer_pred_hidden: 32, phaseformer_routers: 8, phaseformer_heads: 1, phaseformer_attn_dropout: 0.1, lr: 0.001}
+  Exchange@720: {phaseformer_latent_dim: 32, phaseformer_enc_hidden: 128, phaseformer_pred_hidden: 256, phaseformer_routers: 16, phaseformer_heads: 2, phaseformer_attn_dropout: 0.0, lr: 0.00015}
+  Electricity: {phaseformer_period_len: 24, phaseformer_attn_dropout: 0.1, phaseformer_pos_embed: true}
+  Electricity@96: {phaseformer_layers: 2, phaseformer_latent_dim: 8, phaseformer_enc_hidden: 32, phaseformer_pred_hidden: 64, phaseformer_routers: 8, phaseformer_heads: 1, lr: 0.002}
+  Electricity@192: {phaseformer_layers: 1, phaseformer_latent_dim: 128, phaseformer_enc_hidden: 16, phaseformer_pred_hidden: 32, phaseformer_routers: 4, phaseformer_heads: 4, lr: 0.001}
+  Electricity@336: {phaseformer_layers: 2, phaseformer_latent_dim: 8, phaseformer_enc_hidden: 32, phaseformer_pred_hidden: 64, phaseformer_routers: 8, phaseformer_heads: 1, lr: 0.001}
+  Electricity@720: {phaseformer_layers: 1, phaseformer_latent_dim: 128, phaseformer_enc_hidden: 16, phaseformer_pred_hidden: 32, phaseformer_routers: 4, phaseformer_heads: 4, lr: 0.001}
+  Traffic: {phaseformer_period_len: 24, phaseformer_attn_dropout: 0.1, phaseformer_pos_embed: true, lr: 0.001}
+  Traffic@96: {phaseformer_layers: 2, phaseformer_latent_dim: 32, phaseformer_enc_hidden: 64, phaseformer_pred_hidden: 128, phaseformer_routers: 1, phaseformer_heads: 8}
+  Traffic@192: {phaseformer_layers: 1, phaseformer_latent_dim: 128, phaseformer_enc_hidden: 16, phaseformer_pred_hidden: 32, phaseformer_routers: 4, phaseformer_heads: 4}
+  Traffic@336: {phaseformer_layers: 1, phaseformer_latent_dim: 128, phaseformer_enc_hidden: 16, phaseformer_pred_hidden: 32, phaseformer_routers: 4, phaseformer_heads: 4}
+  Traffic@720: {phaseformer_layers: 1, phaseformer_latent_dim: 128, phaseformer_enc_hidden: 16, phaseformer_pred_hidden: 32, phaseformer_routers: 4, phaseformer_heads: 4}
+  # industrial: period-type keys only (FFT period <= 48 / daily cycle, EXPERIMENT_PROTOCOL.md §5)
+  Steel: {phaseformer_period_len: 24}
+  WindSCADA: {phaseformer_period_len: 48}
+  BlastFurnace: {phaseformer_period_len: 48}
+  MetroPT3: {phaseformer_period_len: 24}
+  N2O: {phaseformer_period_len: 24}
+  EWELD: {phaseformer_period_len: 24}

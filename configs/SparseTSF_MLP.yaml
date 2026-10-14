@@ -1,0 +1,23 @@
+# SparseTSF (ICML'24), MLP head - lss-1138/SparseTSF scripts/SparseTSF/mlp/<dataset>.sh
+# Values = exactly what the experiments use (L = 96).  Key "<dataset>@<H>" = only for that horizon,
+# merged on top of "<dataset>".  Change a value in place, never by adding a second entry.
+# Keys: sparsetsf_period_len = segment length (the period) | sparsetsf_d_model = MLP hidden width
+
+default: {lr: 0.02, loss: mse}
+datasets:
+  # LTSF (official scripts)
+  ETTh1: {sparsetsf_period_len: 24, lr: 0.002}
+  ETTh2: {sparsetsf_period_len: 24, lr: 0.001}
+  ETTm1: {sparsetsf_period_len: 4, lr: 0.001}
+  ETTm2: {sparsetsf_period_len: 4, lr: 0.001}
+  Weather: {sparsetsf_period_len: 4, lr: 0.05}
+  Exchange: {sparsetsf_period_len: 24, lr: 0.002}     # no official setting -> chosen on validation among the candidates (protocol.py)
+  Electricity: {sparsetsf_period_len: 24, lr: 0.02}
+  Traffic: {sparsetsf_period_len: 24, lr: 0.01, sparsetsf_d_model: 512}
+  # industrial: period-type keys only (FFT period <= 48 / daily cycle, EXPERIMENT_PROTOCOL.md §5)
+  Steel: {sparsetsf_period_len: 24}
+  WindSCADA: {sparsetsf_period_len: 48}
+  BlastFurnace: {sparsetsf_period_len: 48}
+  MetroPT3: {sparsetsf_period_len: 24}
+  N2O: {sparsetsf_period_len: 24}
+  EWELD: {sparsetsf_period_len: 24}

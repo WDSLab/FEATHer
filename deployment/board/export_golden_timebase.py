@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Export golden vectors + weights for the TimeBase port (src/timebase_infer.c).
 
-TimeBase (ICML 2025) joined the chip pool on 2026-10-06.  basis_num and
+TimeBase (ICML 2025).  basis_num and
 `individual` come from the candidate setting, period_len from the dataset's
 period rule; --config / --data resolve them exactly as the experiments do
 (tools/results/protocol.resolve, industrial group).  The structural values
@@ -27,7 +27,7 @@ if str(_ROOT) not in sys.path:
 
 from baselines.TimeBase.wrapper import build   # noqa: E402
 from tools.results.protocol import resolve     # noqa: E402
-from export_golden import emit_array           # noqa: E402  (same dir)
+from golden_io import emit_array           # noqa: E402
 
 WEIGHT_SEED = 2025
 INPUT_SEED = 7

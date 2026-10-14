@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Dynamic multi-GPU dispatch for the orchestrators (CF-JEPA-style queue,
-minus torchrun/fcntl: one orchestrator process owns an in-memory queue and
-runs one worker subprocess per GPU; a GPU grabs the next job the moment it
-frees up, so a slow model on one GPU never idles the other).
+Dynamic multi-GPU dispatch: one process owns an in-memory queue and runs
+worker subprocesses; a GPU grabs the next job the moment it frees up, so a
+slow model on one GPU never idles the other.
 
-Used by run.py (and tools/search/*) via `--ngpu N`:
-  ngpu=1 -> identical to the old sequential behavior (same GPU, same order).
+Used by run.py via `--ngpu N`:
+  ngpu=1 -> sequential on one GPU, in job order.
   ngpu=N -> jobs run on GPU indices base_gpu .. base_gpu+N-1.
 
 Worker stdout/stderr stream directly to the console, so lines from
@@ -37,9 +36,8 @@ def run_on_gpus(jobs, ngpu, base_gpu=0, jobs_per_gpu=1):
     CPU-thread pinning: each worker subprocess gets OMP_NUM_THREADS /
     MKL_NUM_THREADS = max(1, cpu_count // total_workers), so N torch
     processes don't each spawn cpu_count intra-op threads and thrash the
-    cores. (Pinning covers only THIS orchestrator's workers — if several
-    orchestrator processes share the box, their pools don't see each
-    other; budget accordingly.)
+    cores. (Pinning covers only this process's workers; several runners
+    on one box do not see each other.)
 
     Returns:
         list of labels whose worker exited non-zero (they stay "missing"
@@ -53,11 +51,9 @@ def run_on_gpus(jobs, ngpu, base_gpu=0, jobs_per_gpu=1):
     print_lock = threading.Lock()
 
     # Single-Ctrl+C shutdown: `stop` tells worker threads to stop grabbing
-    # new jobs; `live_procs` tracks in-flight child processes so the main
-    # thread can terminate them on interrupt. Without this, a Ctrl+C that
-    # kills a child (Windows delivers it to the whole console group) just
-    # looks like a "failed" job to the worker loop, which then launches the
-    # NEXT job — so the user has to Ctrl+C every run. Now one Ctrl+C ends it.
+    # new jobs; `live_procs` lets the main thread terminate in-flight children.
+    # Without it, a Ctrl+C that kills a child (Windows sends it to the whole
+    # console group) looks like a failed job and the loop launches the next one.
     stop = threading.Event()
     live_procs = set()
     proc_lock = threading.Lock()
@@ -88,12 +84,9 @@ def run_on_gpus(jobs, ngpu, base_gpu=0, jobs_per_gpu=1):
             with print_lock:
                 print(f"\n>>> [gpu{gpu_id}] {label}", flush=True)
                 print("  CMD:", " ".join(shlex.quote(c) for c in full_cmd), flush=True)   # quoted: exp_tag contains "|"
-            # Guard the launch+wait: if Popen itself raises (fd exhaustion,
-            # ENOMEM, exec failure under high jobs_per_gpu) the worker thread
-            # would otherwise die and its already-dequeued job would vanish —
-            # not in `failed`, not re-queued — so the orchestrator would report
-            # success while a run silently went missing. Record it as failed
-            # and keep pulling jobs instead.
+            # If Popen itself raises (fd exhaustion, ENOMEM, exec failure) the
+            # thread would die and its dequeued job would vanish silently;
+            # record it as failed and keep pulling jobs instead.
             p = None
             try:
                 p = subprocess.Popen(full_cmd, env=env)

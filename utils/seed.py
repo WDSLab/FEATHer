@@ -45,25 +45,3 @@ def set_seed(seed: int, deterministic: bool = True) -> torch.Generator:
     g = torch.Generator()
     g.manual_seed(seed)
     return g
-
-
-def parse_seed_list(seeds_arg: str, num_seeds: int, base_seed: int) -> list:
-    """
-    Build a list of seeds from CLI args.
-
-    Priority:
-        1. If `seeds_arg` is non-empty (e.g. "2025,2026,2027"), use it.
-        2. Otherwise generate `num_seeds` consecutive seeds starting at
-           `base_seed`.
-
-    Args:
-        seeds_arg: comma-separated seeds string, or "" to disable.
-        num_seeds: number of seeds to generate when seeds_arg is empty.
-        base_seed: starting seed for auto-generation.
-
-    Returns:
-        List of int seeds.
-    """
-    if seeds_arg and seeds_arg.strip():
-        return [int(s.strip()) for s in seeds_arg.split(",") if s.strip()]
-    return [base_seed + i for i in range(num_seeds)]

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Per-cell chip verdict with the CHOSEN settings (2026-10-12) - no board needed.
+"""Per-cell chip verdict with the CHOSEN settings - no board needed.
 
 For every (model, industrial dataset, H) cell this builds the complete board firmware
 (board_prep.dry_build: the CubeIDE flags, the real linker script, HAL included) at the
@@ -16,15 +16,13 @@ What is charged:
 Full-buffer ports (the harness owns an H x D output buffer s_y) also get ram_stream =
 ram - H x D x 4: every forecast value is final when computed, so <pfx>_forward_emit hands
 it out at once and no output buffer is held (porting rule 1, the same way FEATHer emits its
-blocks; 10-13 - until 10-12 one channel's H floats were kept, ram - (H x D - H) x 4, which
-charged the baselines up to 2.8 KB that FEATHer was not charged).  Internal arenas stay as built.
+blocks).  Internal arenas stay as built.
 
 Stack is not measured here (only the reserve); cells that pass go to the board next.
 
     python deployment/board/chip_verdict.py                       # all cells
     python deployment/board/chip_verdict.py --models dipe,fits --data Steel --H 96
     python deployment/board/chip_verdict.py --candidates    # every author setting of the config models
-                                                            # (10-12: chip-constrained selection)
 """
 from __future__ import annotations
 
@@ -50,7 +48,7 @@ OUT_CAND = bp.ROOT / "results" / "board" / "chip_verdict_candidates_20261012.csv
 COLS = ["model", "config", "data", "D", "H", "period", "build", "flash_B", "ram_B", "ram_stream_B",
         "golden_B", "fits_flash", "fits_ram", "verdict", "same_as", "why", "timestamp"]
 # board model -> (registry model, override key) for the ports whose export does not resolve
-# the dataset itself: the dataset's period / CycleNet cycle is passed explicitly (10-12)
+# the dataset itself: the dataset's period / CycleNet cycle is passed explicitly
 GEO = {"feather_mix": ("FEATHer_mix", "period"), "feather_ci": ("FEATHer_CI", "period"),
        "stsf": ("SparseTSF", "sparsetsf_period_len"), "cyclenet": ("CycleNet", "cyclenet_cycle")}
 
@@ -90,7 +88,7 @@ def config_of(model: str) -> str:
 
 
 def one_cell(model: str, data: str, H: int, config: str | None = None, extra_geo: dict | None = None) -> dict:
-    """extra_geo (10-13): geometry keys added to the dataset's (e.g. FEATHer seg / agg_shared size dial)"""
+    """extra_geo: geometry keys added to the dataset's (e.g. FEATHer seg / agg_shared size dial)"""
     D = DATA_D[data]
     full = bp.MODELS[model][4]
     golden = (SEQ_LEN + H) * D * 4
@@ -105,7 +103,7 @@ def one_cell(model: str, data: str, H: int, config: str | None = None, extra_geo
     if "flash" not in r:
         return {**row, "build": "BUILD_FAIL", "verdict": "?", "why": r["why"][-200:]}
     flash_dep = r["flash"] - golden
-    ram_stream = r["ram"] - H * D * 4 if full else None      # emit API: no output buffer (10-13)
+    ram_stream = r["ram"] - H * D * 4 if full else None      # emit API: no output buffer
     fits_flash = flash_dep <= bp.FLASH_BYTES
     fits_ram = (ram_stream if full else r["ram"]) <= bp.RAM_BYTES
     return {**row, "build": "LINK_OK", "flash_B": flash_dep, "ram_B": r["ram"],

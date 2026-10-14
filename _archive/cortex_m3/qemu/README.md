@@ -1,7 +1,7 @@
 # Layer 2 — QEMU validation pipeline (WSL workflow)
 
 Instruction-level validation of the simulation-based estimator
-(`deployment/cortex_m3/estimator.py`) by running an actual 8-bit
+(`_archive/cortex_m3/estimator.py`) by running an actual 8-bit
 quantized FEATHer firmware on the QEMU emulation of the
 LM3S6965EVB target.
 

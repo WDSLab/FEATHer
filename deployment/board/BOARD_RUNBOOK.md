@@ -32,8 +32,8 @@ FEATHer-mix  H=96 D=7 PASS bad=0 maxabs(x1e6)=0 cycles=... latency_us=... stack=
 - 출력 버퍼만 받는 포트(SparseTSF·STSF-MLP·MixLinear·DiPE·FITS)는 H=720에서
   720×7 버퍼(20 KB)가 안 들어가므로 **D=1로 재고 ×D** 한다. 채널 독립 모델이라
   정확하며, H=96에서 D=1과 D=7을 둘 다 재서 선형인지 확인한다(목록 2~6 vs 10~14).
-- FEATHer-mix = 재계산 포트(`feather2r_infer.c`, 요약 4칸). 옛 938p `feather_infer.c`는
-  측정 대상 아님.
+- FEATHer-mix = 재계산 포트(`feather2r_infer.c`, 요약 4칸). 옛 938p `feather_infer.c`·`feather2in`
+  포트는 10-14 에 `_archive/board_legacy/` 로 옮김(board_prep 이 CubeIDE 프로젝트에 남은 사본도 지움).
 - **빠른 FFT (2026-09-29)**: 길이 96 변환(FEATHer 게이트 · DiPE 주파수 가중 · FITS 분석)은
   공용 `fea_rfft96_fast / fea_irfft96_fast`(96 = 3×32)로 **세 모델 모두 같이** 바뀜.
   임시 공간은 비어 있는 버퍼를 빌림(FEATHer-mix·DiPE 추가 0) 또는 새로 잡고 SRAM에 계상
@@ -99,8 +99,6 @@ Board Selector → NUCLEO-F103RB 생성해야 함. (이번 `blink_test`는 이�
   링커(`--gc-sections`)가 **호출하는 모델만** 링크하므로, 소스 파일은 다 놔둬도
   됨(안 부르는 모델은 자동으로 빠짐). **빌드 제외(Exclude from Build) 토글 필요
   없음** — `#define`만 바꾸면 됨.
-  - (과거에 feather_infer.c를 빌드 제외한 적 있는데, 지금 방식(한 모델씩)에선
-    불필요. feather_infer.c는 **포함(un-exclude) 상태로 둘 것**.)
 
 ### 2-2. 무엇을 잴지 (모드 스위치, 바로 아래 줄)
 ```c
@@ -115,9 +113,6 @@ Board Selector → NUCLEO-F103RB 생성해야 함. (이번 `blink_test`는 이�
 
 ### 2-3. 빌드 & 실행
 1. **Build(망치)** → Console에 `Build Finished. 0 errors` 확인.
-   - `undefined reference to feather_forward` 뜨면 → feather_infer.c가 빌드 제외됨.
-     `Core/Src/feather_infer.c` 우클릭 → `Resource Configurations → Exclude from
-     Build...` → **체크 해제**.
    - `region RAM overflowed` 뜨면 → `#define`이 2개 이상 켜졌는지 확인(하나만).
    - 플래그 바꿨는데 반영 안 되면 → `Project → Clean...` 후 다시 Build.
 2. **Run(▶)** → Console에 `Download verified successfully` = 플래시 성공.

@@ -1,29 +1,21 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import torch
-import os
+"""Test metrics: MSE, MAE, RMSE, CORR, R2 (the columns of the results CSV).
 
-# metrics
-def RSE(pred, true):
-    return np.sqrt(np.sum((true - pred) ** 2)) / np.sqrt(np.sum((true - true.mean()) ** 2))
+pred, true: (B, T, F) numpy arrays.  NaN target cells (imputed cells of the gap-filled industrial sets) are left out,
+so every metric is computed on observed values only."""
+import numpy as np
 
 
 def corr_mean(pred, true):
     # pred, true: (B, T, F)
     x, y = pred, true
-    m = np.isfinite(x) & np.isfinite(y)              # Valid value mask
+    m = np.isfinite(x) & np.isfinite(y)
     cnt = m.sum(axis=1)                              # (B, F)
     valid = cnt >= 2
 
-    # Masked mean. AUDIT-FIX (2026-07-14, P3): np.divide with `where=` leaves
-    # the unselected entries UNINITIALIZED — pass out=zeros so invalid (B,F)
-    # pairs hold a defined value (they are masked out of `r` at the end, but
-    # garbage here could surface as spurious warnings/NaN-propagation).
-    # AUDIT-FIX (2026-08-24, CORR-NAN-MASK): zero out with np.where, NOT `x*m`.
-    # Boolean m multiplies as 0/1 and `nan * 0 == nan`, so a single masked
-    # target poisoned the whole (B,F) sum -> mean NaN -> that pair silently
-    # vanished under the closing nanmean. On MetroPT3@720 that dropped 62% of
-    # pairs, and the survivors (outage-free windows) are a biased subset.
+    # Masked mean.  out=zeros: np.divide with `where=` leaves unselected entries
+    # uninitialized.  Zero out with np.where, not `x * m`: `nan * 0 == nan`, so one
+    # masked target would make the whole (B,F) pair NaN and silently drop it from
+    # the closing nanmean (a biased subset of windows on the gap-filled sets).
     xz = np.where(m, x, 0.0)
     yz = np.where(m, y, 0.0)
     x_mean = np.divide(xz.sum(axis=1), cnt,
@@ -31,7 +23,6 @@ def corr_mean(pred, true):
     y_mean = np.divide(yz.sum(axis=1), cnt,
                        out=np.zeros(cnt.shape, dtype=float), where=valid)[:, None, :]
 
-    # Centering
     xc = np.where(m, x - x_mean, 0.0)
     yc = np.where(m, y - y_mean, 0.0)
 
@@ -41,7 +32,6 @@ def corr_mean(pred, true):
     sy = np.sqrt(np.divide((yc**2).sum(axis=1), denom))
     cov = np.divide((xc*yc).sum(axis=1), denom)
 
-    # Correlation coefficient
     denom_r = sx * sy
     ok = valid & (denom_r > 0)
     r = np.full_like(cov, np.nan, dtype=float)
@@ -60,21 +50,14 @@ def r2_mean(pred, true):
         * SSE>0  -> R2 = 0.0
     """
     x, y = pred, true
-    m = np.isfinite(x) & np.isfinite(y)     # Valid value mask
+    m = np.isfinite(x) & np.isfinite(y)
     cnt = m.sum(axis=1)                     # (B, F)
     valid = cnt >= 2
 
-    # y mean (masked)
-    # Use minimum of 1 for denominator to avoid cnt=0, calculate only valid locations with where=valid
-    # AUDIT-FIX (2026-07-14, P3): out=zeros — `where=` alone leaves the
-    # unselected entries uninitialized (see corr_mean).
-    # AUDIT-FIX (2026-08-24, CORR-NAN-MASK): zero out with np.where, not `* m`
-    # — `nan * 0 == nan` made one masked target NaN the whole (B,F) statistic,
-    # silently deleting that pair from the closing nanmean (see corr_mean).
+    # Masked y mean; out=zeros and np.where for the same reasons as in corr_mean.
     y_mean = np.divide(np.where(m, y, 0.0).sum(axis=1), np.maximum(cnt, 1),
                        out=np.zeros(cnt.shape, dtype=float), where=valid)[:, None, :]
 
-    # SSE, SST (masked)
     sse = np.where(m, (y - x) ** 2, 0.0).sum(axis=1)       # (B, F)
     sst = np.where(m, (y - y_mean) ** 2, 0.0).sum(axis=1)  # (B, F)
 
@@ -92,154 +75,40 @@ def r2_mean(pred, true):
     # Others (invalid) remain as NaN -> aggregated with nanmean
     return np.nanmean(r2)
 
-# MASK-FIX (2026-07-15): nan-aware so imputed TARGET cells (NaN'd by the
-# loader for the gap-filled sensor sets) are excluded — observed-only scoring.
-# For datasets with no masked cells, nanmean == mean -> byte-identical results.
-def MAE(pred, true):
-    return np.nanmean(np.abs(true - pred))
 
-def MSE(pred, true):
-    return np.nanmean((true - pred) ** 2)
+class TestScores:
+    """Accumulates the test metrics over batches; result() -> [MSE, MAE, RMSE, CORR, R2].
 
-def RMSE(pred, true):
-    return np.sqrt(MSE(pred, true))
-
-def MAPE(pred, true):
-    return np.mean(np.abs((true - pred) / true)) * 100
-
-def MSPE(pred, true):
-    return np.mean(np.square((true - pred) / true)) * 100
-
-
-def metric(pred, true):
-    mse = MSE(pred, true)
-    mae = MAE(pred, true)
-    rmse = RMSE(pred, true)
-    corr = corr_mean(pred, true)
-    r2 = r2_mean(pred, true)
-
-    return mse, mae, rmse, corr, r2
-
-
-# prediction plot
-def plot(pred, true, data):
-    idx = [0, pred.shape[0] * 1 // 4, pred.shape[0] * 1 // 2, pred.shape[0] * 3 // 4]
-    labels = ['Batch 0%', 'Batch 25%', 'Batch 50%', 'Batch 75%']
-    
-    fig, axs = plt.subplots(2, 2, figsize=(12, 8))
-    plt.suptitle(f"{data}", fontsize=18, fontweight='bold', y=1.02)
-
-    for ax, i, label in zip(axs.flat, idx, labels):
-        ax.plot(pred[i, :, -1], label='Prediction', color='crimson', linewidth=2)
-        ax.plot(true[i, :, -1], label='Actual', color='navy', linestyle='--', linewidth=2)
-        ax.set_title(label, fontsize=14, fontweight='semibold')
-        ax.set_xlabel('Time', fontsize=12)
-        ax.set_ylabel('Value', fontsize=12)
-        ax.grid(True, linestyle=':', linewidth=0.5)
-        ax.tick_params(axis='both', labelsize=10)
-        ax.legend(loc='upper right', fontsize=10, frameon=True, framealpha=0.9)
-
-    plt.tight_layout(rect=[0, 0, 1, 0.97])
-    plt.show()
-
-def plot_concat_pred_grid(pred, true, model_name, data, seq_len, pred_len, total_len=864, var_idx=-1, save=False, now=None, change=False, epoch=10):
-    """
-    pred, true : np.ndarray, shape (B, S, V)
-      - B: batch (window start moves 1 step back, no shuffle)
-      - S: sequence length (usually same as pred_len)
-      - V: variables
-
-    pred_len  : Prediction length to use per window (equal to or less than S)
-    total_len : Total length to concatenate and display in each subplot
-    var_idx   : Variable index to visualize (default: last variable)
+    MSE / MAE are one mean over all observed cells of the test split, not a mean of per-batch means (batches of the
+    gap-filled sets hold different numbers of observed cells).  CORR / R2 (per-window values) are batch-size-weighted
+    means of the per-batch values.
     """
 
-    B, S, V = pred.shape
-    assert (0 <= var_idx < V) or (var_idx == -1), "var_idx is out of variable range."
-    if var_idx == -1:
-        var_idx = V - 1
+    def __init__(self):
+        self.se = self.ae = 0.0
+        self.n = 0
+        self.cr_sum = np.zeros(2, dtype=np.float64)   # [CORR, R2]
+        self.cr_cnt = np.zeros(2, dtype=np.float64)
 
-    use_len = min(pred_len, S)     # Actual length to use from each segment
-    step_batches = pred_len        # Batch moves 1 step -> jumping by pred_len gives continuous segments
-    needed_chunks = int(np.ceil(total_len / use_len))
+    def update(self, pred, true):
+        observed = np.isfinite(true)
+        if not np.isfinite(pred[observed]).all():      # a NaN forecast must not be dropped like a NaN target
+            raise RuntimeError("non-finite prediction on observed test cells - degenerate best-val model")
+        diff = pred - true                             # NaN where the target was imputed
+        fin = np.isfinite(diff)
+        self.se += float(np.sum(diff[fin] ** 2))
+        self.ae += float(np.sum(np.abs(diff[fin])))
+        self.n += int(fin.sum())
+        bs = true.shape[0]
+        for i, val in enumerate((corr_mean(pred, true), r2_mean(pred, true))):
+            if np.isfinite(val):
+                self.cr_sum[i] += val * bs
+                self.cr_cnt[i] += bs
 
-    # To create needed_chunks segments starting from this start_batch,
-    # the maximum allowed start batch must not exceed the value below
-    max_start_batch = max(0, B - (needed_chunks - 1) * step_batches - 1)
-
-    # Start batch candidates at 0%, 25%, 50%, 75% points (clamped to safe range)
-    raw_starts = [0.0, 0.25, 0.5, 0.75]
-    start_batches = [int(round(p * max_start_batch)) for p in raw_starts]
-
-    # Figure setup (4 rows, 1 column)
-    fig, axes = plt.subplots(4, 1, figsize=(14, 10), sharex=True)
-    fig.suptitle(f"{data}\n"
-                 f"(var_idx={var_idx}, pred_len={pred_len}, total_len={total_len})",
-                 fontsize=16, fontweight='bold', y=0.98)
-
-    for ax, start_b, pct in zip(axes, start_batches, [0, 25, 50, 75]):
-        # Collect segments to concatenate into one continuous sequence
-        seqs_p, seqs_t = [], []
-        b = start_b
-        for _ in range(needed_chunks):
-            if b >= B:
-                break
-            seqs_p.append(pred[b, :use_len, var_idx])
-            seqs_t.append(true[b, :use_len, var_idx])
-            b += step_batches
-
-        if len(seqs_p) == 0:
-            ax.text(0.5, 0.5, "No data to display due to insufficient data.",
-                    ha='center', va='center', fontsize=12, transform=ax.transAxes)
-            ax.set_title(f"Batch {pct}% (start={start_b}) — empty", fontsize=12, pad=8)
-            ax.grid(True, linestyle=':', linewidth=0.6, alpha=0.7)
-            continue
-
-        concat_pred = np.concatenate(seqs_p, axis=0)[:total_len]
-        concat_true = np.concatenate(seqs_t, axis=0)[:total_len]
-
-        # Visualization (line width/transparency/grid/spine cleanup)
-        ax.plot(concat_true, label='Actual', linestyle='--', linewidth=1.8, alpha=0.9)
-        ax.plot(concat_pred, label='Prediction', linewidth=2.2, alpha=0.95)
-
-        # Clean style
-        ax.set_title(f"Batch {pct}% (start={start_b})", fontsize=13, pad=8, fontweight='semibold')
-        ax.grid(True, linestyle=':', linewidth=0.6, alpha=0.7)
-        ax.tick_params(axis='both', labelsize=10)
-        for spine in ['top', 'right']:
-            ax.spines[spine].set_visible(False)
-
-        # Simple auxiliary info: Display RMSE/NRMSE (based on max actual value) (optional)
-        rmse = float(np.sqrt(np.mean((concat_true - concat_pred) ** 2)))
-        ymax = float(np.max(np.abs(concat_true))) if np.max(np.abs(concat_true)) != 0 else 1.0
-        nrmse = (rmse / ymax) * 100.0
-        ax.legend(loc='upper right', fontsize=10, frameon=True, framealpha=0.9,
-                  title=f"RMSE={rmse:.4f} | NRMSE={nrmse:.2f}%")
-
-    axes[-1].set_xlabel('Time step', fontsize=12)
-    fig.tight_layout(rect=[0, 0, 1, 0.95])
-    if save and change:
-        plt.savefig(f'models/{model_name}/results/{data}/{pred_len}/{model_name}_{data}_{pred_len}_{seq_len}_{now.month}{now.day}{now.hour}{now.minute}/viz.png', bbox_inches='tight')
-    if epoch%10 == 0:
-        plt.show()
-    plt.close(fig)
-
-def save(now, model, val_metric, test_metric, actual, prediction, model_name, data, pred_len, seq_len, epoch, train_loss, test_loss, save=False):
-    """Save training results and optionally model weights."""
-    results = np.array([val_metric, test_metric, None, None, epoch, train_loss, test_loss], dtype=object)
-    
-    folder_path = f'models/{model_name}/results/{data}/{pred_len}'
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path)
-        
-    base_filename = f'{model_name}_{data}_{pred_len}_{seq_len}_{now.month}{now.day}{now.hour}{now.minute}'
-    folder_path = os.path.join(folder_path, base_filename)
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path)    
-    
-    file_path = os.path.join(folder_path, base_filename)
-    np.save(file_path + '.npy', results)
-    if save:
-        torch.save(model.state_dict(), file_path + '.pth')
-    
-
+    def result(self):
+        if self.n == 0:                                # not a fake perfect score of 0
+            raise RuntimeError("no observed test cells across all batches - degenerate run")
+        mse, mae = self.se / self.n, self.ae / self.n
+        return np.array([mse, mae, float(np.sqrt(mse)),
+                         self.cr_sum[0] / max(self.cr_cnt[0], 1.0),
+                         self.cr_sum[1] / max(self.cr_cnt[1], 1.0)], dtype=np.float64)

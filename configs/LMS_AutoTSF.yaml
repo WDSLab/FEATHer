@@ -1,0 +1,5 @@
+# LMS-AutoTSF (EAAI'26) - mribrahim/LMS-TSF run.py defaults
+# Values = exactly what the experiments use (L = 96).  Key "<dataset>@<H>" = only for that horizon,
+# merged on top of "<dataset>".  Change a value in place, never by adding a second entry.
+
+default: {lr: 0.0001, loss: mse}

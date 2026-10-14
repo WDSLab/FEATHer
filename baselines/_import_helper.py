@@ -23,7 +23,7 @@ import os
 import sys
 
 
-# NOTE (audit P3): this is a FIXED allowlist. When adding a NEW baseline,
+# NOTE: this is a FIXED allowlist. When adding a NEW baseline,
 # check its repo for top-level packages not listed here (e.g. `lib`,
 # `src`, `networks`) — an unlisted name leaks into sys.modules past the
 # isolation and can shadow the next baseline's copy silently.

@@ -31,7 +31,7 @@ from typing import Dict, List, Tuple
 import torch
 import torch.nn as nn
 
-from deployment.cortex_m3.op_costs import (
+from _archive.cortex_m3.op_costs import (
     CortexM3Profile,
     estimate_energy_mj,
     estimate_latency_s,

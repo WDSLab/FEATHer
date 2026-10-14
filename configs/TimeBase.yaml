@@ -1,0 +1,48 @@
+# TimeBase (ICML'25) - official scripts/<dataset>.sh (per H)
+# Values = exactly what the experiments use (L = 96).  Key "<dataset>@<H>" = only for that horizon,
+# merged on top of "<dataset>".  Change a value in place, never by adding a second entry.
+# Keys: timebase_period_len = segment length | timebase_basis_num = number of basis series | timebase_orthogonal_weight = orthogonality loss weight | timebase_individual = one basis per channel
+
+default: {lr: 0.1, loss: mse}
+datasets:
+  # LTSF (official scripts)
+  ETTh1@96: {timebase_orthogonal_weight: 0.16, timebase_period_len: 24, timebase_basis_num: 6, lr: 0.1}
+  ETTh1@192: {timebase_orthogonal_weight: 0.16, timebase_period_len: 24, timebase_basis_num: 6, lr: 0.4}
+  ETTh1@336: {timebase_orthogonal_weight: 0.08, timebase_period_len: 24, timebase_basis_num: 6, lr: 0.4}
+  ETTh1@720: {timebase_orthogonal_weight: 0.12, timebase_period_len: 24, timebase_basis_num: 6, lr: 0.05}
+  ETTh2@96: {timebase_orthogonal_weight: 0.2, timebase_period_len: 24, timebase_basis_num: 6, lr: 0.2}
+  ETTh2@192: {timebase_orthogonal_weight: 0.08, timebase_period_len: 24, timebase_basis_num: 4, lr: 0.06}
+  ETTh2@336: {timebase_orthogonal_weight: 0.12, timebase_period_len: 24, timebase_basis_num: 6, lr: 0.4}
+  ETTh2@720: {timebase_orthogonal_weight: 0.12, timebase_period_len: 24, timebase_basis_num: 6, lr: 0.4}
+  ETTm1@96: {timebase_orthogonal_weight: 0.04, timebase_period_len: 4, timebase_basis_num: 18, lr: 0.02}
+  ETTm1@192: {timebase_orthogonal_weight: 0.04, timebase_period_len: 4, timebase_basis_num: 20, lr: 0.02}
+  ETTm1@336: {timebase_orthogonal_weight: 0.08, timebase_period_len: 4, timebase_basis_num: 20, lr: 0.02}
+  ETTm1@720: {timebase_orthogonal_weight: 0.12, timebase_period_len: 6, timebase_basis_num: 20, lr: 0.01}
+  ETTm2@96: {timebase_orthogonal_weight: 0.04, timebase_period_len: 4, timebase_basis_num: 20, lr: 0.01}
+  ETTm2@192: {timebase_orthogonal_weight: 0.04, timebase_period_len: 4, timebase_basis_num: 20, lr: 0.01}
+  ETTm2@336: {timebase_orthogonal_weight: 0.04, timebase_period_len: 4, timebase_basis_num: 20, lr: 0.01}
+  ETTm2@720: {timebase_orthogonal_weight: 0.04, timebase_period_len: 6, timebase_basis_num: 20, lr: 0.01}
+  Weather@96: {timebase_orthogonal_weight: 0.04, timebase_period_len: 4, timebase_basis_num: 6, lr: 0.02, timebase_individual: 1}
+  Weather@192: {timebase_orthogonal_weight: 0.04, timebase_period_len: 4, timebase_basis_num: 6, lr: 0.02, timebase_individual: 1}
+  Weather@336: {timebase_orthogonal_weight: 0.08, timebase_period_len: 4, timebase_basis_num: 6, lr: 0.05, timebase_individual: 1}
+  Weather@720: {timebase_orthogonal_weight: 0.04, timebase_period_len: 4, timebase_basis_num: 6, lr: 0.05, timebase_individual: 1}
+  Exchange: {timebase_period_len: 24, timebase_basis_num: 6}     # no official setting -> chosen on validation among the candidates (protocol.py)
+  Exchange@96: {timebase_orthogonal_weight: 0.16, lr: 0.1}
+  Exchange@192: {timebase_orthogonal_weight: 0.16, lr: 0.4}
+  Exchange@336: {timebase_orthogonal_weight: 0.08, lr: 0.4}
+  Exchange@720: {timebase_orthogonal_weight: 0.12, lr: 0.05}
+  Electricity@96: {timebase_orthogonal_weight: 0.04, timebase_period_len: 24, timebase_basis_num: 6, lr: 0.02}
+  Electricity@192: {timebase_orthogonal_weight: 0.04, timebase_period_len: 24, timebase_basis_num: 6, lr: 0.02}
+  Electricity@336: {timebase_orthogonal_weight: 0.04, timebase_period_len: 24, timebase_basis_num: 6, lr: 0.02}
+  Electricity@720: {timebase_orthogonal_weight: 0.08, timebase_period_len: 24, timebase_basis_num: 6, lr: 0.08}
+  Traffic@96: {timebase_orthogonal_weight: 0.04, timebase_period_len: 24, timebase_basis_num: 6, lr: 0.05}
+  Traffic@192: {timebase_orthogonal_weight: 0.04, timebase_period_len: 24, timebase_basis_num: 8, lr: 0.03}
+  Traffic@336: {timebase_orthogonal_weight: 0.08, timebase_period_len: 24, timebase_basis_num: 15, lr: 0.03}
+  Traffic@720: {timebase_orthogonal_weight: 0.04, timebase_period_len: 24, timebase_basis_num: 8, lr: 0.03}
+  # industrial: period-type keys only (FFT period <= 48 / daily cycle, EXPERIMENT_PROTOCOL.md §5)
+  Steel: {timebase_period_len: 24}
+  WindSCADA: {timebase_period_len: 48}
+  BlastFurnace: {timebase_period_len: 48}
+  MetroPT3: {timebase_period_len: 24}
+  N2O: {timebase_period_len: 24}
+  EWELD: {timebase_period_len: 24}

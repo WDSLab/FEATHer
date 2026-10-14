@@ -1,35 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-(10-07: default file is results/raw_mfg.csv; the old fcst_results.csv no longer exists.)
+Duplicate audit for a results CSV (default results/raw_mfg.csv).
 
-Duplicate / overlap audit for the append-only results CSVs.
+If the same cell was trained twice (overlapping launches, a stray run under
+another exp_tag), the CSV holds duplicate rows, and tables that average over
+seed rows would double-count them. This tool lists the duplicates, and `--fix`
+rewrites a deduped CSV (keeping the LATEST timestamp per key) after backing up
+the original.
 
-`results/fcst_results.csv` is append-only: the orchestrator resumes by
-reading the CSV into a set of resume keys and skipping completed cells, but
-it never rewrites the file. So if the SAME cell was actually trained twice
-(e.g. two overlapping launches before either finished writing, a stray run
-under a different `--exp_tag`, or a wrong `--group` that steered FEATHer at
-the manufacturing datasets), the CSV can physically hold duplicate rows.
-
-Resume is unaffected (it dedups on read), but `tools/paper/main_table.py`
-averages over seed rows per (model, data, pred_len) - duplicate seed rows
-would be double-counted and bias the mean/std. This tool surfaces those
-duplicates before they reach a table, and `--fix` rewrites a deduped CSV
-(keeping the LATEST timestamp per key) after backing up the original.
-
-Resume key (matched the old orchestrator's load_done_set, _archive/run_forecast_orchestrator.py):
-    exp_tag, model, data, pred_len, seq_len, seed
-
-AUDIT-FIX (2026-07-14, P2-3): robust_results.csv rows are keyed PER
-(fault_type, severity) CONDITION — 20 rows per checkpoint is by design, not
-duplication. The schema is auto-detected (fault_type column present) and the
-key extended accordingly, so pointing this tool (or --fix) at the robustness
-CSV can no longer flag/delete 95% of a legitimate sweep.
+Key: exp_tag, model, data, pred_len, seq_len, seed (plus the condition columns
+when the CSV has a fault_type column, where one row per condition is intended).
 
 Usage:
     python tools/audit/check_duplicates.py
-    python tools/audit/check_duplicates.py --csv results/fcst_results.csv
-    python tools/audit/check_duplicates.py --csv results/robust_results.csv
+    python tools/audit/check_duplicates.py --csv results/raw_ltsf.csv
     python tools/audit/check_duplicates.py --exp_tag main
     python tools/audit/check_duplicates.py --fix          # dedup in place (backs up first)
 """
@@ -45,15 +29,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 RESUME_KEY = ["exp_tag", "model", "data", "pred_len", "seq_len", "seed"]
 
-# robust_results.csv extension: one row per corruption condition is the
-# intended cardinality, so the condition columns are part of the key.
+# CSVs with a fault_type column hold one row per condition by design, so the
+# condition columns are part of the key.
 ROBUST_EXTRA_KEY = ["train_exp_tag", "fault_type", "severity"]
 
 
 def resume_key_for(df):
-    """Pick the resume key by schema. A `fault_type` column marks the
-    robustness CSV — its per-condition rows would look like 19 duplicates
-    per cell under the plain key (audit P2-3)."""
+    """Pick the key by schema: with a `fault_type` column, per-condition rows
+    would look like duplicates under the plain key."""
     key = list(RESUME_KEY)
     if "fault_type" in df.columns:
         key += [c for c in ROBUST_EXTRA_KEY if c in df.columns]
@@ -61,9 +44,8 @@ def resume_key_for(df):
               f"resume key extended with {ROBUST_EXTRA_KEY}")
     return key
 
-# FEATHer belongs on the LTSF-8 (generalization) datasets under --group ltsf.
-# If it shows up on a manufacturing / PdM dataset it was almost certainly
-# launched without --group ltsf (default group is mfg) - flag it.
+# Rows named plain "FEATHer" are expected only on the LTSF-8 datasets; elsewhere
+# they point to a wrong launch and are flagged.
 LTSF_DATASETS = {"ETTh1", "ETTh2", "ETTm1", "ETTm2",
                  "Weather", "Electricity", "Traffic", "Exchange"}
 
@@ -91,8 +73,7 @@ def report_distributions(df):
 
 
 def report_group_anomalies(df):
-    """FEATHer rows that landed on a non-LTSF dataset = likely missing
-    --group ltsf (default group is mfg)."""
+    """Flag "FEATHer" rows that landed on a non-LTSF dataset."""
     feat = df[df["model"] == "FEATHer"]
     if feat.empty:
         return

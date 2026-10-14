@@ -1,4 +1,4 @@
-"""Data observations that motivate the model structure (2026-10-13) - TRAIN split only (first 70 % of rows),
+"""Data observations that motivate the model structure - TRAIN split only (first 70 % of rows),
 no validation or test data is read.
 
     python tools/paper/observe_structure.py      # -> results/analysis/observation_20261013.csv + printout

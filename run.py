@@ -1,4 +1,4 @@
-"""Plan-driven runner (2026-10-07): run only the cells the protocol needs and the results do not have yet.
+"""Plan-driven runner: run only the cells the protocol needs and the results do not have yet.
 
     python run.py --stage select --check                 # what is missing, nothing runs
     python run.py --stage select --ngpu 1 --jobs_per_gpu 3
@@ -12,13 +12,13 @@ Stages (docs/EXPERIMENT_PROTOCOL.md):
     select    industrial candidates x 6 datasets x 4 H x seed 2025, L 96                   -> select_mfg.csv
     main      industrial chosen setting x 3 seeds, L 96 (models without a choice are skipped) -> raw_mfg.csv
     lookback  industrial chosen setting x 3 seeds, L 48 / 192 / 336 (FEATHer + chip models + DLinear,
-              CycleNet as in the earlier Table 11 pool) -> raw_mfg.csv
+              CycleNet) -> raw_mfg.csv
     ablation  FEATHer arms (protocol.ABLATION_PLAN: arm x horizons) x 6 datasets x 3 seeds          -> raw_mfg.csv
     control   SparseTSF(+MLP) + mixing bus, FEATHer without bands/gate x 6 x 4 H x 3 seeds          -> raw_mfg.csv
-    redesign  10-12 FEATHer-mix candidates (protocol.REDESIGN_STAGE1/2) x 6 x 4 H x seed 2025        -> raw_mfg.csv
-    size_select  10-13 size-matched baselines (1K / chip-max tier, protocol.SIZE_*) x lr x0.1/x1/x10 x 6 x 4 H x
-              seed 2025 -> raw_mfg.csv (role sizesel); tools/results/size_verdict.py --write picks the lr
-    size      the chosen lr x 3 seeds (seed 2025 reused from size_select)                        -> raw_mfg.csv
+    size_select  size-matched comparison (1K / chip-max tier): size candidates (docs/size_candidates.json) x lr points
+              (~9 trials per model) x 6 x H96/H720 x seed 2025 -> raw_mfg.csv (role sizesel);
+              tools/results/size_verdict.py --write picks (candidate, lr) per tier and model
+    size      the chosen (candidate, lr) x 4 H x 3 seeds (seed-2025 H96/H720 reused from size_select) -> raw_mfg.csv
 
 A cell is done when raw_*.csv, select_mfg.csv or a not-yet-merged shard in results/_incoming/ holds a row
 with the same (role, config_id, model, data, pred_len, seq_len, seed).  New rows are written to
@@ -43,10 +43,16 @@ RES = os.path.join(ROOT, "results")
 KEY = P.KEY
 
 
+def grid(role, config_id, model, group, datas, hs, seeds, seq_len=96):
+    """One cell per (dataset, horizon, seed)."""
+    return [dict(role=role, config_id=config_id, model=model, group=group, data=d, pred_len=h, seq_len=seq_len,
+                 seed=s) for d in datas for h in hs for s in seeds]
+
+
 def plan(stage, models=None, tiers=None):
     """List of cells: dict(role, config_id, model, group, data, pred_len, seq_len, seed)."""
     cells = []
-    add = lambda **c: cells.append(c)
+    one_seed = [P.SELECT_SEED]
     if stage == "ltsf":
         pending = []
         for m in (models or P.FEATHER + P.LIGHT + P.HEAVY):
@@ -54,11 +60,8 @@ def plan(stage, models=None, tiers=None):
                 cfg = P.ltsf_config_id(m, d)
                 if cfg is None:                      # no official setting and not chosen yet
                     pending.append(f"{m}|{d}")
-                    continue
-                for h in P.HS:
-                    for s in P.SEEDS:
-                        add(role="reference" if m in P.HEAVY else "main", config_id=cfg,
-                            model=m, group="ltsf", data=d, pred_len=h, seq_len=96, seed=s)
+                else:
+                    cells += grid("reference" if m in P.HEAVY else "main", cfg, m, "ltsf", [d], P.HS, P.SEEDS)
         if pending:
             print(f"  [skip] {len(pending)} LTSF cells without an official setting wait for --stage ltsf_select: "
                   + ", ".join(pending))
@@ -66,31 +69,17 @@ def plan(stage, models=None, tiers=None):
         for m in (models or P.LIGHT):
             for d in P.LTSF:
                 cands = P.ltsf_candidates(m, d)
-                if len(cands) < 2:
-                    continue
-                for c in cands:
-                    for h in P.HS:
-                        add(role="select", config_id=c, model=m, group="ltsf", data=d, pred_len=h,
-                            seq_len=96, seed=P.SELECT_SEED)
+                for c in (cands if len(cands) >= 2 else []):
+                    cells += grid("select", c, m, "ltsf", [d], P.HS, one_seed)
     elif stage == "select":
         for m in (models or list(P.CANDIDATES)):
             cands = P.CANDIDATES.get(m, [])
-            if len(cands) < 2:
-                continue
-            for c in cands:
-                for d in P.MFG:
-                    for h in P.HS:
-                        add(role="select", config_id="cand:" + c, model=m, group="mfg", data=d, pred_len=h,
-                            seq_len=96, seed=P.SELECT_SEED)
+            for c in (cands if len(cands) >= 2 else []):
+                cells += grid("select", "cand:" + c, m, "mfg", P.MFG, P.HS, one_seed)
     elif stage == "ablation":
         for arm, hs in P.ABLATION_PLAN.items():
-            if models and arm not in models:
-                continue
-            for d in P.MFG:
-                for h in hs:
-                    for s in P.SEEDS:
-                        add(role="ablation", config_id="abl:" + arm, model="FEATHer", group="mfg", data=d,
-                            pred_len=h, seq_len=96, seed=s)
+            if not models or arm in models:
+                cells += grid("ablation", "abl:" + arm, "FEATHer", "mfg", P.MFG, hs, P.SEEDS)
     elif stage == "control":
         for arm in P.CONTROL_ARMS:
             if models and arm not in models:
@@ -98,59 +87,37 @@ def plan(stage, models=None, tiers=None):
             cfg = P.control_config_id(arm)
             if cfg is None:
                 print(f"  [skip] {arm}: host {P.CONTROL_ARMS[arm][2]} has no chosen setting yet")
-                continue
-            for d in P.MFG:
-                for h in P.HS:
-                    for s in P.SEEDS:
-                        add(role="control", config_id=cfg, model=P.control_row_model(arm), group="mfg",
-                            data=d, pred_len=h, seq_len=96, seed=s)
-    elif stage == "redesign":
-        for cfg in P.REDESIGN_STAGE1 + P.REDESIGN_STAGE2:
-            if models and cfg not in models:
-                continue
-            for d in P.MFG:
-                for h in P.HS:
-                    add(role="redesign", config_id=cfg, model="FEATHer_mix", group="mfg", data=d,
-                        pred_len=h, seq_len=96, seed=P.SELECT_SEED)
+            else:
+                cells += grid("control", cfg, P.control_row_model(arm), "mfg", P.MFG, P.HS, P.SEEDS)
     elif stage in ("size_select", "size"):
-        # 10-13 size-matched comparison: lr multiplier chosen on validation (size_select, seed 2025), then the
-        # chosen multiplier x 3 seeds (size; its seed-2025 cells are the selection runs, see done_set)
+        # size_select = every (candidate, lr) trial at H96/H720, seed 2025; size = the chosen trial x 4 H x 3 seeds
+        # (its seed-2025 H96/H720 cells are the selection runs, see done_runs)
         for tier in (tiers or P.SIZE_TIERS):
-            for m in P.SIZE_DIALS:
-                if models and m not in models:
-                    continue
+            for m in (models or P.SIZE_CANDIDATES):
+                cands = P.size_candidates(tier, m)
                 if stage == "size_select":
-                    mults = P.SIZE_LR_MULT
+                    trials = [(c, mult) for c in cands for mult in P.SIZE_LR_BY_N.get(len(cands), [])]
+                    role, hs, seeds = "sizesel", P.SIZE_SELECT_HS, one_seed
                 else:
-                    mult = P.chosen_size().get(f"{tier}|{m}")
-                    if mult is None:
-                        print(f"  [skip] {tier} {m}: lr not chosen yet (size_select + size_verdict.py --write)")
-                        continue
-                    mults = [mult]
-                for mult in mults:
+                    pick = P.chosen_size().get(f"{tier}|{m}", {})
+                    trials = [(c, pick["mult"]) for c in cands if c["name"] == pick.get("cand")]
+                    role, hs, seeds = "size", P.HS, P.SEEDS
+                if not trials:
+                    print(f"  [skip] {tier} {m}: no candidates / no choice yet")
+                for c, mult in trials:
                     for d in P.MFG:
-                        cfg = P.size_config_id(tier, m, d, mult)
-                        if cfg is None:
-                            print(f"  [skip] {tier} {m} {d}: no dial value in docs/size_dials.json yet")
-                            continue
-                        for h in P.HS:
-                            for s in ([P.SELECT_SEED] if stage == "size_select" else P.SEEDS):
-                                add(role="sizesel" if stage == "size_select" else "size", config_id=cfg, model=m,
-                                    group="mfg", data=d, pred_len=h, seq_len=96, seed=s)
+                        cells += grid(role, P.size_config_id(tier, m, mult, c["knobs"][d]), m, "mfg", [d], hs, seeds)
     elif stage in ("main", "lookback"):
-        pool = models or (P.FEATHER + P.LIGHT + P.HEAVY if stage == "main" else P.FEATHER + P.ON_CHIP + ["CycleNet", "DLinear"])
-        Ls = [96] if stage == "main" else [48, 192, 336]
+        pool = models or (P.FEATHER + P.LIGHT + P.HEAVY if stage == "main"
+                          else P.FEATHER + P.ON_CHIP + ["CycleNet", "DLinear"])
         for m in pool:
             cfg = P.mfg_main_config_id(m)
             if cfg is None:
                 print(f"  [skip] {m}: industrial setting not chosen yet (run --stage select first)")
                 continue
-            role = "reference" if m in P.HEAVY else ("main" if stage == "main" else "lookback")
-            for L in Ls:
-                for d in P.MFG:
-                    for h in P.HS:
-                        for s in P.SEEDS:
-                            add(role=role, config_id=cfg, model=m, group="mfg", data=d, pred_len=h, seq_len=L, seed=s)
+            role = "reference" if m in P.HEAVY else stage
+            for L in ([96] if stage == "main" else [48, 192, 336]):
+                cells += grid(role, cfg, m, "mfg", P.MFG, P.HS, P.SEEDS, seq_len=L)
     else:
         raise ValueError(stage)
     return cells
@@ -166,29 +133,50 @@ def _result_fields():
     raise RuntimeError("CSV_FIELDS not found in scripts/train.py")
 
 
-def done_set():
+def done_runs():
+    """(role, config_id, model, data, pred_len, seq_len, seed) -> set of the "hparams" values recorded for that cell
+    (None = an older row that recorded no hyperparameters)."""
     frames = []
     for f in ["raw_mfg.csv", "raw_ltsf.csv", "select_mfg.csv", "select_ltsf.csv"]:
         p = os.path.join(RES, f)
         if os.path.exists(p):
-            frames.append(pd.read_csv(p, usecols=lambda c: c in KEY))
+            frames.append(pd.read_csv(p, usecols=lambda c: c in KEY + ["hparams"]))
     for p in glob.glob(os.path.join(RES, "_incoming", "*.csv")):
         d = pd.read_csv(p, on_bad_lines="skip")
         if "exp_tag" in d and len(d):
-            sp = d.exp_tag.astype(str).str.split("|", n=1, expand=True)
-            if sp.shape[1] == 2:
-                d["role"], d["config_id"] = sp[0], sp[1]
-                frames.append(d[KEY])
+            d["role"], d["config_id"] = zip(*[str(t).split("|", 1) if "|" in str(t) else (t, "") for t in d.exp_tag])
+            frames.append(d[[c for c in KEY + ["hparams"] if c in d]])
     if not frames:
-        return set()
+        return {}
     a = pd.concat(frames, ignore_index=True).dropna(subset=KEY)
+    if "hparams" not in a:
+        a["hparams"] = None
     # a main run of a candidate setting at the selection seed is also its selection run (same cell)
     m = a[(a.role == "main") & a.config_id.str.startswith("cand:") & (a.seed == P.SELECT_SEED) & (a.seq_len == 96)]
     a = pd.concat([a, m.assign(role="select")], ignore_index=True)
     # a size-matched selection run (seed 2025) is also the seed-2025 run of the same config in the size stage
     a = pd.concat([a, a[a.role == "sizesel"].assign(role="size")], ignore_index=True)
-    return set(zip(a.role, a.config_id, a.model, a.data, a.pred_len.astype(int), a.seq_len.astype(int),
-                   a.seed.astype(int)))
+    done = {}
+    for row in a.itertuples(index=False):
+        key = (row.role, row.config_id, row.model, row.data, int(row.pred_len), int(row.seq_len), int(row.seed))
+        done.setdefault(key, set()).add(row.hparams if isinstance(row.hparams, str) and row.hparams else None)
+    return done
+
+
+def is_done(cell, done):
+    """Done = a row for the cell exists, recorded with today's hyperparameters (or before they were recorded)."""
+    seen = done.get(tuple(cell[k] for k in KEY), set())
+    return None in seen or cell["hparams"] in seen
+
+
+def shard_path(host, stage):
+    """results/_incoming/<host>_<stage>.csv, or <host>_<stage>_2.csv ... when that file has an older column layout."""
+    fields = _result_fields()
+    for n in range(1, 100):
+        p = os.path.join("results", "_incoming", f"{host}_{stage}" + ("" if n == 1 else f"_{n}") + ".csv")
+        if not os.path.exists(p) or open(p, newline="").readline().strip().split(",") == fields:
+            return p
+    raise RuntimeError("no free shard name")
 
 
 def jobs_for(missing, args, out_csv):
@@ -199,12 +187,13 @@ def jobs_for(missing, args, out_csv):
     jobs = []
     for (role, cfg, m, g, d, h, L), seeds in sorted(groups.items(), key=lambda kv: (kv[0][4] != "MetroPT3", kv[0])):
         lr, loss, ov = P.resolve(m, g, d, h, cfg)
+        hp = P.hparams(m, g, d, h, cfg)
         ovs = ";".join(f"{k}={v}" for k, v in sorted(ov.items()))
         cmd = [sys.executable, "scripts/train.py", "--model", P.registry_name(m, cfg),
                "--data", d, "--pred_len", str(h), "--seq_len", str(L),
                "--seeds", ",".join(str(s) for s in sorted(seeds)), "--exp_tag", f"{role}|{cfg}",
                "--results_csv", out_csv, "--num_epochs", "50", "--patience", "10", "--batch_size", "32",
-               "--lr", str(lr), "--loss", loss, "--result_model_name", m]
+               "--lr", str(lr), "--loss", loss, "--result_model_name", m, "--hparams", hp]
         if ovs:
             cmd += ["--model_overrides", ovs]
         cmd += P.cli_flags(m, cfg)
@@ -216,8 +205,7 @@ def jobs_for(missing, args, out_csv):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", required=True, choices=["ltsf", "ltsf_select", "select", "main", "lookback", "ablation", "control", "size_select", "size",
-                                                    "redesign"])
+    ap.add_argument("--stage", required=True, choices=["ltsf", "ltsf_select", "select", "main", "lookback", "ablation", "control", "size_select", "size"])
     ap.add_argument("--models", default="", help="comma list (default: the stage's pool)")
     ap.add_argument("--data", default="", help="comma list of datasets (default: all of the stage)")
     ap.add_argument("--configs", default="", help="comma list of config_ids (default: all)")
@@ -239,8 +227,10 @@ def main():
     if a.configs:
         keep = {x.strip() for x in a.configs.split(",")}
         cells = [c for c in cells if c["config_id"] in keep]
-    done = done_set()
-    missing = [c for c in cells if tuple(c[k] for k in KEY) not in done]
+    for c in cells:
+        c["hparams"] = P.hparams(c["model"], c["group"], c["data"], c["pred_len"], c["config_id"])
+    done = done_runs()
+    missing = [c for c in cells if not is_done(c, done)]
     df = pd.DataFrame(missing or [{}])
     print(f"stage {a.stage}: {len(cells)} cells planned, {len(cells) - len(missing)} done, {len(missing)} missing")
     if missing:
@@ -248,7 +238,7 @@ def main():
     if a.check or not missing:
         return
     os.makedirs(os.path.join(RES, "_incoming"), exist_ok=True)
-    out = os.path.join("results", "_incoming", f"{a.host}_{a.stage}.csv")
+    out = shard_path(a.host, a.stage)
     if not os.path.exists(out):
         # write the header before 3-6 workers start appending (otherwise a fast worker can append its
         # row between another worker's create and header write)

@@ -1,21 +1,18 @@
 # -*- coding: utf-8 -*-
 """Export golden vectors + weights for the FITS companion port.
 
-Upgrade path for the deployment table: FITS was slated as an
-estimate-footnote (EDGE_EXPERIMENT.md decision #3), porting it converts
-that into an optional measured row. Config = benchmark defaults (shared
-upsampler, cut_freq = seq_len//4 = 24): complex Linear(24 -> 48)
-=> 1,200 complex params (the registry headline count).
+Default config = benchmark defaults (shared upsampler, cut_freq = seq_len//4
+= 24): complex Linear(24 -> 48) => 1,200 complex params (the registry count).
 
 Uses the real upstream model via the benchmark wrapper; staged replication
 is asserted equal to model(x) before writing. Also emits the 192-point DFT
 twiddle tables (irfft length = seq_len + pred_len).
 
-2026-10-07: --config / --data export one of the industrial candidate settings
+--config / --data export one of the industrial candidate settings
 (resolved by tools/results/protocol.resolve, as the experiments do): cut_freq from
 the official formula and the shared / per-channel upsampler.  The structural values
 go to golden/fits_geom.h (FITS_CUT, FITS_IND), which the port includes.  Without
---config the export is the old benchmark default, byte-identical to before.
+--config the export is the benchmark default above.
 
 Run:  python deployment/board/export_golden_fits.py [--config Weather] [--data MetroPT3]
 """
@@ -34,7 +31,7 @@ if str(_ROOT) not in sys.path:
 
 from baselines.FITS.wrapper import build  # noqa: E402
 from tools.results.protocol import resolve  # noqa: E402
-from export_golden import emit_array      # noqa: E402
+from golden_io import emit_array      # noqa: E402
 
 SEQ_LEN = 96
 PRED_LEN = 96
@@ -50,11 +47,10 @@ def randomize_golden_weights(model) -> None:
     """Make the golden weights exercise every arithmetic path of the port.
 
     The upstream init leaves the IMAGINARY part of the complex upsampler at 0,
-    so every "- wi * im" / "+ wi * re" term multiplied zero and a sign or index
-    error there would still pass (found 2026-09-14).  Fill it with the same
-    spread as the real part.  Uses its own generator, so the result does not
-    depend on the global RNG state; export_batch.py calls this too, which is
-    what keeps its reference MSE on the same weights as fits_weights.h.
+    so every "- wi * im" / "+ wi * re" term would multiply zero and a sign or
+    index error there would still pass.  Fill it with the same spread as the
+    real part.  Uses its own generator, so the result does not depend on the
+    global RNG state.
     """
     inner = model.inner
     gw = torch.Generator().manual_seed(WEIGHT_SEED + 1)
@@ -96,10 +92,8 @@ def main() -> None:
     up = int(cut * inner.length_ratio)
     print(f"config={_a.config or 'benchmark default'} cut={cut} up={up} individual={ind}")
     tn = SEQ_LEN + PRED_LEN
-    # geometry guard: these constants describe the FROZEN H=96 cell
-    # (the reference the 08-24 board numbers were taken at).  At other
-    # horizons the geometry legitimately changes - print it instead, and
-    # the C header must be given matching -D overrides.
+    # geometry guard for the reference H=96 default cell; elsewhere the
+    # geometry legitimately changes (the C header takes matching -D overrides).
     if PRED_LEN == 96 and not _a.config:
         assert (cut, up) == (24, 48), f"unexpected FITS geometry {cut}/{up}"
 

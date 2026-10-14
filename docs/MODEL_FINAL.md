@@ -3,7 +3,7 @@
 ## ★ 2026-09-23 재동결 — 섞기 요약 16칸 → 4칸 (현재 판)
 
 ```bash
-# 공통 (레지스트리 _FEATHER_FROZEN 과 동일 — `--model FEATHer` 만으로 이 모델이 만들어짐)
+# 공통 (`configs/FEATHer.yaml` 의 frozen 블록과 동일 — `--model FEATHer` 만으로 이 모델이 만들어짐)
 --no_in_proj --num_bands 3 --point_kernel 3 --dtk_mode none --gate_mode banded --mlp_rank 4
 # 채널 모드 (두 도메인 모두 두 변종을 싣는다, 옵션 D)
 mix  (배포·헤드라인)            ci_full (비교 행)

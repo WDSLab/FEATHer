@@ -1,4 +1,4 @@
-"""Dial values of the size-matched comparison from the chip builds (2026-10-13, docs/EXPERIMENT_PROTOCOL.md §10).
+"""Dial values of the size-matched comparison from the chip builds (docs/EXPERIMENT_PROTOCOL.md §10).
 
     python tools/results/size_dials.py            # report
     python tools/results/size_dials.py --write    # -> docs/size_dials.json (commit it)
@@ -20,6 +20,11 @@ import pandas as pd
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import protocol as P   # noqa: E402
 
+# the single size hyperparameter per model and the file of its chip-build values (input for the chip-max candidates)
+SIZE_DIALS = {"CMoS": "cmos_seg_size", "SparseTSF_MLP": "sparsetsf_d_model", "TimeBase": "timebase_basis_num",
+              "PhaseFormer": "phaseformer_latent_dim", "DiPE_Linear": "dipe_num_experts", "FITS": "fits_cut_freq",
+              "FEATHer_mix": "head_seg"}
+SIZE_DIALS_FILE = os.path.join(os.path.dirname(P.SIZE_CAND_FILE), "size_dials.json")
 BOARD = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "results", "board")
 B2R = {"cmos": "CMoS", "stsf_mlp": "SparseTSF_MLP", "timebase": "TimeBase", "phaseformer": "PhaseFormer",
        "dipe": "DiPE_Linear", "fits": "FITS", "feather_mix": "FEATHer_mix"}
@@ -53,17 +58,17 @@ def main(write, only=None):
         out[tier].setdefault(reg, {})[d] = int(v)
     for t in P.SIZE_TIERS:
         print(f"\n== {t}")
-        for reg in P.SIZE_DIALS:
+        for reg in SIZE_DIALS:
             row = out[t].get(reg, {})
-            print(f"  {reg:14s} {P.SIZE_DIALS[reg]:24s} " + "  ".join(f"{d}={row.get(d, '-')}" for d in P.MFG))
-    missing = [(t, r, d) for t in P.SIZE_TIERS for r in P.SIZE_DIALS for d in P.MFG if d not in out[t].get(r, {})]
-    print(f"\nmissing {len(missing)} of {len(P.SIZE_TIERS) * len(P.SIZE_DIALS) * len(P.MFG)}")
+            print(f"  {reg:14s} {SIZE_DIALS[reg]:24s} " + "  ".join(f"{d}={row.get(d, '-')}" for d in P.MFG))
+    missing = [(t, r, d) for t in P.SIZE_TIERS for r in SIZE_DIALS for d in P.MFG if d not in out[t].get(r, {})]
+    print(f"\nmissing {len(missing)} of {len(P.SIZE_TIERS) * len(SIZE_DIALS) * len(P.MFG)}")
     if write:
         if only:
-            old = json.load(open(P.SIZE_DIALS_FILE, encoding="utf-8")) if os.path.exists(P.SIZE_DIALS_FILE) else {}
+            old = json.load(open(SIZE_DIALS_FILE, encoding="utf-8")) if os.path.exists(SIZE_DIALS_FILE) else {}
             out = {t: (out[t] if t == only else old.get(t, {})) for t in P.SIZE_TIERS}
-        json.dump(out, open(P.SIZE_DIALS_FILE, "w", encoding="utf-8"), indent=1, sort_keys=True)
-        print("written", P.SIZE_DIALS_FILE, "(cells still missing stay absent; run.py skips them)")
+        json.dump(out, open(SIZE_DIALS_FILE, "w", encoding="utf-8"), indent=1, sort_keys=True)
+        print("written", SIZE_DIALS_FILE, "(cells still missing stay absent; run.py skips them)")
 
 
 if __name__ == "__main__":

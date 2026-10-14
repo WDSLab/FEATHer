@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Op count vs measured board latency, frozen models (2026-10-06).
+"""Op count vs measured board latency, frozen models.
 
-results/analysis/complexity.csv predates the 09-23 re-freeze for FEATHer and charges every transform
-as the O(N^2) table DFT the board used before 09-29; the board now runs the fast 96-point
-FFT.  This recounts the MetroPT3 deployment cell (D = 7) with the CURRENT registry configs
-(FEATHer = frozen mix, R = 4) under both transform costings and regresses each against the
+Counts the MetroPT3 deployment cell (D = 7) with the current registry configs (FEATHer = frozen
+mix, R = 4) under both transform costings (table DFT and fast FFT) and regresses each against the
 board latency of results/board/board_latency_20260929.csv (fast-FFT rows, direct_dft = 0).
 
 Question for the text: do parameters / op counts predict on-chip latency across these

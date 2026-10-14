@@ -38,7 +38,9 @@ _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from baselines.FEATHer.FEATHer import FEATHer  # noqa: E402
+sys.path.insert(0, str(_ROOT / "_archive" / "FEATHer_full_20261014"))   # the full-option FEATHer (archived 10-14)
+sys.path.insert(0, str(_ROOT / "deployment" / "board"))
+from FEATHer import FEATHer  # noqa: E402
 
 SEQ_LEN = 96
 D_MODEL = 7
@@ -61,7 +63,7 @@ ARCH = dict(
 
 WEIGHT_SEED = 2025
 INPUT_SEED = 7
-OUT_DIR = Path(__file__).resolve().parent / "golden"
+OUT_DIR = _ROOT / "deployment" / "board" / "golden"
 
 
 def emit_array(f, name: str, t: torch.Tensor) -> None:

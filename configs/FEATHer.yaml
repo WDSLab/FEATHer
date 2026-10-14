@@ -1,0 +1,32 @@
+# FEATHer (this work) - frozen configuration (docs/MODEL_FINAL.md; frozen 09-04, mlp_rank 4 since 09-23).
+# One configuration on every dataset; only the period (FFT-detected) and the channel mode differ:
+# industrial = channel mixing ("mix", result name FEATHer_mix), LTSF = channel-independent ("ci_full", FEATHer_CI).
+# Change a value in place, never by adding a second entry.
+
+default: {lr: 0.001, loss: mse}
+
+frozen: &frozen
+  num_bands: 3              # {conv k=3, conv k=5, AvgPool4 + interp}
+  point_kernel: 3           # keep this form, not band_kernels (different RNG stream -> different init)
+  gate_mode: banded         # per-band spectral energy gate
+  use_residual_mlp: true
+  mlp_rank: 4
+  lambda_spec: 0.01
+
+datasets:
+  # LTSF: channel-independent
+  ETTh1: {<<: *frozen, channel_mode: ci_full, period: 6}
+  ETTh2: {<<: *frozen, channel_mode: ci_full, period: 12}
+  ETTm1: {<<: *frozen, channel_mode: ci_full, period: 6}
+  ETTm2: {<<: *frozen, channel_mode: ci_full, period: 6}
+  Weather: {<<: *frozen, channel_mode: ci_full, period: 6}
+  Exchange: {<<: *frozen, channel_mode: ci_full, period: 8}
+  Electricity: {<<: *frozen, channel_mode: ci_full, period: 24, lambda_spec: 0.0, lr: 0.005}   # OFAT-era values kept
+  Traffic: {<<: *frozen, channel_mode: ci_full, period: 12, lr: 0.005}                          # OFAT-era values kept
+  # industrial: channel mixing, period = FFT period <= 48
+  Steel: {<<: *frozen, channel_mode: mix, period: 24}
+  WindSCADA: {<<: *frozen, channel_mode: mix, period: 48}
+  BlastFurnace: {<<: *frozen, channel_mode: mix, period: 48}
+  MetroPT3: {<<: *frozen, channel_mode: mix, period: 24}
+  N2O: {<<: *frozen, channel_mode: mix, period: 24}
+  EWELD: {<<: *frozen, channel_mode: mix, period: 24}

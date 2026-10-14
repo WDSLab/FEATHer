@@ -34,7 +34,7 @@ def build(args, n_features, seq_len, pred_len):
     mod = isolated_import(_REPO, "models.SparseTSF")
     # period_len must divide both seq_len and pred_len. Fall back to the
     # largest valid divisor ≤ 24 (paper's hourly choice) when 24 is not
-    # admissible (e.g. SML / Volatility with non-standard periodicities).
+    # admissible.
     period = getattr(args, "sparsetsf_period_len", 0) or _default_period(seq_len, pred_len)
     cfg = argparse.Namespace(
         seq_len=seq_len,
@@ -60,11 +60,10 @@ def _default_period(seq_len, pred_len):
 
 
 # ---------------------------------------------------------------------------
-# 2026-10-06 control arm (user): "what does FEATHer do better than SparseTSF plus a small
-# channel-mixing bus?"  This is the UNCHANGED upstream SparseTSF with FEATHer's residual
-# channel mixer in front of it and nothing else of FEATHer (no bands, no FFT gate, no
-# spectral loss, no SPK re-implementation).  Pre-declared rule and arms:
-# manuscript/drafts/_records/control_sparsetsf_mix_plan.md.
+# Control arm: "what does FEATHer do better than SparseTSF plus a small channel-mixing
+# bus?"  This is the UNCHANGED upstream SparseTSF with FEATHer's residual channel mixer
+# in front of it and nothing else of FEATHer (no bands, no FFT gate, no spectral loss,
+# no SPK re-implementation).
 #
 #   norm = "revin"  FEATHer's instance norm (window mean detached, std not - the same
 #                   half-RevIN as FEATHer.py) -> mixer -> SparseTSF -> * std + mean
@@ -105,6 +104,14 @@ class SparseTSFMix(nn.Module):
         if stdev is not None:
             y = y * stdev
         return y + means
+
+
+def build_mlp(args, n_features, seq_len, pred_len):
+    """SparseTSF with its MLP head (registry name SparseTSF_MLP)."""
+    import copy
+    a = copy.copy(args)
+    a.sparsetsf_model_type = "mlp"
+    return build(a, n_features, seq_len, pred_len)
 
 
 def build_mix(args, n_features, seq_len, pred_len, model_type="linear", norm="revin"):

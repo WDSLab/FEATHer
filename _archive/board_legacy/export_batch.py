@@ -24,7 +24,9 @@ _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from baselines.FEATHer.FEATHer import FEATHer          # noqa: E402
+sys.path.insert(0, str(_ROOT / "_archive" / "FEATHer_full_20261014"))   # the full-option FEATHer (archived 10-14)
+sys.path.insert(0, str(_ROOT / "deployment" / "board"))
+from FEATHer import FEATHer          # noqa: E402
 from baselines.SparseTSF.wrapper import build as build_stsf   # noqa: E402
 from baselines.DiPE_Linear.wrapper import build as build_dipe  # noqa: E402
 from baselines.FITS.wrapper import build as build_fits  # noqa: E402
@@ -41,7 +43,7 @@ D_MODEL = 7
 WEIGHT_SEED = 2025          # must match the per-model export scripts
 BATCH_SEED = 123
 
-OUT_DIR = Path(__file__).resolve().parent / "golden"
+OUT_DIR = _ROOT / "deployment" / "board" / "golden"
 
 
 def mse64(pred: torch.Tensor, target: torch.Tensor) -> float:

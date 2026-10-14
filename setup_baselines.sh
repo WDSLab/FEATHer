@@ -109,6 +109,6 @@ fi
 echo ""
 echo "All requested baselines are present under baselines/."
 echo "Next: write baselines/<Name>/wrapper.py for each, register in"
-echo "baselines/__init__.py, then run the smoke test:"
+echo "baselines/__init__.py (MODELS) + configs/<Model>.yaml, then run the smoke test:"
 echo "    python scripts/train.py --model <Name> --data ETTh1 --pred_len 96 \\"
 echo "        --seeds 2025 --num_epochs 2 --exp_tag smoke --results_csv results/_incoming/smoke.csv"

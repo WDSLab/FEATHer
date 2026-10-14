@@ -1,0 +1,27 @@
+# FITS (ICLR'24) - VEWOXIC/FITS scripts/FITS/<dataset>_best.sh (H_order per H, base_T, individual)
+# Values = exactly what the experiments use (L = 96).  Key "<dataset>@<H>" = only for that horizon,
+# merged on top of "<dataset>".  Change a value in place, never by adding a second entry.
+# Keys: fits_base_t = base period (sets the cut frequency) | fits_h_order = harmonics kept per base period | fits_individual = one complex layer per channel
+
+default: {lr: 0.0005, loss: mse}
+datasets:
+  # LTSF (official scripts)
+  ETTh1: {fits_base_t: 24, fits_individual: false, fits_h_order: 6}
+  ETTh2: {fits_base_t: 24, fits_individual: false, fits_h_order: 6}
+  ETTm1: {fits_base_t: 96, fits_individual: false, fits_h_order: 14}
+  ETTm2: {fits_base_t: 96, fits_individual: false, fits_h_order: 14}
+  Weather: {fits_base_t: 144, fits_individual: true}
+  Weather@96: {fits_h_order: 12}
+  Weather@192: {fits_h_order: 12}
+  Weather@336: {fits_h_order: 8}
+  Weather@720: {fits_h_order: 12}
+  Exchange: {fits_base_t: 24, fits_individual: false, fits_h_order: 6}     # no official setting -> chosen on validation among the candidates (protocol.py)
+  Electricity: {fits_base_t: 24, fits_individual: false, fits_h_order: 6}     # no official setting -> chosen on validation among the candidates (protocol.py)
+  Traffic: {fits_base_t: 24, fits_individual: false, fits_h_order: 6}     # no official setting -> chosen on validation among the candidates (protocol.py)
+  # industrial: period-type keys only (FFT period <= 48 / daily cycle, EXPERIMENT_PROTOCOL.md §5)
+  Steel: {fits_base_t: 96}
+  WindSCADA: {fits_base_t: 144}
+  BlastFurnace: {fits_base_t: 24}
+  MetroPT3: {fits_base_t: 298}
+  N2O: {fits_base_t: 288}
+  EWELD: {fits_base_t: 96}
