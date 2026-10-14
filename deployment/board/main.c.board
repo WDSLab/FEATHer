@@ -250,8 +250,8 @@ static void infer(int check_it)
     for (int om = 0; om < FEA2_M; ++om) {
       const float *blk = fea2r_block(om);
       if (!check_it) { g_sink = blk[0]; continue; }
-      for (int ph = 0; ph < FEA2_PERIOD; ++ph)
-        check(blk[ph], GOLD_Y[(om * FEA2_PERIOD + ph) * BOARD_D + d]);
+      for (int ph = 0; ph < FEA2_SEG; ++ph)
+        check(blk[ph], GOLD_Y[(om * FEA2_SEG + ph) * BOARD_D + d]);
     }
   }
 #elif defined(RUN_FEATHER_CI)
@@ -260,8 +260,8 @@ static void infer(int check_it)
     for (int om = 0; om < FEA2_M; ++om) {
       const float *blk = fea2ci_block(om);
       if (!check_it) { g_sink = blk[0]; continue; }
-      for (int ph = 0; ph < FEA2_PERIOD; ++ph)
-        check(blk[ph], GOLD_Y[(om * FEA2_PERIOD + ph) * BOARD_D + c]);
+      for (int ph = 0; ph < FEA2_SEG; ++ph)
+        check(blk[ph], GOLD_Y[(om * FEA2_SEG + ph) * BOARD_D + c]);
     }
   }
 #elif defined(RUN_DLINEAR)

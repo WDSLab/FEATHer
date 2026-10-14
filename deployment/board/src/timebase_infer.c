@@ -1,6 +1,6 @@
 /*
  * TimeBase forward, mirroring baselines/TimeBase/TimeBase-main/models/TimeBase.py
- * with use_period_norm = 1 (every official script):
+ * with use_period_norm = 1 (every official script; 0 = one mean per channel, TB_PNORM):
  *   x (one channel) -> (period_len p, seg_num n) view, x[n*P + p] ->
  *   per-phase mean over the n segments subtracted ->
  *   ts2basis Linear(n_x -> basis) -> basis2ts Linear(basis -> n_y) ->
@@ -22,6 +22,12 @@ _Static_assert(!TB_IND || TB_D == TB_D_GEN,
  * every setting we run has P | L and P | H, so that path is not ported */
 _Static_assert(TB_L % TB_P == 0 && TB_H % TB_P == 0,
                "period_len must divide L and H (the padding path is not ported)");
+/* use_period_norm = 0 (10-14, chip-tier search): upstream _normalize_input then subtracts ONE
+ * mean per channel (over all L samples) instead of one per phase, and adds it back to every
+ * output.  Stamped by the export only when 0. */
+#ifndef TB_PNORM
+#define TB_PNORM 1
+#endif
 
 #define TB_NX (TB_L / TB_P)     /* input segments  */
 #define TB_NY (TB_H / TB_P)     /* output segments */
@@ -57,11 +63,21 @@ static void timebase_run(const float *x, float *y, int d0, int d1, int ys, fea_e
         const float *b1 = &TB_B1[TB_CH(d) * TB_B];
         const float *w2 = &TB_W2[TB_CH(d) * TB_WSTRIDE_Y];
         const float *b2 = &TB_B2[TB_CH(d) * TB_NY];
+#if !TB_PNORM
+        float mc = 0.0f;                               /* channel mean */
+        for (int t = 0; t < TB_L; ++t)
+            mc += x[t * TB_D + d];
+        mc /= (float)TB_L;
+#endif
         for (int p = 0; p < TB_P; ++p) {
+#if TB_PNORM
             float m = 0.0f;
             for (int n = 0; n < TB_NX; ++n)
                 m += x[(n * TB_P + p) * TB_D + d];
             m /= (float)TB_NX;
+#else
+            const float m = mc;
+#endif
             for (int n = 0; n < TB_NX; ++n)
                 s_v[n] = x[(n * TB_P + p) * TB_D + d] - m;
 

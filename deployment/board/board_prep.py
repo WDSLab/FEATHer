@@ -79,6 +79,57 @@ PREFIX = {"dlinear": "DL", "cyclenet": "CN", "stsf": "STSF", "stsf_mlp": "SMLP",
           "fits": "FITS", "mixlinear": "ML", "cmos": "CMOS", "timebase": "TB",
           "phaseformer": "PF", "samformer": "SAM"}
 
+# FEATHer size / structure keys a chip-tier trial can put in `geo` (feather_mix / feather_ci);
+# absent = the frozen value.  "head_seg" is accepted for "seg" (the FEATHer.py name).
+#   key           export flag        C macro (only when not the default)
+#   seg           --head_seg         FEA2_SEG
+#   agg_shared    --agg_shared 1     FEA2_AGG_SHARED 1
+#   mlp_rank      --mlp_rank         FEA2_MLP_R (always written; board default 4)
+#   point_kernel  --point_kernel     FEA2_KP            (odd)
+#   num_bands     --num_bands        FEA2_NB            (1 / 2 / 3)
+#   use_norm      --use_norm 0       FEA2_USE_NORM 0
+#   gate_mode     --gate_mode none   FEA2_GATE_NONE 1
+FEA2_DEFAULT = dict(seg=0, agg_shared=False, mlp_rank=4, point_kernel=3, num_bands=3,
+                    use_norm=True, gate_mode="banded")
+
+
+def _truthy(v) -> bool:
+    return str(v).lower() not in ("0", "false", "none", "")
+
+
+def fea2_knobs(geo: dict | None) -> dict:
+    """the FEATHer keys of `geo`, completed with the frozen values"""
+    g = dict(geo or {})
+    if "head_seg" in g:
+        g.setdefault("seg", g.pop("head_seg"))
+    k = {**FEA2_DEFAULT, **{x: g[x] for x in FEA2_DEFAULT if g.get(x) is not None}}
+    return dict(seg=int(k["seg"] or 0), agg_shared=_truthy(k["agg_shared"]), mlp_rank=int(k["mlp_rank"]),
+                point_kernel=int(k["point_kernel"]), num_bands=int(k["num_bands"]),
+                use_norm=_truthy(k["use_norm"]), gate_mode=str(k["gate_mode"]))
+
+
+def fea2_export_args(geo: dict | None) -> list[str]:
+    k = fea2_knobs(geo)
+    return ((["--head_seg", str(k["seg"])] if k["seg"] else [])
+            + (["--agg_shared", "1"] if k["agg_shared"] else [])
+            + ["--mlp_rank", str(k["mlp_rank"])]
+            + (["--point_kernel", str(k["point_kernel"])] if k["point_kernel"] != 3 else [])
+            + (["--num_bands", str(k["num_bands"])] if k["num_bands"] != 3 else [])
+            + (["--use_norm", "0"] if not k["use_norm"] else [])
+            + (["--gate_mode", "none"] if k["gate_mode"] == "none" else []))
+
+
+def fea2_macros(geo: dict | None) -> list[str]:
+    """#define lines for the non-default FEATHer keys (FEA2_MLP_R is written by the caller)"""
+    k = fea2_knobs(geo)
+    return (([f"#define FEA2_SEG {k['seg']}"] if k["seg"] else [])
+            + (["#define FEA2_AGG_SHARED 1"] if k["agg_shared"] else [])
+            + ([f"#define FEA2_KP {k['point_kernel']}"] if k["point_kernel"] != 3 else [])
+            + ([f"#define FEA2_NB {k['num_bands']}"] if k["num_bands"] != 3 else [])
+            + (["#define FEA2_USE_NORM 0"] if not k["use_norm"] else [])
+            + (["#define FEA2_GATE_NONE 1"] if k["gate_mode"] == "none" else []))
+
+
 # A/B cells: the same three models with the direct 96-point DFT (-DFEA_DFT_DIRECT),
 # so the paper can show how much of each latency is the transform implementation.
 AB_PLAN = [("feather_mix", 96, 7), ("dipe", 96, 7), ("fits", 96, 7)]
@@ -131,18 +182,17 @@ def cfg_header(model: str, H: int, D: int, power: str, direct_dft: bool = False,
     elif period and model == "stsf":
         lines.append(f"#define STSF_P {period}")
     if model in ("feather_mix", "feather_fn"):
-        lines += [f"#define FEA2_H {H}", f"#define FEA2_D {D}", "#define FEA2_MLP_R 4",
+        # size / structure keys (FEA2_DEFAULT); absent = the frozen model
+        lines += [f"#define FEA2_H {H}", f"#define FEA2_D {D}",
+                  f"#define FEA2_MLP_R {fea2_knobs(geo)['mlp_rank'] if model == 'feather_mix' else 4}",
                   "#define BOARD_SKIP_CI"]
-        # size dial (head_seg / agg_shared); absent = the frozen model
-        if (geo or {}).get("seg"):
-            lines.append(f"#define FEA2_SEG {geo['seg']}")
-        if (geo or {}).get("agg_shared"):
-            lines.append("#define FEA2_AGG_SHARED 1")
+        if model == "feather_mix":
+            lines += fea2_macros(geo)
         if model == "feather_fn":
             lines.append("#define FEA2_FRONT_NONE")
     elif model == "feather_ci":
         lines += [f"#define FEA2_H {H}", "#define FEA2_D 1", f"#define FEA2CI_D {D}",
-                  "#define FEA2_MLP_R 4"]
+                  f"#define FEA2_MLP_R {fea2_knobs(geo)['mlp_rank']}"] + fea2_macros(geo)
     else:
         lines.append("#define BOARD_SKIP_CI")
         if model in PREFIX and model != "mixlinear":   # MixLinear's H comes from mixlinear_geom.h
@@ -207,12 +257,10 @@ def geo_args(model: str, geo: dict | None) -> list[str]:
     not resolve the dataset themselves.  geo = None keeps every export's default."""
     if not geo:
         return []
-    if model == "feather_mix":
-        # size dial passes through to the export (absent = the frozen model)
-        return ((["--period", str(geo["period"])] if geo.get("period") else [])
-                + (["--head_seg", str(geo["seg"])] if geo.get("seg") else [])
-                + (["--agg_shared", "1"] if geo.get("agg_shared") else []))
-    if model in ("feather_ci", "stsf") and geo.get("period"):
+    if model in ("feather_mix", "feather_ci"):
+        # size / structure keys pass through to the export (absent = the frozen model)
+        return (["--period", str(geo["period"])] if geo.get("period") else []) + fea2_export_args(geo)
+    if model == "stsf" and geo.get("period"):
         return ["--period", str(geo["period"])]
     if model == "cyclenet" and geo.get("cycle"):
         return ["--cycle", str(geo["cycle"])]

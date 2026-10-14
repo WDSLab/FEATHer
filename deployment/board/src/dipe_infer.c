@@ -1,8 +1,8 @@
 /*
  * DiPE-Linear forward, mirroring the upstream
  * baselines/DiPE_Linear/DiPE_Linear-main/timeprophet/models/DiPE.py
- * (DiPE.forward, num_experts=1, individual_* all False, eval mode -
- * dropout inactive). Every channel is independent.
+ * (DiPE.forward, eval mode - dropout inactive). Every channel is independent.
+ * num_experts / RevIN / individual_* / use_freq_w / use_time_w: dipe_infer.h.
  */
 #include <math.h>
 
@@ -25,12 +25,16 @@ _Static_assert(DIPE_PAD == DIPE_PAD_GEN,
                "DIPE_PAD does not match the padding the weights were exported at - re-run export_golden_dipe.py --pred_len");
 _Static_assert(sizeof(DIPE_COS193) / sizeof(DIPE_COS193[0]) == DIPE_TN,
                "dipe_twiddle.h was generated for a different expert length (DIPE_TN)");
-_Static_assert(sizeof(DIPE_W_EXP_RE) / sizeof(DIPE_W_EXP_RE[0]) == DIPE_E * DIPE_TF,
+_Static_assert(sizeof(DIPE_W_EXP_RE) / sizeof(DIPE_W_EXP_RE[0]) == (DIPE_IND_C ? DIPE_D : DIPE_E) * DIPE_TF,
                "dipe_weights.h expert size does not match DIPE_TF");
 _Static_assert(DIPE_E == DIPE_E_GEN && DIPE_REVIN == DIPE_REVIN_GEN,
                "dipe_geom.h does not match the exported weights - re-run export_golden_dipe.py");
-_Static_assert(DIPE_E == 1 || DIPE_D == DIPE_RD_GEN,
-               "DIPE_D does not match the width the router was exported at");
+_Static_assert((DIPE_E == 1 && !(DIPE_IND_F || DIPE_IND_T || DIPE_IND_C)) || DIPE_D == DIPE_RD_GEN,
+               "DIPE_D does not match the width the router / per-channel weights were exported at");
+#ifndef DIPE_VAR_GEN                 /* individual_* / weight switches, stamped only off the default */
+#define DIPE_VAR_GEN 0
+#endif
+_Static_assert(DIPE_VAR == DIPE_VAR_GEN, "dipe_geom.h does not match the exported weights (individual_* / use_*_w)");
 
 /* Static router (num_experts > 1).  Upstream mixes every weight per channel on
  * every forward: w_c = sum_e softmax_e(route[:, c] / T) * w_e, T = 1 at test.
@@ -49,6 +53,9 @@ static inline float dipe_mix(const float *w, int n, int i)
 #else
 #define DIPE_MIX(arr, n, i) ((arr)[i])
 #endif
+/* weight i of channel d: its own row when individual (upstream mixes with eye(D), i.e. picks
+ * row d exactly), else the router mix / the shared row */
+#define DIPE_W(ind, arr, n, d, i) ((ind) ? (arr)[(d) * (n) + (i)] : DIPE_MIX(arr, n, i))
 
 /* PER-CHANNEL WORKING SET (2026-09-04) - equal-effort rule, see
  * deployment/board/README.md.  DiPE is channel-independent, so nothing is
@@ -129,22 +136,26 @@ static void dipe_run(const float *x, float *y, int d0, int d1, int ys, fea_emit_
 #endif
 
         /* static freq weight: rfft96 -> real per-bin weight -> irfft96 */
+#if DIPE_FREQ_W
         fea_rfft96_fast(s_x, 1, FEA_DFT_BINS, s_re, s_im,
                         s_re + FEA_DFT_BINS, s_im + FEA_DFT_BINS);   /* free tail */
         for (int f = 0; f < FEA_DFT_BINS; ++f) {
-            const float w = DIPE_MIX(DIPE_W_FREQ, FEA_DFT_BINS, f);
+            const float w = DIPE_W(DIPE_IND_F, DIPE_W_FREQ, FEA_DFT_BINS, d, f);
             s_re[f] *= w;
             s_im[f] *= w;
         }
         fea_irfft96_fast(s_re, s_im, s_x, s_re + FEA_DFT_BINS, s_im + FEA_DFT_BINS);
+#endif
 #ifdef DIPE_CAPTURE_STAGES
         for (int t = 0; t < DIPE_L; ++t)
             dipe_st_xf[d * DIPE_L + t] = s_x[t];
 #endif
 
         /* static time weight */
+#if DIPE_TIME_W
         for (int t = 0; t < DIPE_L; ++t)
-            s_x[t] = s_x[t] * DIPE_MIX(DIPE_W_TIME, DIPE_L, t);
+            s_x[t] = s_x[t] * DIPE_W(DIPE_IND_T, DIPE_W_TIME, DIPE_L, d, t);
+#endif
 #ifdef DIPE_CAPTURE_STAGES
         for (int t = 0; t < DIPE_L; ++t)
             dipe_st_xt[d * DIPE_L + t] = s_x[t];
@@ -157,10 +168,10 @@ static void dipe_run(const float *x, float *y, int d0, int d1, int ys, fea_emit_
                      DIPE_COS193, DIPE_SIN193, s_re, s_im);
         for (int f = 0; f < DIPE_TF; ++f) {
             float ar = s_re[f], ai = s_im[f];
-            const float wr = DIPE_MIX(DIPE_W_EXP_RE, DIPE_TF, f);
-            const float wi = DIPE_MIX(DIPE_W_EXP_IM, DIPE_TF, f);
-            s_re[f] = ar * wr - ai * wi + DIPE_MIX(DIPE_B_EXP_RE, DIPE_TF, f);
-            s_im[f] = ar * wi + ai * wr + DIPE_MIX(DIPE_B_EXP_IM, DIPE_TF, f);
+            const float wr = DIPE_W(DIPE_IND_C, DIPE_W_EXP_RE, DIPE_TF, d, f);
+            const float wi = DIPE_W(DIPE_IND_C, DIPE_W_EXP_IM, DIPE_TF, d, f);
+            s_re[f] = ar * wr - ai * wi + DIPE_W(DIPE_IND_C, DIPE_B_EXP_RE, DIPE_TF, d, f);
+            s_im[f] = ar * wi + ai * wr + DIPE_W(DIPE_IND_C, DIPE_B_EXP_IM, DIPE_TF, d, f);
         }
 
         /* the kept slice only, denormalized straight into y */

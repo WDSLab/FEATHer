@@ -54,25 +54,51 @@ _Static_assert(FEA2_H == FEA2_H_GEN,
                "FEA2_H does not match the horizon the weights were exported at - re-run export_golden_*.py --pred_len");
 _Static_assert(FEA2_MLP_R == FEA2_R_GEN,
                "FEA2_MLP_R does not match the rank the weights were exported at - re-run export_golden_*.py --mlp_rank");
+/* 10-14 structural switches: stamped only when not the frozen value */
+#ifndef FEA2_NB_GEN
+#define FEA2_NB_GEN 3
+#endif
+#ifndef FEA2_KP_GEN
+#define FEA2_KP_GEN 3
+#endif
+#ifndef FEA2_NORM_GEN
+#define FEA2_NORM_GEN 1
+#endif
+#ifndef FEA2_GNONE_GEN
+#define FEA2_GNONE_GEN 0
+#endif
+_Static_assert(FEA2_NB == FEA2_NB_GEN && FEA2_KP == FEA2_KP_GEN && FEA2_USE_NORM == FEA2_NORM_GEN
+               && FEA2_GATE_NONE == FEA2_GNONE_GEN,
+               "FEA2_NB / FEA2_KP / FEA2_USE_NORM / FEA2_GATE_NONE do not match the exported weights");
+_Static_assert(FEA2_KP % 2 == 1 && FEA2_NB >= 1 && FEA2_NB <= 3, "point_kernel must be odd, num_bands 1..3");
 
 static const float *s_x;                   /* caller's (L, D) window, read only */
+#if FEA2_USE_NORM
 static float s_mean[FEA2_D], s_stdev[FEA2_D];
-#ifndef FEA2_FRONT_NONE
+#endif
+#if !defined(FEA2_FRONT_NONE) && FEA2_GATE_ON
 static float s_g[FEA2_NB];
+#define FEA2_G(i) s_g[i]
+#else
+#define FEA2_G(i) 1.0f                     /* gate none / one band: weight 1 */
 #endif
 static float s_U[FEA2_L * FEA2_MLP_R];     /* the only buffer that scales with R  */
 static float s_row[FEA2_L];                /* one sensor's x_norm                  */
 static float s_col[FEA2_L];                /* one sensor's hidden -> h_agg         */
 /* pass 0 needs re/im/power beside s_row; pass 1/2 need the pooled LOW branch and
  * the agg-conv copy.  They never coexist, so they share one buffer. */
-#define FEA2R_SCR_N FEA2_MAX2(3 * FEA2_NF, FEA2_MAX2(FEA2_LP, FEA2_MAX2(FEA2_L, FEA2_SEG)))
+#define FEA2R_SCR_N FEA2_MAX2(FEA2_GATE_ON ? 3 * FEA2_NF : 0, FEA2_MAX2(FEA2_LP, FEA2_MAX2(FEA2_L, FEA2_SEG)))
 static float s_scr[FEA2R_SCR_N];
 static int s_cur = -1;
 
 static void norm_row(int d)
 {
     for (int t = 0; t < FEA2_L; ++t)
+#if FEA2_USE_NORM
         s_row[t] = (s_x[t * FEA2_D + d] - s_mean[d]) / s_stdev[d];
+#else
+        s_row[t] = s_x[t * FEA2_D + d];     /* no RevIN */
+#endif
 }
 
 #ifdef FEA2_FRONT_NONE
@@ -119,12 +145,17 @@ static void gated_bands(int d)
 {
     for (int t = 0; t < FEA2_L; ++t)
         s_col[t] = 0.0f;
-    dwconv_acc(s_row, s_col, d, W_CONVP, B_CONVP, FEA2_KP, s_g[0]);
-    dwconv_acc(s_row, s_col, d, W_CONVM, B_CONVM, FEA2_KM, s_g[1]);
+    dwconv_acc(s_row, s_col, d, W_CONVP, B_CONVP, FEA2_KP, FEA2_G(0));
+#if FEA2_NB == 3
+    dwconv_acc(s_row, s_col, d, W_CONVM, B_CONVM, FEA2_KM, FEA2_G(1));
+#endif
+#if FEA2_NB >= 2
     fea_avgpool4(s_row, s_scr, FEA2_L, 1);
-    interp_acc(s_scr, s_col, FEA2_LP, FEA2_L, s_g[2]);
+    interp_acc(s_scr, s_col, FEA2_LP, FEA2_L, FEA2_G(FEA2_NB - 1));
+#endif
 }
 
+#if FEA2_GATE_ON
 static void banded_gate(void)
 {
     float *re = s_scr, *im = s_scr + FEA2_NF, *P = s_scr + 2 * FEA2_NF;
@@ -167,14 +198,17 @@ static void banded_gate(void)
     }
     fea_softmax(z, s_g, FEA2_NB);
 }
+#endif /* FEA2_GATE_ON */
 #endif /* FEA2_FRONT_NONE */
 
 void fea2r_begin(const float *x)
 {
     s_x = x;
     s_cur = -1;
+#if FEA2_USE_NORM
     fea_instnorm_stats(x, FEA2_L, FEA2_D, s_mean, s_stdev);
-#ifndef FEA2_FRONT_NONE
+#endif
+#if !defined(FEA2_FRONT_NONE) && FEA2_GATE_ON
     banded_gate();                                   /* pass 0 */
 #endif
 
@@ -226,7 +260,11 @@ const float *fea2r_block(int om)
         float acc = 0.0f;
         for (int in = 0; in < FEA2_N; ++in)
             acc += W_BB2[om * FEA2_N + in] * s_col[in * FEA2_SEG + ph];
+#if FEA2_USE_NORM
         blk[ph] = acc * s_stdev[s_cur] + s_mean[s_cur];
+#else
+        blk[ph] = acc;
+#endif
     }
     return blk;
 }

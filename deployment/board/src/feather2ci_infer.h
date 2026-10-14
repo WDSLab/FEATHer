@@ -47,7 +47,7 @@
  *     for (int c = 0; c < FEA2CI_D; ++c) {
  *         fea2ci_begin(x, c);                       // x is (L, FEA2CI_D)
  *         for (int om = 0; om < FEA2_M; ++om)
- *             sink_write(fea2ci_block(om), FEA2_PERIOD);
+ *             sink_write(fea2ci_block(om), FEA2_SEG);
  *     }
  *
  * Channels are independent, so they may also be processed as they arrive.

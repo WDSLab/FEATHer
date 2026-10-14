@@ -116,12 +116,14 @@ $(BUILD)/test_mixlinear: src/mixlinear_infer.c test/test_mixlinear.c \
 	$(CC) $(CFLAGS) -DML_CAPTURE_STAGES src/fea_kernels.c src/mixlinear_infer.c \
 	      test/test_mixlinear.c -o $@ $(LDLIBS)
 
+# DiPE: experts / RevIN / individual_* / freq-time weight switches come from golden/dipe_geom.h
+DIPE_GEOM ?=
 $(BUILD)/test_dipe: src/dipe_infer.c test/test_dipe.c \
                     src/dipe_infer.h $(KERN) \
                     golden/dipe_weights.h golden/dipe_vectors.h \
                     golden/dipe_twiddle.h
 	@mkdir -p $(BUILD)
-	$(CC) $(CFLAGS) -DDIPE_CAPTURE_STAGES src/fea_kernels.c src/dipe_infer.c \
+	$(CC) $(CFLAGS) -DDIPE_CAPTURE_STAGES $(DIPE_GEOM) src/fea_kernels.c src/dipe_infer.c \
 	      test/test_dipe.c -o $@ $(LDLIBS)
 
 $(BUILD)/test_pers: test/test_pers.c src/pers_infer.h
@@ -136,7 +138,7 @@ $(BUILD)/test_fits: src/fits_infer.c test/test_fits.c \
 	$(CC) $(CFLAGS) -DFITS_CAPTURE_STAGES src/fea_kernels.c src/fits_infer.c \
 	      test/test_fits.c -o $@ $(LDLIBS)
 
-.PHONY: test clean feather2 feather2r feather2ci dlinear cyclenet feather2fn cmos timebase phaseformer samformer realcheck realcheck_r
+.PHONY: test clean feather2 feather2r feather2ci dipe dlinear cyclenet feather2fn cmos timebase phaseformer samformer realcheck realcheck_r
 realcheck: $(BUILD)/test_realcheck
 	./$(BUILD)/test_realcheck
 
@@ -172,6 +174,9 @@ feather2: $(BUILD)/test_feather2
 
 feather2ci: $(BUILD)/test_feather2ci
 	./$(BUILD)/test_feather2ci
+
+dipe: $(BUILD)/test_dipe
+	./$(BUILD)/test_dipe
 
 test: $(BUILD)/test_feather2 $(BUILD)/test_feather2r $(BUILD)/test_feather2fn $(BUILD)/test_dlinear $(BUILD)/test_cyclenet $(BUILD)/test_cmos $(BUILD)/test_timebase $(BUILD)/test_phaseformer $(BUILD)/test_samformer $(BUILD)/test_stsf $(BUILD)/test_stsf_mlp \
       $(BUILD)/test_mixlinear $(BUILD)/test_dipe $(BUILD)/test_pers \

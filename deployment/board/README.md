@@ -31,6 +31,9 @@ python deployment/board/export_golden_<m>.py [--pred_len H] [--d_model D]
 # 빌드 + 대조 (WSL)
 make -C deployment/board test            # 79 검사
 make -C deployment/board realcheck       # 먼저 export_golden_feather2.py --ckpt <MetroPT3 체크포인트>
+# 칩 최대판 탐색의 구조값 골든 (10-14): FEATHer num_bands·point_kernel·use_norm·gate none·mlp_rank·
+# head_seg·agg_shared (mix/CI), TimeBase use_period_norm 0, DiPE individual_*·use_freq_w/use_time_w 0
+python deployment/board/check_dials.py   # 케이스마다 export → WSL make → 실행, 끝나면 golden/ 복원
 # 발자국 실측
 python deployment/board/measure_footprint.py --dims 1,4,6,7,8,14,16,21,28,32 --horizons 96,192,336,720
 ```

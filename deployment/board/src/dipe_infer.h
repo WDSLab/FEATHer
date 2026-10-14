@@ -34,6 +34,25 @@
 #ifndef DIPE_REVIN
 #define DIPE_REVIN 1
 #endif
+/* 10-14 (chip-tier search), also from dipe_geom.h: per-channel weights (individual_f / _t / _c:
+ * channel c reads row c, upstream's static_route = eye(D)) and the freq / time weight switches
+ * (use_freq_w / use_time_w = False: upstream's Identity - the stage is not computed) */
+#ifndef DIPE_IND_F
+#define DIPE_IND_F 0
+#endif
+#ifndef DIPE_IND_T
+#define DIPE_IND_T 0
+#endif
+#ifndef DIPE_IND_C
+#define DIPE_IND_C 0
+#endif
+#ifndef DIPE_FREQ_W
+#define DIPE_FREQ_W 1
+#endif
+#ifndef DIPE_TIME_W
+#define DIPE_TIME_W 1
+#endif
+#define DIPE_VAR (DIPE_IND_F | DIPE_IND_T << 1 | DIPE_IND_C << 2 | !DIPE_FREQ_W << 3 | !DIPE_TIME_W << 4)
 
 #ifndef DIPE_L
 #define DIPE_L 96

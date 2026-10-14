@@ -87,8 +87,24 @@
 #endif
 #define FEA2_AGG_ROW(d) (FEA2_AGG_SHARED ? 0 : (d))   /* row of W_AGG2 for channel d */
 
-#define FEA2_NB 3                       /* bands: POINT / MID / LOW       */
-#define FEA2_KP 3                       /* POINT conv kernel              */
+/* 10-14 structural switches of the chip-tier search (FEATHer.py num_bands / point_kernel /
+ * use_norm, ablation.FEATHerNoGate).  Defaults = the frozen model; a non-default value is
+ * stamped by the export (FEA2_NB_GEN ...) and asserted in the .c. */
+#ifndef FEA2_NB
+#define FEA2_NB 3                       /* bands: POINT / MID / LOW; 2 = POINT + LOW; 1 = POINT */
+#endif
+#ifndef FEA2_KP
+#define FEA2_KP 3                       /* POINT conv kernel (odd)        */
+#endif
+#ifndef FEA2_USE_NORM
+#define FEA2_USE_NORM 1                 /* RevIN                          */
+#endif
+#ifndef FEA2_GATE_NONE
+#define FEA2_GATE_NONE 0                /* 1 = bands summed without weights (gate_mode none) */
+#endif
+/* the spectrum gate runs only when its output can differ from 1: with one band the
+ * softmax over one logit is exactly 1, so it is not computed (rule 2) */
+#define FEA2_GATE_ON (!FEA2_GATE_NONE && FEA2_NB > 1)
 #define FEA2_KM 5                       /* MID   conv kernel              */
 #ifndef FEA2_MLP_R                      /* overridable (2026-09-22 R=4 check) */
 #define FEA2_MLP_R 16                   /* residual MLP bottleneck rank   */
@@ -122,10 +138,11 @@
  */
 #define FEA2_MAX2(a, b) ((a) > (b) ? (a) : (b))
 /* 3*NF + 64: the gate's re/im/power plus the fast FFT's 2 x 32 scratch */
-#define FEA2_SCRATCH_N FEA2_MAX2(FEA2_MAX2(3 * FEA2_NF + 64, FEA2_L + FEA2_LP), \
+#define FEA2_SCRATCH_N FEA2_MAX2(FEA2_MAX2(FEA2_GATE_ON ? 3 * FEA2_NF + 64 : 0,           \
+                                           FEA2_L + (FEA2_NB >= 2 ? FEA2_LP : 0)),         \
                                  FEA2_MAX2(FEA2_MLP_R, FEA2_SEG))
 #define FEA2_ARENA_N (FEA2_L * FEA2_D + FEA2_SCRATCH_N \
-                      + 2 * FEA2_D + FEA2_NB)
+                      + (FEA2_USE_NORM ? 2 * FEA2_D : 0) + (FEA2_GATE_ON ? FEA2_NB : 0))
 #define FEA2_ARENA_BYTES (FEA2_ARENA_N * (int)sizeof(float))
 
 /* ---- streaming API ----

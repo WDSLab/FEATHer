@@ -5,6 +5,8 @@
  * Mirrors baselines/FEATHer/FEATHer.py forward() for
  *   use_in_proj=False, num_bands=3, point_kernel=3, dtk_mode="none",
  *   gate_mode="banded", use_residual_mlp=True, channel_mode="mix".
+ * 10-14: num_bands / point_kernel / use_norm / gate_mode none are build switches
+ * (FEA2_NB / FEA2_KP / FEA2_USE_NORM / FEA2_GATE_NONE, feather2_infer.h).
  */
 #include <math.h>
 #include <string.h>
@@ -29,6 +31,23 @@ _Static_assert(FEA2_H == FEA2_H_GEN,
                "FEA2_H does not match the horizon the weights were exported at - re-run export_golden_*.py --pred_len");
 _Static_assert(FEA2_MLP_R == FEA2_R_GEN,
                "FEA2_MLP_R does not match the rank the weights were exported at - re-run export_golden_*.py --mlp_rank");
+/* 10-14 structural switches: stamped only when not the frozen value */
+#ifndef FEA2_NB_GEN
+#define FEA2_NB_GEN 3
+#endif
+#ifndef FEA2_KP_GEN
+#define FEA2_KP_GEN 3
+#endif
+#ifndef FEA2_NORM_GEN
+#define FEA2_NORM_GEN 1
+#endif
+#ifndef FEA2_GNONE_GEN
+#define FEA2_GNONE_GEN 0
+#endif
+_Static_assert(FEA2_NB == FEA2_NB_GEN && FEA2_KP == FEA2_KP_GEN && FEA2_USE_NORM == FEA2_NORM_GEN
+               && FEA2_GATE_NONE == FEA2_GNONE_GEN,
+               "FEA2_NB / FEA2_KP / FEA2_USE_NORM / FEA2_GATE_NONE do not match the exported weights");
+_Static_assert(FEA2_KP % 2 == 1 && FEA2_NB >= 1 && FEA2_NB <= 3, "point_kernel must be odd, num_bands 1..3");
 
 #ifdef FEA2_CAPTURE_STAGES
 float fea2_st_xnorm[FEA2_L * FEA2_D];
@@ -66,8 +85,15 @@ static float s_scratch[FEA2_SCRATCH_N];
 #define s_pool (s_scratch + FEA2_L)       /* 2. LOW pooled, beside s_row   */
 #define s_mlp  s_scratch                  /* 3. MLP bottleneck             */
 #define s_blk  s_scratch                  /* 5. one output period, one ch. */
+#if FEA2_USE_NORM
 static float s_mean[FEA2_D], s_stdev[FEA2_D];
+#endif
+#if FEA2_GATE_ON
 static float s_g[FEA2_NB];
+#define FEA2_G(i) s_g[i]
+#else
+#define FEA2_G(i) 1.0f                    /* gate none / one band: weight 1 */
+#endif
 
 /* ------------------------------------------------------------------ *
  *  band helpers - one channel in, accumulated into its column of the  *
@@ -117,6 +143,7 @@ static void interp_row_acc(const float *src, float *col, int d,
  *  feats = log(ratio + 1e-6), then mean-centered                      *
  *  g     = softmax(W feats + b)                                       *
  * ------------------------------------------------------------------ */
+#if FEA2_GATE_ON
 static void banded_gate(const float *xn)
 {
     float *re = s_spec;
@@ -170,6 +197,7 @@ static void banded_gate(const float *xn)
     fea_softmax(z, s_g, FEA2_NB);
     CAP(fea2_st_gate, s_g, FEA2_NB);
 }
+#endif /* FEA2_GATE_ON */
 
 /* The (L, D) arena buffer, handed out so a caller that has to stage the input
  * window anyway (FEATHer-CI gathering one channel) writes it here instead of
@@ -194,17 +222,27 @@ void fea2_begin(const float *x)
      * instance norm below.  x_norm is parked in s_C: the hidden accumulator
      * is not needed until the bands are gated, so it holds x_norm instead of
      * a second (L, D) buffer. */
+#if FEA2_USE_NORM
     fea_instnorm_stats(x, FEA2_L, FEA2_D, s_mean, s_stdev);
     for (int t = 0; t < FEA2_L; ++t)
         for (int d = 0; d < FEA2_D; ++d)
             s_C[t * FEA2_D + d] = (x[t * FEA2_D + d] - s_mean[d]) / s_stdev[d];
     CAP(fea2_st_mean, s_mean, FEA2_D);
     CAP(fea2_st_stdev, s_stdev, FEA2_D);
+#else                                     /* no RevIN: the bands read x itself */
+    for (int i = 0; i < FEA2_L * FEA2_D; ++i)
+        s_C[i] = x[i];
+#endif
     CAP(fea2_st_xnorm, s_C, FEA2_L * FEA2_D);
 
     /* the gate reads x_norm, NOT the bands - this is what makes
      * accumulate-in-place legal */
+#if FEA2_GATE_ON
     banded_gate(s_C);
+#elif defined(FEA2_CAPTURE_STAGES)
+    for (int s = 0; s < FEA2_NB; ++s)
+        fea2_st_gate[s] = 1.0f;
+#endif
 
 #ifdef FEA2_CAPTURE_STAGES
     /* unscaled bands, for golden comparison only - the board build does not
@@ -226,14 +264,22 @@ void fea2_begin(const float *x)
             s_row[t] = s_C[t * FEA2_D + d];
             s_C[t * FEA2_D + d] = 0.0f;
         }
-        dwconv_row_acc(s_row, s_C, d, W_CONVP, B_CONVP, FEA2_KP, s_g[0]); /* POINT */
-        dwconv_row_acc(s_row, s_C, d, W_CONVM, B_CONVM, FEA2_KM, s_g[1]); /* MID   */
-        fea_avgpool4(s_row, s_pool, FEA2_L, 1);                           /* LOW   */
-        interp_row_acc(s_pool, s_C, d, FEA2_LP, FEA2_L, s_g[2]);
+        dwconv_row_acc(s_row, s_C, d, W_CONVP, B_CONVP, FEA2_KP, FEA2_G(0)); /* POINT */
+#if FEA2_NB == 3
+        dwconv_row_acc(s_row, s_C, d, W_CONVM, B_CONVM, FEA2_KM, FEA2_G(1)); /* MID   */
+#endif
+#if FEA2_NB >= 2
+        fea_avgpool4(s_row, s_pool, FEA2_L, 1);                              /* LOW   */
+        interp_row_acc(s_pool, s_C, d, FEA2_LP, FEA2_L, FEA2_G(FEA2_NB - 1));
+#endif
 #ifdef FEA2_CAPTURE_STAGES
         dwconv_row_acc(s_row, fea2_st_bP, d, W_CONVP, B_CONVP, FEA2_KP, 1.0f);
+#if FEA2_NB == 3
         dwconv_row_acc(s_row, fea2_st_bM, d, W_CONVM, B_CONVM, FEA2_KM, 1.0f);
+#endif
+#if FEA2_NB >= 2
         interp_row_acc(s_pool, fea2_st_bL, d, FEA2_LP, FEA2_L, 1.0f);
+#endif
 #endif
     }
     CAP(fea2_st_hidden, s_C, FEA2_L * FEA2_D);
@@ -301,7 +347,11 @@ const float *fea2_block(int om, int d)
         for (int in = 0; in < FEA2_N; ++in)
             acc += W_BB2[om * FEA2_N + in]
                  * s_C[(in * FEA2_SEG + ph) * FEA2_D + d];
+#if FEA2_USE_NORM
         s_blk[ph] = acc * s_stdev[d] + s_mean[d];
+#else
+        s_blk[ph] = acc;
+#endif
     }
     return s_blk;
 }

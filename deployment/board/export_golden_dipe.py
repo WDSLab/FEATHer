@@ -57,8 +57,9 @@ def randomize_golden_weights(model) -> None:
     """
     gw = torch.Generator().manual_seed(WEIGHT_SEED + 1)
     with torch.no_grad():
-        for p in (model.freq_w.weight, model.time_w.weight):
-            p.copy_(1.0 + 0.25 * torch.randn(p.shape, generator=gw))
+        for p in (getattr(model.freq_w, "weight", None), getattr(model.time_w, "weight", None)):
+            if p is not None:              # use_*_w = False: upstream Identity, no weight
+                p.copy_(1.0 + 0.25 * torch.randn(p.shape, generator=gw))
         for p, s in ((model.expert.weight, 0.3), (model.expert.bias, 0.05)):
             p.copy_(torch.complex(s * torch.randn(p.shape, generator=gw),
                                   s * torch.randn(p.shape, generator=gw)))
@@ -85,10 +86,14 @@ def main() -> None:
     model = build(ns, D_MODEL, SEQ_LEN, PRED_LEN).eval()
     randomize_golden_weights(model)
     E, revin = model.num_experts, bool(model.use_revin)
-    assert not (model.individual_f or model.individual_t or model.individual_c), "individual_* not ported"
+    ind_f, ind_t, ind_c = bool(model.individual_f), bool(model.individual_t), bool(model.individual_c)
+    use_f, use_t = bool(model.use_freq_w), bool(model.use_time_w)
+    # 10-14: one code for the individual_* / weight switches (dipe_infer.h DIPE_VAR)
+    var = ind_f | ind_t << 1 | ind_c << 2 | (not use_f) << 3 | (not use_t) << 4
     if E > 1:
         model.temperature = 1.0          # test-time value (upstream TemperatureScaling)
-    print(f"config={_a.config or 'default (old)'} experts={E} revin={revin}")
+    print(f"config={_a.config or 'default (old)'} experts={E} revin={revin} individual f/t/c="
+          f"{int(ind_f)}{int(ind_t)}{int(ind_c)} freq_w={int(use_f)} time_w={int(use_t)}")
 
     n_params = sum(p.numel() for p in model.parameters())
     cplx = sum(p.numel() for p in model.parameters() if p.is_complex())
@@ -123,15 +128,18 @@ def main() -> None:
             mix = lambda w: (w * rank).sum(dim=1, keepdim=True)
         else:
             mix = lambda w: w
-        # StaticFreqWeight: rfft -> real weight -> irfft
-        xf = torch.fft.irfft(
-            torch.fft.rfft(xn) * mix(model.freq_w.weight), n=SEQ_LEN)
+        # individual_*: upstream mixes with static_route = eye(D) -> each channel its own row
+        own = lambda w: (w * model.static_route).sum(dim=1, keepdim=True)
+        # StaticFreqWeight: rfft -> real weight -> irfft (Identity when off)
+        xf = torch.fft.irfft(torch.fft.rfft(xn) * (own if ind_f else mix)(model.freq_w.weight),
+                             n=SEQ_LEN) if use_f else xn
         # StaticTimeWeight
-        xt = xf * mix(model.time_w.weight)
+        xt = xf * (own if ind_t else mix)(model.time_w.weight) if use_t else xf
         # FFTExpandBigConv1d
         xp = F.pad(xt, [pad, PRED_LEN - 1 + pad])
         Xf = torch.fft.rfft(xp)
-        Yf = Xf * mix(ex.weight) + mix(ex.bias)
+        wsel = own if ind_c else mix
+        Yf = Xf * wsel(ex.weight) + wsel(ex.bias)
         yt = torch.fft.irfft(Yf, n=tlen)
         yc = yt[..., -PRED_LEN - pad:-pad]
 
@@ -149,6 +157,10 @@ def main() -> None:
         f.write(f"/* config={_a.config or 'default (old)'} */\n")
         f.write("#ifndef DIPE_GEOM_H\n#define DIPE_GEOM_H\n")
         f.write(f"#define DIPE_E {E}\n#define DIPE_REVIN {int(revin)}\n")
+        if var:                          # written only off the default: old headers stay identical
+            f.write(f"#define DIPE_IND_F {int(ind_f)}\n#define DIPE_IND_T {int(ind_t)}\n"
+                    f"#define DIPE_IND_C {int(ind_c)}\n#define DIPE_FREQ_W {int(use_f)}\n"
+                    f"#define DIPE_TIME_W {int(use_t)}\n")
         f.write("#endif /* DIPE_GEOM_H */\n")
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -169,10 +181,15 @@ def main() -> None:
         # H=96/192/336/720); a hardcoded pad would build and be wrong.
         f.write(f"#define DIPE_PAD_GEN {pad}\n")
         f.write(f"#define DIPE_E_GEN {E}\n#define DIPE_REVIN_GEN {int(revin)}\n"
-                f"#define DIPE_RD_GEN {D_MODEL if E > 1 else 1}\n\n")
-        emit_array(f, "DIPE_W_FREQ", model.freq_w.weight)      # (49,) real
-        emit_array(f, "DIPE_W_TIME", model.time_w.weight)      # (96,) real
-        emit_array(f, "DIPE_W_EXP_RE", ex.weight.real)         # (97,)
+                f"#define DIPE_RD_GEN {D_MODEL if E > 1 or ind_f or ind_t or ind_c else 1}\n")
+        if var:
+            f.write(f"#define DIPE_VAR_GEN {var}\n")
+        f.write("\n")
+        if use_f:
+            emit_array(f, "DIPE_W_FREQ", model.freq_w.weight)  # ([E|D,] 49) real
+        if use_t:
+            emit_array(f, "DIPE_W_TIME", model.time_w.weight)  # ([E|D,] 96) real
+        emit_array(f, "DIPE_W_EXP_RE", ex.weight.real)         # ([E|D,] 97)
         emit_array(f, "DIPE_W_EXP_IM", ex.weight.imag)
         emit_array(f, "DIPE_B_EXP_RE", ex.bias.real)
         emit_array(f, "DIPE_B_EXP_IM", ex.bias.imag)

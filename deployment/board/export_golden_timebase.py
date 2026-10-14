@@ -54,8 +54,9 @@ def main() -> None:
     L, H, D = a.seq_len, a.pred_len, a.d_model
     geo = geometry(a.config, H, a.data)
     P, B, ind = geo["timebase_period_len"], geo["timebase_basis_num"], geo["timebase_individual"]
-    assert geo["timebase_use_period_norm"] == 1, "only use_period_norm = 1 is ported"
-    print(f"config={a.config} data={a.data} L={L} H={H} D={D} period={P} basis={B} individual={ind}")
+    pnorm = geo["timebase_use_period_norm"]
+    print(f"config={a.config} data={a.data} L={L} H={H} D={D} period={P} basis={B} individual={ind} "
+          f"period_norm={pnorm}")
 
     torch.manual_seed(WEIGHT_SEED)
     model = build(argparse.Namespace(**geo), D, L, H).eval()
@@ -72,7 +73,10 @@ def main() -> None:
     nx, ny = L // P, H // P
     with torch.no_grad():
         xv = x.permute(0, 2, 1).reshape(1, D, nx, P).permute(0, 1, 3, 2)    # (1,D,P,nx)
-        pm = xv.mean(-1, keepdim=True)
+        if pnorm:
+            pm = xv.mean(-1, keepdim=True)
+        else:                                   # one mean per channel, as upstream _normalize_input
+            pm = xv.reshape(1, D, -1).mean(-1, keepdim=True).unsqueeze(-1).expand(1, D, P, 1)
         xc = xv - pm
         if ind:
             basis = torch.stack([up.ts2basis[i](xc[:, i]) for i in range(D)], dim=1)
@@ -96,7 +100,10 @@ def main() -> None:
         f.write(f"/* config={a.config}, data={a.data}, seed={WEIGHT_SEED} */\n")
         f.write("#ifndef TIMEBASE_WEIGHTS_H\n#define TIMEBASE_WEIGHTS_H\n\n")
         f.write(f"#define TB_H_GEN {H}\n#define TB_L_GEN {L}\n#define TB_D_GEN {D}\n")
-        f.write(f"#define TB_P {P}\n#define TB_B {B}\n#define TB_IND {ind}\n\n")
+        f.write(f"#define TB_P {P}\n#define TB_B {B}\n#define TB_IND {ind}\n")
+        if not pnorm:                           # stamped only off the default: old headers stay identical
+            f.write("#define TB_PNORM 0\n")
+        f.write("\n")
         emit_array(f, "TB_W1", w1)      # ([D,] B, nx)
         emit_array(f, "TB_B1", b1)      # ([D,] B)
         emit_array(f, "TB_W2", w2)      # ([D,] ny, B)
