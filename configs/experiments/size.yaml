@@ -1,41 +1,116 @@
-# Size-matched comparison (run.py --stage size_select / size; docs/EXPERIMENT_PROTOCOL.md §10).
-# Tiers: "1k" = numbers stored on the chip (complex x2) <= 1,000 at all four H; "max" = firmware fits 128 KB flash /
-# 20 KB SRAM at all four H (real builds).
-# Each model starts from its chosen author setting (docs/chosen_mfg.json) and changes only width / depth / segment
-# hyperparameters: (a) one of them fills the budget, or (b) one is first set to its smallest-model value and another
-# fills the budget.  Everything else keeps the author value.  Dropped: candidates that end at width 1, that equal the
-# author setting, or that do not fit on all six datasets (checked 10-14).
-# candidates: per model, {fill: key that fills the budget, fix: keys set first}; tools/results/size_candidates.py
-# finds the fill value per dataset -> docs/size_candidates.json.
+# Size-matched comparison (run.py --stage size_select / size; docs/EXPERIMENT_PROTOCOL.md, decision log 10-14 night).
+# Tiers (both are caps, not targets): "1k" = numbers stored on the chip (complex x2) <= 1,000 at all four H, per
+# dataset; "chip" = the real firmware fits 128 KB flash / 20 KB SRAM (real builds at H720 with the dataset's channel
+# count; not drawn yet).  The chip tier includes small models too: it asks "the best model this chip can hold".
+#
+# Every model is re-tuned on the industrial data with the SAME procedure (precedents: Brigato et al. TMLR 2026,
+# ProbTS, Melis et al. ICLR 2018, Lucic et al. NeurIPS 2018):
+#   - random search, `trials` per model, all drawn with `draw_seed`; no author or frozen-FEATHer setting is a trial
+#     (FEATHer's frozen setting was developed on these data, so a fixed first trial would favour it)
+#   - the same trials run on all six datasets (seed 2025, H96 + H720); per dataset the trial with the best mean
+#     validation rank over the two H is chosen (tools/results/size_verdict.py); test is read once, after the choice
+#   - shared ranges (`common`) for every model; a model-specific list only where the unit exists in that model alone
+#   - size: each drawn trial draws a target size uniformly in (0, cap] and one size key at random; the other size keys
+#     are drawn at random (counts log-uniform from 1 to the largest value that can fit); the chosen key then takes, per
+#     dataset, the value with the largest stored count <= target.  A trial that cannot be built, does not fit on all
+#     six datasets, or repeats an earlier trial is drawn again (rejections are counted).  Small and large models are
+#     both tried; validation picks the size.
+#   - training protocol (L 96, batch 32, 50 epochs, patience 10, Adam + cosine, clip 1.0) is fixed for all, not searched
+# The trials are drawn by tools/results/size_trials.py -> docs/size_trials.json and committed before any run.
 
-tiers: [1k, max]
-select_horizons: [96, 720]              # the selection runs (seed 2025); the chosen trial then runs all 4 H x 3 seeds
-lr_points:                              # by number of candidates, so every model gets ~9 selection trials (2 -> 10)
-  1: [0.01, 0.03, 0.1, 0.3, 1, 3, 10, 30, 100]
-  2: [0.1, 0.3, 1, 3, 10]
-  3: [0.1, 1, 10]
-fixed:                                  # switches that are always on in a size-matched model
-  FEATHer_mix: {agg_shared: 1}          # one SPK smoothing kernel shared by all channels
-candidates:
+tiers: [1k, chip]
+select_horizons: [96, 720]
+trials: 40
+draw_seed: 2025
+
+common:
+  lr: [1.0e-5, 1.0e-1]                  # log-uniform, every model; lower end = Brigato / Gorishniy / Lucic and CMoS's
+                                        # author 2e-5; upper end 0.1 (Brigato's code: 1e-2) keeps SparseTSF / MixLinear
+                                        # (0.02-0.03) inside; the edge rule widens it if a model's choice sits at 0.1
+  dropout: [0.0, 0.05, 0.1, 0.2]
+  switch: [false, true]
+  mix: [0.1, 0.3, 0.5, 0.7, 0.9]        # weights between two terms / branches, defined on [0, 1]
+  period: [2, 3, 4, 6, 8, 12, 16, 24, 48]   # divides L = 96 and every H, >= 2 segments
+  segment: [1, 2, 3, 4, 6, 8, 12, 16, 24, 48]   # divides L = 96 and every H
+
+# Every hyperparameter the wrapper reads, and how it is searched:
+#   size    = count / width / depth: drawn from 1 .. the largest value that can fit (or filled)
+#   segment = segment length (common.segment)          period = common.period
+#   switch / dropout / mix = the common lists           [list] = model-specific list (unit only in this model)
+#   unused  = has no effect in this model as run (not searched; reason in the comment)
+# A key that changes the stored count (size, segment, period) can be the fill key.
+models:
   CMoS:
-    - {fill: cmos_seg_size}
-    - {fill: cmos_seg_size, fix: {cmos_num_map: 1}}
-    - {fill: cmos_num_map, fix: {cmos_seg_size: 48}}
+    cmos_seg_size: segment
+    cmos_num_map: size
+    cmos_kernel_size: size
+    cmos_conv_stride: size
+    cmos_use_pi: switch
+    cmos_period: period                 # used by the period initialisation only
+    cmos_dropout: dropout
   SparseTSF_MLP:
-    - {fill: sparsetsf_d_model}
-    - {fill: sparsetsf_d_model, fix: {sparsetsf_period_len: 96}}
+    sparsetsf_period_len: period
+    sparsetsf_d_model: size
+    sparsetsf_model_type: unused        # = which model (mlp)
+    sparsetsf_mix_rank: unused          # our control arm only
   TimeBase:
-    - {fill: timebase_basis_num}
-    - {fill: timebase_basis_num, fix: {timebase_period_len: 96}}
+    timebase_period_len: period
+    timebase_basis_num: size
+    timebase_individual: switch
+    timebase_use_period_norm: switch
+    timebase_use_orthogonal: switch
+    timebase_orthogonal_weight: [0.01, 0.04, 0.16, 0.64]   # loss weight with a unit of its own
   PhaseFormer:
-    - {fill: phaseformer_latent_dim}
-    - {fill: phaseformer_latent_dim, fix: {phaseformer_layers: 1}}
-    - {fill: phaseformer_latent_dim, fix: {phaseformer_period_len: 16}}
+    phaseformer_period_len: period
+    phaseformer_latent_dim: size
+    phaseformer_layers: size
+    phaseformer_routers: size
+    phaseformer_heads: [1, 2, 4]        # must divide latent_dim (otherwise drawn again)
+    phaseformer_pos_embed: switch
+    phaseformer_attn_dropout: dropout
+    phaseformer_enc_hidden: unused      # use_mlp is off in the official code: no parameters
+    phaseformer_pred_hidden: unused
   DiPE_Linear:
-    - {fill: dipe_num_experts}          # nothing fits 1K: the smallest (1 expert), reported unranked
+    dipe_num_experts: size
+    dipe_individual_c: switch
+    dipe_individual_f: switch
+    dipe_individual_t: switch
+    dipe_use_freq_w: switch
+    dipe_use_time_w: switch
+    dipe_use_revin: switch
+    dipe_loss_alpha: mix
   FITS:
-    - {fill: fits_cut_freq}
+    fits_cut_freq: size                 # <= L / 2 = 48 (protocol rule 7; the explicit value bypasses the wrapper clamp)
+    fits_individual: switch
+    fits_base_t: unused                 # only sets cut_freq when cut_freq is not given
+    fits_h_order: unused                # same
   SparseTSF:
-    - {fill: sparsetsf_period_len}
+    sparsetsf_period_len: period
+    sparsetsf_d_model: unused           # linear head: no hidden layer
+    sparsetsf_model_type: unused        # = which model (linear)
+    sparsetsf_mix_rank: unused          # our control arm only
   MixLinear:
-    - {fill: mixlinear_period_len}
+    mixlinear_period_len: period
+    mixlinear_lpf: size                 # <= ceil(96 / period)
+    mixlinear_alpha: mix
+  # FEATHer (ours): two separate tracks like SparseTSF / SparseTSF_MLP - channel mixing (mix) and channel-independent
+  # (ci_full); the channel mode is fixed by the track, both rows are always reported (never the better one per cell).
+  # Fixed here before any baseline result; run after the baselines.  head_seg / agg_shared were added for this study.
+  FEATHer_mix: &feather
+    period: period
+    head_seg: segment                   # SPK segment length
+    mlp_rank: size                      # width of the residual channel-mixing MLP
+    point_kernel: size                  # POINT band conv width (even widths cannot run)
+    num_bands: [1, 2, 3]                # the values the model defines
+    use_residual_mlp: unused            # fixed on (frozen value): in mix it is the only channel mixing, so it defines
+                                        # the track (like sparsetsf_model_type); on in both tracks so they differ only
+                                        # in mixing (first draw with it searched: 28 / 40 mix trials had no mixing)
+    use_norm: switch                    # RevIN
+    agg_shared: switch                  # one SPK smoothing kernel for all channels
+    gate_mode: [banded, none]           # band gate on / off (like DiPE's weight switches)
+    head_mode: [spk, linear]            # linear head never fits a tier (drawn, then rejected)
+    lambda_spec: [0.0, 0.001, 0.01, 0.1]   # band-separation loss weight (unit only in FEATHer), 0 = off
+    channel_mode: unused                # fixed by the track
+    front: unused                       # control arm = a different model (no bands)
+    mix_sep: unused                     # control arm
+  FEATHer_CI: *feather

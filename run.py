@@ -15,10 +15,10 @@ Stages (docs/EXPERIMENT_PROTOCOL.md):
               CycleNet) -> raw_mfg.csv
     ablation  FEATHer arms (protocol.ABLATION_PLAN: arm x horizons) x 6 datasets x 3 seeds          -> raw_mfg.csv
     control   SparseTSF(+MLP) + mixing bus, FEATHer without bands/gate x 6 x 4 H x 3 seeds          -> raw_mfg.csv
-    size_select  size-matched comparison (1K / chip-max tier): size candidates (docs/size_candidates.json) x lr points
-              (~9 trials per model) x 6 x H96/H720 x seed 2025 -> raw_mfg.csv (role sizesel);
-              tools/results/size_verdict.py --write picks (candidate, lr) per tier and model
-    size      the chosen (candidate, lr) x 4 H x 3 seeds (seed-2025 H96/H720 reused from size_select) -> raw_mfg.csv
+    size_select  size-matched comparison (1K / chip-max tier): the drawn random-search trials (docs/size_trials.json,
+              40 per model) x 6 x H96/H720 x seed 2025 -> raw_mfg.csv (role sizesel);
+              tools/results/size_verdict.py --write picks one trial per tier, model and dataset
+    size      the chosen trial x 4 H x 3 seeds (seed-2025 H96/H720 reused from size_select) -> raw_mfg.csv
 
 A cell is done when raw_*.csv, select_mfg.csv or a not-yet-merged shard in results/_incoming/ holds a row
 with the same (role, config_id, model, data, pred_len, seq_len, seed).  New rows are written to
@@ -90,23 +90,22 @@ def plan(stage, models=None, tiers=None):
             else:
                 cells += grid("control", cfg, P.control_row_model(arm), "mfg", P.MFG, P.HS, P.SEEDS)
     elif stage in ("size_select", "size"):
-        # size_select = every (candidate, lr) trial at H96/H720, seed 2025; size = the chosen trial x 4 H x 3 seeds
-        # (its seed-2025 H96/H720 cells are the selection runs, see done_runs)
+        chosen = P.chosen_size()
+        # FEATHer runs only when named (--models FEATHer_mix,FEATHer_CI): its trials are fixed now, run after the baselines
         for tier in (tiers or P.SIZE_TIERS):
-            for m in (models or P.SIZE_CANDIDATES):
-                cands = P.size_candidates(tier, m)
-                if stage == "size_select":
-                    trials = [(c, mult) for c in cands for mult in P.SIZE_LR_BY_N.get(len(cands), [])]
-                    role, hs, seeds = "sizesel", P.SIZE_SELECT_HS, one_seed
-                else:
-                    pick = P.chosen_size().get(f"{tier}|{m}", {})
-                    trials = [(c, pick["mult"]) for c in cands if c["name"] == pick.get("cand")]
-                    role, hs, seeds = "size", P.HS, P.SEEDS
+            for m in (models or [m for m in P.SIZE_MODELS if m not in P.FEATHER]):
+                trials = P.size_trials(tier, m)
                 if not trials:
-                    print(f"  [skip] {tier} {m}: no candidates / no choice yet")
-                for c, mult in trials:
-                    for d in P.MFG:
-                        cells += grid(role, P.size_config_id(tier, m, mult, c["knobs"][d]), m, "mfg", [d], hs, seeds)
+                    print(f"  [skip] {tier} {m}: no trials (not drawn yet, or no setting fits this tier)")
+                    continue
+                for d in P.MFG:
+                    if stage == "size_select":
+                        pick, role, hs, seeds = trials, "sizesel", P.SIZE_SELECT_HS, one_seed
+                    else:
+                        pick = [t for t in trials if t["id"] == chosen.get(f"{tier}|{m}|{d}")]
+                        role, hs, seeds = "size", P.HS, P.SEEDS
+                    for t in pick:
+                        cells += grid(role, P.size_config_id(tier, t["id"], t["knobs"][d]), m, "mfg", [d], hs, seeds)
     elif stage in ("main", "lookback"):
         pool = models or (P.FEATHER + P.LIGHT + P.HEAVY if stage == "main"
                           else P.FEATHER + P.ON_CHIP + ["CycleNet", "DLinear"])
@@ -209,7 +208,7 @@ def main():
     ap.add_argument("--models", default="", help="comma list (default: the stage's pool)")
     ap.add_argument("--data", default="", help="comma list of datasets (default: all of the stage)")
     ap.add_argument("--configs", default="", help="comma list of config_ids (default: all)")
-    ap.add_argument("--tier", default="", help="size stages only: comma list of tiers (1k,max; default: all)")
+    ap.add_argument("--tier", default="", help="size stages only: comma list of tiers (1k,chip; default: all)")
     ap.add_argument("--limit", type=int, default=0, help="run only the first N worker invocations (testing)")
     ap.add_argument("--save_model", action="store_true", help="also save each trained state dict "
                     "(results/checkpoints/<exp_tag>/<model>/...; needed for board export and replay)")

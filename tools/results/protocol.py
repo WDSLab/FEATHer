@@ -9,6 +9,7 @@ config_id                      meaning
                                with period-type keys replaced by the industrial dataset's own value
   cand:default                 industrial candidate = the default setting the authors present
   ctrl:<arm>                   control arms (SparseTSF + mixing bus, ...)
+  sz<tier>:<trial>+<k>=<v>...  size-matched search trial (docs/size_trials.json) on one dataset
 
 resolve(model, group, data, H, config_id) -> (lr, loss, overrides) for the worker.
 """
@@ -78,37 +79,38 @@ ABLATION_ARMS = {arm: (a["what"], a["flags"], set(a["replaces"])) for arm, a in 
 ABLATION_PLAN = {arm: a["horizons"] for arm, a in _abl.items()}
 CONTROL_ARMS = {arm: (a["model"], a["flags"], a["host"]) for arm, a in _experiments("control").items()}
 _size = _experiments("size")
-SIZE_TIERS, SIZE_SELECT_HS, SIZE_FIXED = _size["tiers"], _size["select_horizons"], _size["fixed"]
-SIZE_LR_BY_N = {int(n): v for n, v in _size["lr_points"].items()}
-SIZE_CANDIDATES = {m: [(c["fill"], c.get("fix", {})) for c in cs] for m, cs in _size["candidates"].items()}
-_DOCS = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "docs")
-SIZE_CAND_FILE = os.path.join(_DOCS, "size_candidates.json")
-CHOSEN_SIZE_FILE = os.path.join(_DOCS, "chosen_size.json")
+SIZE_TIERS, SIZE_SELECT_HS = _size["tiers"], _size["select_horizons"]
+SIZE_TRIALS, SIZE_DRAW_SEED, SIZE_COMMON = _size["trials"], _size["draw_seed"], _size["common"]
+SIZE_SPACE = _size["models"]                     # model -> {key: size / segment / period / switch / dropout / mix / [list] / unused}
+SIZE_MODELS = list(SIZE_SPACE)
+SIZE_TRIALS_FILE = os.path.join(ROOT, "docs", "size_trials.json")
+CHOSEN_SIZE_FILE = os.path.join(ROOT, "docs", "chosen_size.json")
 
 
-def size_candidates(tier, model):
-    """Candidates of one model in one tier: [{"name", "knobs": {data: {key: value}}, "stored", "over_budget"}, ...]."""
-    return _load(SIZE_CAND_FILE).get(tier, {}).get(model, [])
+def size_trials(tier, model):
+    """Drawn trials of one model in one tier: [{"id", "author", "knobs": {data: {key: value, lr}}, "stored", ...}]."""
+    return _load(SIZE_TRIALS_FILE).get(tier, {}).get(model, [])
 
 
-def size_config_id(tier, model, mult, knobs):
-    """config_id of one size-matched cell; knobs = {key: value} of a candidate on one dataset.
-    A one-knob candidate keeps the original id format, so existing runs are reused."""
-    base = mfg_main_config_id(model).replace("cand:", "")
-    fixed = "".join(f"+{k}={v}" for k, v in SIZE_FIXED.get(model, {}).items())
-    body = "".join(f"+{k}={knobs[k]}" for k in sorted(knobs))
-    return f"sz{tier}:{base}{fixed}{body}@x{mult:g}"
+def size_config_id(tier, trial_id, knobs):
+    """"sz<tier>:<trial id>+<key>=<value>..." from the trial's knobs on one dataset."""
+    return f"sz{tier}:{trial_id}" + "".join(f"+{k}={knobs[k]}" for k in sorted(knobs))
 
 
-def _sz(config_id):
-    """"sz<tier>:<body>@x<mult>" -> (tier, body, mult)"""
-    tier, rest = config_id[2:].split(":", 1)
-    body, _, mult = rest.rpartition("@x")
-    return tier, body, float(mult)
+def _parse_value(v):
+    """config_id value -> bool / int / float / str."""
+    if v in ("True", "False"):
+        return v == "True"
+    for cast in (int, float):
+        try:
+            return cast(v)
+        except ValueError:
+            pass
+    return v
 
 
 def chosen_size():
-    """"<tier>|<model>" -> {"cand": candidate name, "mult": lr multiplier} (written by size_verdict.py)."""
+    """"<tier>|<model>|<data>" -> trial id (written by size_verdict.py)."""
     return _load(CHOSEN_SIZE_FILE)
 
 
@@ -177,17 +179,15 @@ def resolve(model, group, data, H, config_id):
         for k in ABLATION_ARMS[config_id[4:]][2]:
             s.pop(k, None)
     elif config_id.startswith("sz"):
-        # size-matched variant: the candidate with its dial set, lr scaled by the multiplier
-        _, body, mult = _sz(config_id)
-        src, _, knobs = body.partition("+")
-        if src == "frozen":                      # FEATHer: the frozen setting + the size switches
-            lr, loss, ov = resolve(model, group, data, H, "frozen")
-            for kv in filter(None, knobs.split("+")):
-                k, v = kv.split("=", 1)
-                ov[k] = int(v) if v.lstrip("-").isdigit() else float(v)
-        else:
-            lr, loss, ov = resolve(model, group, data, H, "cand:" + body)
-        return lr * mult, loss, ov
+        # size-matched trial: the model's industrial setting with every searched key of the trial set, lr included
+        lr, loss, ov = resolve(model, group, data, H, mfg_main_config_id(model))
+        for kv in config_id.split(":", 1)[1].split("+")[1:]:
+            k, v = kv.split("=", 1)
+            if k == "lr":
+                lr = _parse_value(v)
+            else:
+                ov[k] = _parse_value(v)
+        return lr, loss, ov
     elif config_id.startswith("ctrl:"):
         # the host's setting (its periods / lr / widths), trained under the arm's registry model
         arm, host_cfg = _ctrl(config_id)
@@ -212,7 +212,7 @@ def resolve(model, group, data, H, config_id):
         base.update({k: v for k, v in own.items() if k in PERIOD_KEYS})
         for kv in filter(None, knobs.split("+")):
             k, v = kv.split("=", 1)
-            base[k] = int(v) if v.lstrip("-").isdigit() else float(v)
+            base[k] = _parse_value(v)
         s = base
     else:
         raise ValueError(config_id)
