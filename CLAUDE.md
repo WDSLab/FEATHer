@@ -16,23 +16,30 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
 - **파라미터 수는 장점으로 내세우지 않음** · "옆 센서를 본다"(입력 길이) 주장은 메인에서 뺌 (L96 은 SRAM 표로 정당화).
 - 논문은 간결하게: 본문 = 설정 표 · 크기 맞춘 정확도 2판 · 정확도 vs flash 그림 · 칩 비용 · 작은 ablation.
 
-## Current status (2026-10-14 밤) — 모든 모델 재튜닝 규칙 확정, 1K 추첨 중, 다음 = 커밋 → 서버 실행
+## Current status (2026-10-15) — 1K판 고르기 서버 실행 중 · 칩판 추첨 로컬 실행 중
 
 **새 세션 시작점 = 메모리 `project_session_1014.md` 의 HANDOFF.** 규칙 원문 = `configs/experiments/size.yaml` +
-`docs/EXPERIMENT_PROTOCOL.md` 결정 기록 "2026-10-14 밤" (a)~(n).
+`docs/EXPERIMENT_PROTOCOL.md` 결정 기록 "2026-10-14 밤" (a)~(q).
 
-- **방식**: 저자 설정은 LTSF 에 맞춘 값 → **모든 모델을 제조 데이터에서 같은 규칙으로 재튜닝**(선례 Brigato TMLR'26 · ProbTS ·
-  Melis ICLR'18 · Lucic NeurIPS'18; Fable 검토 2회 반영). 모델마다 **40개 전부 무작위**(고정 시드, 실행 전 커밋, 저자 설정 ·
-  동결 FEATHer 를 출발점으로 넣지 않음). 공통 범위: lr 1e-5~1 로그 · dropout {0,.05,.1,.2} · 스위치 켬/끔 · 비율 {.1….9} ·
-  주기 {2…48}(탐색함) · 구간 {1…48}; 모델별 목록은 단위가 그 모델에만 있는 것뿐. 크기 = 목표 크기 U(0, 상한] + 크기
-  하이퍼파라미터 하나를 그 이하 최대로(나머지 무작위). 유효성 = 만들어지고 가짜 입력으로 돌아감.
-  고르기 = 40개 × 6데이터 × H96·H720 · 시드 2025 → **데이터마다** 검증 순위 평균 → 4 H × 3시드 정식(테스트 1회).
+- **방식**: 저자 설정은 LTSF 에 맞춘 값 → **모든 모델을 제조 데이터에서 같은 규칙으로 재튜닝**(선례 Brigato TMLR'26 ·
+  ProbTS · Melis ICLR'18 · Lucic NeurIPS'18; 공개 코드 대조 = Brigato NoChamps · Gorishniy rtdl; Fable 검토 2회).
+  모델마다 **40개 전부 무작위**(고정 시드, 실행 전 커밋, 저자 설정 · 동결 FEATHer 를 출발점으로 넣지 않음).
+  공통 범위: lr 1e-5~1e-1 로그 · dropout {0,.05,.1,.2} · 스위치 켬/끔 · 비율 {.1….9} · 주기 {2…48}(탐색) · 구간 {1…48};
+  모델별 목록은 단위가 그 모델에만 있는 것뿐. 크기 = 목표 크기(상한의 U(0,1] 비율) + 크기 하이퍼파라미터 하나를 그 이하
+  최대로, 나머지 무작위(개수 = 1 ~ 다른 값을 가장 작게 둘 때 들어가는 최대, 로그 균등). 유효성 = 만들어지고 4개 H 모두 돌아감.
+- **고르기**: 40개 × 6데이터 × H96·H720 · 시드 2025, **15 epoch / patience 3**(Brigato 탐색 예산) → **데이터마다** 검증 순위
+  평균으로 하나 → 정식 4 H × 3시드는 **50 / 10**(테스트 1회). 설정 하나로 4개 H(칩 배포 조건).
 - **두 판 (모두 상한, 4개 H 모두)**: 1K판 = 학습 숫자 ≤ 1,000(숫자 세기, 고른 48개만 WSL 빌드) · 칩판 = 실제 펌웨어가 칩에
-  (후보 전부 빌드, 추첨 코드 아직 없음). 제외: 1K = DiPE · DLinear · CycleNet · SAMformer, 칩판 = DLinear · CycleNet · SAMformer.
-- **FEATHer**: 두 트랙 FEATHer_mix · FEATHer_CI(별개 모델, 두 줄 항상 다 실음), 탐색 공간은 베이스라인과 같은 커밋에 확정,
-  **실행은 베이스라인 뒤**(run.py 는 이름을 줘야 FEATHer 실행).
-- **안 하는 것**: 부록용 추가 실험 없음(PhaseFormer cand:Weather 72 · iTransformer 재실행 96 · lookback 전부 안 함).
-  **부록 없음**: 공정성은 본문 한 문단 + 조합표·모든 시도 결과는 공개 저장소 파일로만.
+  (상한 = (128 KB − 가중치 외 flash)/4, 후보마다 H720 실제 빌드, "칩에 담을 수 있는 최선" — 작은 모델도 포함).
+  제외: 1K = DiPE · DLinear · CycleNet · SAMformer, 칩판 = DLinear · CycleNet · SAMformer.
+- **FEATHer**: 두 트랙 FEATHer_mix · FEATHer_CI(별개 모델, 두 줄 항상 다 실음), 섞기 MLP 는 두 트랙 모두 켬 고정,
+  탐색 공간·조합은 베이스라인과 같은 커밋에 확정, **실행은 베이스라인 뒤**(run.py 는 이름을 줘야 FEATHer 실행).
+- **진행 (10-15 낮)**: 1K 조합 커밋(`docs/size_trials.json`) → 서버 `size_select --tier 1k`(3,360칸, 짧은 학습으로 재시작,
+  약 3일 예상; 서버 결과 조각에 10-13 옛 행이 섞여 있음 → merge 전에 치울 것). C 포트 확장(3e05eea: 탐색 공간의 모든 구조 값
+  빌드 가능, make test 50 PASS 그대로 + check_dials 43). 칩판 추첨 로컬 실행 중(`size_trials.py --write --tier chip`,
+  빌드 약 10초, 8~10시간; 그동안 다른 보드 빌드 금지).
+- **안 하는 것**: 부록 없음 · 부록용 추가 실험 없음(PhaseFormer cand:Weather 72 · iTransformer 재실행 96 · lookback 전부 안 함).
+  공정성은 본문 한 문단 + 조합표·모든 시도 결과는 공개 저장소 파일로만.
 - **나중에**: 논문 표 도구 다시 쓰기(`tools/paper/*` 는 10-07 이전 CSV 를 읽음) · README.md · `analysis/diagnostics/*`(기록용).
 - **사용자 결정 (다시 꺼내지 말 것)**: "결과 보고 비교 방식 바꿨다" 걱정 · int8/행렬 합치기 실험 · 사전 등록 문서.
 - **Git**: 커밋은 요청 시, **personal(ijaehun) 에만 push**. ⚠ 보드 빌드는 한 번에 하나(golden/ 공유).
@@ -159,11 +166,10 @@ FEATHer 이름 = `FEATHer_mix` / `FEATHer_CI` (footprint CSV 는 mix 를 `FEATHe
 
 ```bash
 # 크기 맞춘 비교 (메인)
-python tools/results/size_trials.py --write              # 1K 40개 추첨 -> docs/size_trials.json (실행 전 커밋)
+python tools/results/size_trials.py --write [--tier chip] # 40개 추첨 -> docs/size_trials.json (실행 전 커밋; chip = 실제 빌드)
 python run.py --stage size_select --tier 1k --check      # 후보 x lr x H96/H720 x 시드 2025 (--check = 빠진 칸만 보기)
 python tools/results/size_verdict.py --write             # -> docs/chosen_size.json + size_selection_audit.csv
 python run.py --stage size --ngpu 1 --jobs_per_gpu 3     # 고른 것 x 4H x 3시드
-# 칩판 추첨(실제 빌드)은 아직 없음 — 옛 size_dials.py 는 tools/results/_archive/
 # 그 밖의 단계
 python run.py --stage main --check                       # ltsf / ltsf_select / select / main / lookback / ablation / control
 python tools/results/merge_incoming.py                   # _incoming -> raw_*.csv
