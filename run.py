@@ -177,13 +177,17 @@ def shard_path(host, stage):
     raise RuntimeError("no free shard name")
 
 
+# industrial sets, smallest first (rows of data.csv), so the small datasets finish and can be looked at early
+SMALL_FIRST = {d: i for i, d in enumerate(["BlastFurnace", "Steel", "WindSCADA", "EWELD", "N2O", "MetroPT3"])}
+
+
 def jobs_for(missing, args, out_csv):
     groups = {}
     for c in missing:
         k = (c["role"], c["config_id"], c["model"], c["group"], c["data"], c["pred_len"], c["seq_len"])
         groups.setdefault(k, []).append(c["seed"])
     jobs = []
-    for (role, cfg, m, g, d, h, L), seeds in sorted(groups.items(), key=lambda kv: (kv[0][4] != "MetroPT3", kv[0])):
+    for (role, cfg, m, g, d, h, L), seeds in sorted(groups.items(), key=lambda kv: (SMALL_FIRST.get(kv[0][4], -1), kv[0])):
         lr, loss, ov = P.resolve(m, g, d, h, cfg)
         hp = P.hparams(m, g, d, h, cfg, role)
         epochs, patience = P.train_budget(role)
