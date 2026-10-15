@@ -268,6 +268,10 @@ batch 32 · 최대 50 epoch · patience 10 · Adam + CosineAnnealing(T_max 50) �
   정식 실행(role size, 4 H × 3시드)은 프로토콜 그대로 50 / 10 → 메인 표 숫자의 학습 조건은 바뀌지 않음. 이 때문에 고르기 실행을
   정식 실행의 시드 2025 칸으로 재사용하던 규칙은 폐지(정식은 4 H × 3시드 전부 실행). 50/10 으로 이미 돈 84칸은 hparams 에
   budget 이 없어 다시 돌고, size_verdict 는 현재 예산의 행만 읽음.
+  (r) **LTSF (2026-10-15, 사용자)**: 새 실험 없음. 이미 있는 저자 공식 설정 결과(raw_ltsf.csv, 8데이터 × 4 H × 3시드)를 짧게
+  보여준다. 모델 = 메인과 같은 경량 8개(SparseTSF · SparseTSF-MLP · MixLinear · DiPE · FITS · CMoS · TimeBase · PhaseFormer) +
+  FEATHer_mix · FEATHer_CI. DLinear · CycleNet · SAMformer 와 큰 모델 7개는 넣지 않음(iTransformer 36칸 재실행 불필요).
+  크기를 맞추지 않은 저자 설정 비교라는 점을 밝히고, 표현은 "on par with the best lightweight models"까지(LTSF 1위 금지).
 
 - 2026-10-13 (사용자 결정): **메인 비교 = 크기를 맞춘 비교**(1K판 · 칩 최대판). 각 베이스라인은 고른 저자 설정에서 크기
   다이얼 하나만 바꾸고(CMoS 구간 길이 · SparseTSF-MLP 은닉 폭 · TimeBase 기저 수 · PhaseFormer 잠재 폭 · DiPE 전문가 수 ·

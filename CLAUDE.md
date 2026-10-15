@@ -38,6 +38,7 @@ FEATHer (Fourier-Efficient Adaptive Temporal Hierarchy Forecaster) = 기계 옆 
   약 3일 예상; 서버 결과 조각에 10-13 옛 행이 섞여 있음 → merge 전에 치울 것). C 포트 확장(3e05eea: 탐색 공간의 모든 구조 값
   빌드 가능, make test 50 PASS 그대로 + check_dials 43). 칩판 추첨 로컬 실행 중(`size_trials.py --write --tier chip`,
   빌드 약 10초, 8~10시간; 그동안 다른 보드 빌드 금지).
+- **LTSF**: 새 실험 없음. 기존 저자 설정 결과로 짧게(경량 8개 + FEATHer 두 트랙; DLinear · CycleNet · SAMformer · 큰 모델 제외).
 - **안 하는 것**: 부록 없음 · 부록용 추가 실험 없음(PhaseFormer cand:Weather 72 · iTransformer 재실행 96 · lookback 전부 안 함).
   공정성은 본문 한 문단 + 조합표·모든 시도 결과는 공개 저장소 파일로만.
 - **나중에**: 논문 표 도구 다시 쓰기(`tools/paper/*` 는 10-07 이전 CSV 를 읽음) · README.md · `analysis/diagnostics/*`(기록용).
