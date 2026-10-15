@@ -1,9 +1,11 @@
 """Post-hoc R2 from stored MSE — no re-training required.
 
-The R2 column written by the workers uses `utils.metrics.r2_mean`, which
-normalises each (window, channel) series by its WITHIN-WINDOW variance along
-the time axis.  On near-constant channels that denominator collapses and the
-score explodes to ~-1e12, which makes the stored column unusable.
+Rows written before 2026-10-15 hold a per-window R2 that normalised each
+(window, channel) series by its WITHIN-WINDOW variance along the time axis.
+On near-constant channels that denominator collapses and the score explodes
+to ~-1e12, which makes those stored values unusable.  Workers now write the
+global R2 below (utils.metrics.TestScores); this script recomputes it for
+any CSV, old or new, from the stored MSE.
 
 The standard forecasting definition instead compares the error against the
 variance of the target over the whole evaluation set:

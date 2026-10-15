@@ -40,55 +40,22 @@ def corr_mean(pred, true):
     return np.nanmean(r)   # Average all (B,F) pairs with equal weight
 
 
-def r2_mean(pred, true):
-    """
-    pred, true: shape (B, T, F)
-    - NaN/inf values are masked
-    - All (B,F) pairs are averaged with equal weight
-    - sklearn rules applied when SST==0:
-        * SSE==0 -> R2 = 1.0
-        * SSE>0  -> R2 = 0.0
-    """
-    x, y = pred, true
-    m = np.isfinite(x) & np.isfinite(y)
-    cnt = m.sum(axis=1)                     # (B, F)
-    valid = cnt >= 2
-
-    # Masked y mean; out=zeros and np.where for the same reasons as in corr_mean.
-    y_mean = np.divide(np.where(m, y, 0.0).sum(axis=1), np.maximum(cnt, 1),
-                       out=np.zeros(cnt.shape, dtype=float), where=valid)[:, None, :]
-
-    sse = np.where(m, (y - x) ** 2, 0.0).sum(axis=1)       # (B, F)
-    sst = np.where(m, (y - y_mean) ** 2, 0.0).sum(axis=1)  # (B, F)
-
-    r2 = np.full_like(sse, np.nan, dtype=float)
-
-    # Standard case: SST > 0
-    mask_pos = valid & (sst > 0)
-    r2[mask_pos] = 1.0 - sse[mask_pos] / sst[mask_pos]
-
-    # Constant target: SST == 0 -> sklearn rule
-    mask_zero = valid & (sst == 0)
-    if np.any(mask_zero):
-        r2[mask_zero] = np.where(sse[mask_zero] == 0.0, 1.0, 0.0)
-
-    # Others (invalid) remain as NaN -> aggregated with nanmean
-    return np.nanmean(r2)
-
-
 class TestScores:
     """Accumulates the test metrics over batches; result() -> [MSE, MAE, RMSE, CORR, R2].
 
     MSE / MAE are one mean over all observed cells of the test split, not a mean of per-batch means (batches of the
-    gap-filled sets hold different numbers of observed cells).  CORR / R2 (per-window values) are batch-size-weighted
-    means of the per-batch values.
+    gap-filled sets hold different numbers of observed cells).  R2 = 1 - MSE / Var(y), Var pooled over the same
+    observed cells (the standard forecasting R2; = tools/paper/compute_r2.py R2_global).  A per-window R2 divides by
+    the within-window variance, which collapses on near-constant channels and gave ~-1e10 on MetroPT3.  CORR
+    (per-window values) is the batch-size-weighted mean of the per-batch values.
     """
 
     def __init__(self):
         self.se = self.ae = 0.0
         self.n = 0
-        self.cr_sum = np.zeros(2, dtype=np.float64)   # [CORR, R2]
-        self.cr_cnt = np.zeros(2, dtype=np.float64)
+        self.y_sum = self.y_sq = 0.0                  # observed targets, for Var(y)
+        self.cr_sum = 0.0                             # CORR
+        self.cr_cnt = 0.0
 
     def update(self, pred, true):
         observed = np.isfinite(true)
@@ -99,16 +66,19 @@ class TestScores:
         self.se += float(np.sum(diff[fin] ** 2))
         self.ae += float(np.sum(np.abs(diff[fin])))
         self.n += int(fin.sum())
-        bs = true.shape[0]
-        for i, val in enumerate((corr_mean(pred, true), r2_mean(pred, true))):
-            if np.isfinite(val):
-                self.cr_sum[i] += val * bs
-                self.cr_cnt[i] += bs
+        y = true[fin].astype(np.float64)
+        self.y_sum += float(y.sum())
+        self.y_sq += float((y ** 2).sum())
+        val = corr_mean(pred, true)
+        if np.isfinite(val):
+            self.cr_sum += val * true.shape[0]
+            self.cr_cnt += true.shape[0]
 
     def result(self):
         if self.n == 0:                                # not a fake perfect score of 0
             raise RuntimeError("no observed test cells across all batches - degenerate run")
         mse, mae = self.se / self.n, self.ae / self.n
-        return np.array([mse, mae, float(np.sqrt(mse)),
-                         self.cr_sum[0] / max(self.cr_cnt[0], 1.0),
-                         self.cr_sum[1] / max(self.cr_cnt[1], 1.0)], dtype=np.float64)
+        mean = self.y_sum / self.n
+        var = self.y_sq / self.n - mean * mean
+        r2 = 1.0 - mse / var if var > 0 else np.nan
+        return np.array([mse, mae, float(np.sqrt(mse)), self.cr_sum / max(self.cr_cnt, 1.0), r2], dtype=np.float64)
