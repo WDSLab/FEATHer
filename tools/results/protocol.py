@@ -80,6 +80,7 @@ ABLATION_PLAN = {arm: a["horizons"] for arm, a in _abl.items()}
 CONTROL_ARMS = {arm: (a["model"], a["flags"], a["host"]) for arm, a in _experiments("control").items()}
 _size = _experiments("size")
 SIZE_TIERS, SIZE_SELECT_HS = _size["tiers"], _size["select_horizons"]
+SIZE_SELECT_BUDGET = _size["select_budget"]          # epochs / patience of the selection runs (role sizesel)
 SIZE_TRIALS, SIZE_DRAW_SEED, SIZE_COMMON = _size["trials"], _size["draw_seed"], _size["common"]
 SIZE_SPACE = _size["models"]                     # model -> {key: size / segment / period / switch / dropout / mix / [list] / unused}
 SIZE_MODELS = list(SIZE_SPACE)
@@ -221,11 +222,18 @@ def resolve(model, group, data, H, config_id):
     return lr, loss, s
 
 
-def hparams(model, group, data, H, config_id):
+def train_budget(role):
+    """(epochs, patience): the protocol's 50 / 10, the shorter search budget for size-selection runs."""
+    return (SIZE_SELECT_BUDGET["epochs"], SIZE_SELECT_BUDGET["patience"]) if role == "sizesel" else (50, 10)
+
+
+def hparams(model, group, data, H, config_id, role=None):
     """Every hyperparameter of one cell as a JSON line (stored with the result; a change -> the cell runs again)."""
     lr, loss, ov = resolve(model, group, data, H, config_id)
     run = {"model": registry_name(model, config_id), "lr": lr, "loss": loss, "settings": ov,
            "flags": cli_flags(model, config_id)}
+    if role == "sizesel":
+        run["budget"] = list(train_budget(role))
     return json.dumps(run, sort_keys=True, separators=(",", ":"))
 
 

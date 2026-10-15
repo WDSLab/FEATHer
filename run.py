@@ -16,9 +16,10 @@ Stages (docs/EXPERIMENT_PROTOCOL.md):
     ablation  FEATHer arms (protocol.ABLATION_PLAN: arm x horizons) x 6 datasets x 3 seeds          -> raw_mfg.csv
     control   SparseTSF(+MLP) + mixing bus, FEATHer without bands/gate x 6 x 4 H x 3 seeds          -> raw_mfg.csv
     size_select  size-matched comparison (1K / chip-max tier): the drawn random-search trials (docs/size_trials.json,
-              40 per model) x 6 x H96/H720 x seed 2025 -> raw_mfg.csv (role sizesel);
+              40 per model) x 6 x H96/H720 x seed 2025, short search budget (size.yaml select_budget)
+              -> raw_mfg.csv (role sizesel);
               tools/results/size_verdict.py --write picks one trial per tier, model and dataset
-    size      the chosen trial x 4 H x 3 seeds (seed-2025 H96/H720 reused from size_select) -> raw_mfg.csv
+    size      the chosen trial x 4 H x 3 seeds, full protocol (50 epochs / patience 10) -> raw_mfg.csv
 
 A cell is done when raw_*.csv, select_mfg.csv or a not-yet-merged shard in results/_incoming/ holds a row
 with the same (role, config_id, model, data, pred_len, seq_len, seed).  New rows are written to
@@ -153,8 +154,6 @@ def done_runs():
     # a main run of a candidate setting at the selection seed is also its selection run (same cell)
     m = a[(a.role == "main") & a.config_id.str.startswith("cand:") & (a.seed == P.SELECT_SEED) & (a.seq_len == 96)]
     a = pd.concat([a, m.assign(role="select")], ignore_index=True)
-    # a size-matched selection run (seed 2025) is also the seed-2025 run of the same config in the size stage
-    a = pd.concat([a, a[a.role == "sizesel"].assign(role="size")], ignore_index=True)
     done = {}
     for row in a.itertuples(index=False):
         key = (row.role, row.config_id, row.model, row.data, int(row.pred_len), int(row.seq_len), int(row.seed))
@@ -186,12 +185,13 @@ def jobs_for(missing, args, out_csv):
     jobs = []
     for (role, cfg, m, g, d, h, L), seeds in sorted(groups.items(), key=lambda kv: (kv[0][4] != "MetroPT3", kv[0])):
         lr, loss, ov = P.resolve(m, g, d, h, cfg)
-        hp = P.hparams(m, g, d, h, cfg)
+        hp = P.hparams(m, g, d, h, cfg, role)
+        epochs, patience = P.train_budget(role)
         ovs = ";".join(f"{k}={v}" for k, v in sorted(ov.items()))
         cmd = [sys.executable, "scripts/train.py", "--model", P.registry_name(m, cfg),
                "--data", d, "--pred_len", str(h), "--seq_len", str(L),
                "--seeds", ",".join(str(s) for s in sorted(seeds)), "--exp_tag", f"{role}|{cfg}",
-               "--results_csv", out_csv, "--num_epochs", "50", "--patience", "10", "--batch_size", "32",
+               "--results_csv", out_csv, "--num_epochs", str(epochs), "--patience", str(patience), "--batch_size", "32",
                "--lr", str(lr), "--loss", loss, "--result_model_name", m, "--hparams", hp]
         if ovs:
             cmd += ["--model_overrides", ovs]
@@ -227,7 +227,7 @@ def main():
         keep = {x.strip() for x in a.configs.split(",")}
         cells = [c for c in cells if c["config_id"] in keep]
     for c in cells:
-        c["hparams"] = P.hparams(c["model"], c["group"], c["data"], c["pred_len"], c["config_id"])
+        c["hparams"] = P.hparams(c["model"], c["group"], c["data"], c["pred_len"], c["config_id"], c["role"])
     done = done_runs()
     missing = [c for c in cells if not is_done(c, done)]
     df = pd.DataFrame(missing or [{}])

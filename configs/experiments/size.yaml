@@ -20,6 +20,7 @@
 
 tiers: [1k, chip]
 select_horizons: [96, 720]
+select_budget: {epochs: 15, patience: 3}   # selection runs only (Brigato's search budget); final runs = protocol 50 / 10
 trials: 40
 draw_seed: 2025
 

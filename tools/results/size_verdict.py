@@ -36,6 +36,7 @@ def selection_rows():
             frames.append(d)
     a = pd.concat(frames, ignore_index=True)
     a = a[(a.role == "sizesel") & (a.seed == P.SELECT_SEED) & a.pred_len.isin(P.SIZE_SELECT_HS)]
+    a = a[a.hparams.astype(str).str.contains('"budget":')]   # runs with the current search budget only
     return a.drop_duplicates(P.KEY, keep="last")
 
 
