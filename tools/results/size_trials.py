@@ -249,7 +249,8 @@ def count_cap(model, key):
             if k == key:
                 continue
             best = None
-            cand = [1] if TIER == "chip" and sp[k] == "size" and k not in DEPENDENT else                 scan(model, d, k, sp[k], {**base, key: 1})       # chip: a count's smallest model is 1
+            cand = ([1] if TIER == "chip" and sp[k] == "size" and k not in DEPENDENT       # chip: a count's smallest model is 1
+                    else scan(model, d, k, sp[k], {**base, key: 1}))
             for v in cand:
                 b = {**base, k: v}
                 n1, n2 = stored(model, d, {**b, key: 1}), stored(model, d, {**b, key: 2})

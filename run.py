@@ -11,8 +11,6 @@ Stages (docs/EXPERIMENT_PROTOCOL.md):
     ltsf_select  no-official LTSF cells: the model's published settings x 4 H x seed 2025 -> select_ltsf.csv
     select    industrial candidates x 6 datasets x 4 H x seed 2025, L 96                   -> select_mfg.csv
     main      industrial chosen setting x 3 seeds, L 96 (models without a choice are skipped) -> raw_mfg.csv
-    lookback  industrial chosen setting x 3 seeds, L 48 / 192 / 336 (FEATHer + chip models + DLinear,
-              CycleNet) -> raw_mfg.csv
     ablation  FEATHer arms (protocol.ABLATION_PLAN: arm x horizons) x 6 datasets x 3 seeds          -> raw_mfg.csv
     control   SparseTSF(+MLP) + mixing bus, FEATHer without bands/gate x 6 x 4 H x 3 seeds          -> raw_mfg.csv
     size_select  size-matched comparison (1K / chip-max tier): the drawn random-search trials (docs/size_trials.json,
@@ -107,17 +105,14 @@ def plan(stage, models=None, tiers=None):
                         role, hs, seeds = "size", P.HS, P.SEEDS
                     for t in pick:
                         cells += grid(role, P.size_config_id(tier, t["id"], t["knobs"][d]), m, "mfg", [d], hs, seeds)
-    elif stage in ("main", "lookback"):
-        pool = models or (P.FEATHER + P.LIGHT + P.HEAVY if stage == "main"
-                          else P.FEATHER + P.ON_CHIP + ["CycleNet", "DLinear"])
-        for m in pool:
+    elif stage == "main":
+        for m in models or P.FEATHER + P.LIGHT + P.HEAVY:
             cfg = P.mfg_main_config_id(m)
             if cfg is None:
                 print(f"  [skip] {m}: industrial setting not chosen yet (run --stage select first)")
                 continue
             role = "reference" if m in P.HEAVY else stage
-            for L in ([96] if stage == "main" else [48, 192, 336]):
-                cells += grid(role, cfg, m, "mfg", P.MFG, P.HS, P.SEEDS, seq_len=L)
+            cells += grid(role, cfg, m, "mfg", P.MFG, P.HS, P.SEEDS)
     else:
         raise ValueError(stage)
     return cells
@@ -144,7 +139,7 @@ def done_runs():
     for p in glob.glob(os.path.join(RES, "_incoming", "*.csv")):
         d = pd.read_csv(p, on_bad_lines="skip")
         if "exp_tag" in d and len(d):
-            d["role"], d["config_id"] = zip(*[str(t).split("|", 1) if "|" in str(t) else (t, "") for t in d.exp_tag])
+            d["role"], d["config_id"] = zip(*[P.split_exp_tag(t) for t in d.exp_tag])
             frames.append(d[[c for c in KEY + ["hparams"] if c in d]])
     if not frames:
         return {}
@@ -208,7 +203,7 @@ def jobs_for(missing, args, out_csv):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--stage", required=True, choices=["ltsf", "ltsf_select", "select", "main", "lookback", "ablation", "control", "size_select", "size"])
+    ap.add_argument("--stage", required=True, choices=["ltsf", "ltsf_select", "select", "main", "ablation", "control", "size_select", "size"])
     ap.add_argument("--models", default="", help="comma list (default: the stage's pool)")
     ap.add_argument("--data", default="", help="comma list of datasets (default: all of the stage)")
     ap.add_argument("--configs", default="", help="comma list of config_ids (default: all)")

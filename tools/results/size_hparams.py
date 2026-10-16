@@ -1,4 +1,4 @@
-"""Appendix table: every hyperparameter of the size-matched baselines, how it is searched (configs/experiments/size.yaml),
+"""Table: every hyperparameter of the size-matched baselines, how it is searched (configs/experiments/size.yaml),
 its author value and whether it changes the stored count -> results/analysis/size_hparams.csv.
 
     python tools/results/size_hparams.py [--write]
