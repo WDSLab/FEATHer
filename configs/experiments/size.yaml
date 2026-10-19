@@ -27,12 +27,19 @@ draw_seed: 2025
 common:
   lr: [1.0e-5, 1.0e-1]                  # log-uniform, every model; lower end = Brigato / Gorishniy / Lucic and CMoS's
                                         # author 2e-5; upper end 0.1 (Brigato's code: 1e-2) keeps SparseTSF / MixLinear
-                                        # (0.02-0.03) inside; the edge rule widens it if a model's choice sits at 0.1
+                                        # (0.02-0.03) inside; the edge rule (lr_widened) widens it if a model's choice lies in the top decade
   dropout: [0.0, 0.05, 0.1, 0.2]
   switch: [false, true]
   mix: [0.1, 0.3, 0.5, 0.7, 0.9]        # weights between two terms / branches, defined on [0, 1]
   period: [2, 3, 4, 6, 8, 12, 16, 24, 48]   # divides L = 96 and every H, >= 2 segments
   segment: [1, 2, 3, 4, 6, 8, 12, 16, 24, 48]   # divides L = 96 and every H
+
+# Edge rule (EXPERIMENT_PROTOCOL decision log 10-14 night, 5): a model whose chosen lr lies in the edge decade of
+# common.lr (1e-5..1e-4 or 1e-2..1e-1) on half of the datasets or more gets the range widened 10x on that side and
+# `trials` more trials drawn by the same rule from the widened range (ids continue, own seed stream
+# "<draw_seed>|<model>[|<tier>]|lr-wide"; the first trials stay as they are).  Validation then picks among all of them.
+lr_widened:
+  1k|PhaseFormer: [1.0e-5, 1.0]         # 10-19: lr 0.017 (top decade) on 4/4 finished datasets
 
 # Every hyperparameter the wrapper reads, and how it is searched:
 #   size    = count / width / depth: drawn from 1 .. the largest value that can fit (or filled)

@@ -42,7 +42,7 @@ def selection_rows():
 
 def judge(rows, tier, model, data):
     """Table of the trials of one (tier, model, dataset), best first."""
-    lo, hi = (math.log10(x) for x in P.SIZE_COMMON["lr"])
+    lo, hi = (math.log10(x) for x in P.size_lr_range(tier, model))
     table = []
     for t in P.size_trials(tier, model):
         cid = P.size_config_id(tier, t["id"], t["knobs"][data])

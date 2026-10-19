@@ -19331,6 +19331,3366 @@
      "WindSCADA": 698
     },
     "target": 699
+   },
+   {
+    "drawn": {
+     "lr": 0.0041,
+     "phaseformer_attn_dropout": 0.1,
+     "phaseformer_heads": 1,
+     "phaseformer_layers": 2,
+     "phaseformer_period_len": 6,
+     "phaseformer_pos_embed": true,
+     "phaseformer_routers": 12
+    },
+    "fill": "phaseformer_latent_dim",
+    "id": "t41",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.0041,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 12
+     },
+     "EWELD": {
+      "lr": 0.0041,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 12
+     },
+     "MetroPT3": {
+      "lr": 0.0041,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 12
+     },
+     "N2O": {
+      "lr": 0.0041,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 12
+     },
+     "Steel": {
+      "lr": 0.0041,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 12
+     },
+     "WindSCADA": {
+      "lr": 0.0041,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 12
+     }
+    },
+    "stored": {
+     "BlastFurnace": 752,
+     "EWELD": 752,
+     "MetroPT3": 752,
+     "N2O": 752,
+     "Steel": 752,
+     "WindSCADA": 752
+    },
+    "target": 801
+   },
+   {
+    "drawn": {
+     "lr": 0.00019,
+     "phaseformer_attn_dropout": 0.1,
+     "phaseformer_heads": 2,
+     "phaseformer_layers": 1,
+     "phaseformer_period_len": 24,
+     "phaseformer_pos_embed": true,
+     "phaseformer_routers": 1
+    },
+    "fill": "phaseformer_latent_dim",
+    "id": "t42",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.00019,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "EWELD": {
+      "lr": 0.00019,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "MetroPT3": {
+      "lr": 0.00019,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "N2O": {
+      "lr": 0.00019,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "Steel": {
+      "lr": 0.00019,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "WindSCADA": {
+      "lr": 0.00019,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     }
+    },
+    "stored": {
+     "BlastFurnace": 252,
+     "EWELD": 252,
+     "MetroPT3": 252,
+     "N2O": 252,
+     "Steel": 252,
+     "WindSCADA": 252
+    },
+    "target": 302
+   },
+   {
+    "drawn": {
+     "lr": 1.7e-05,
+     "phaseformer_attn_dropout": 0.1,
+     "phaseformer_heads": 2,
+     "phaseformer_layers": 1,
+     "phaseformer_period_len": 8,
+     "phaseformer_pos_embed": true,
+     "phaseformer_routers": 7
+    },
+    "fill": "phaseformer_latent_dim",
+    "id": "t43",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 1.7e-05,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 7
+     },
+     "EWELD": {
+      "lr": 1.7e-05,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 7
+     },
+     "MetroPT3": {
+      "lr": 1.7e-05,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 7
+     },
+     "N2O": {
+      "lr": 1.7e-05,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 7
+     },
+     "Steel": {
+      "lr": 1.7e-05,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 7
+     },
+     "WindSCADA": {
+      "lr": 1.7e-05,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 7
+     }
+    },
+    "stored": {
+     "BlastFurnace": 428,
+     "EWELD": 428,
+     "MetroPT3": 428,
+     "N2O": 428,
+     "Steel": 428,
+     "WindSCADA": 428
+    },
+    "target": 689
+   },
+   {
+    "drawn": {
+     "lr": 1e-05,
+     "phaseformer_attn_dropout": 0.0,
+     "phaseformer_heads": 2,
+     "phaseformer_latent_dim": 2,
+     "phaseformer_period_len": 12,
+     "phaseformer_pos_embed": true,
+     "phaseformer_routers": 7
+    },
+    "fill": "phaseformer_layers",
+    "id": "t44",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 1e-05,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 7
+     },
+     "EWELD": {
+      "lr": 1e-05,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 7
+     },
+     "MetroPT3": {
+      "lr": 1e-05,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 7
+     },
+     "N2O": {
+      "lr": 1e-05,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 7
+     },
+     "Steel": {
+      "lr": 1e-05,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 7
+     },
+     "WindSCADA": {
+      "lr": 1e-05,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 7
+     }
+    },
+    "stored": {
+     "BlastFurnace": 520,
+     "EWELD": 520,
+     "MetroPT3": 520,
+     "N2O": 520,
+     "Steel": 520,
+     "WindSCADA": 520
+    },
+    "target": 638
+   },
+   {
+    "drawn": {
+     "lr": 0.0025,
+     "phaseformer_attn_dropout": 0.1,
+     "phaseformer_heads": 2,
+     "phaseformer_layers": 2,
+     "phaseformer_period_len": 48,
+     "phaseformer_pos_embed": true,
+     "phaseformer_routers": 88
+    },
+    "fill": "phaseformer_latent_dim",
+    "id": "t45",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.0025,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 88
+     },
+     "EWELD": {
+      "lr": 0.0025,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 88
+     },
+     "MetroPT3": {
+      "lr": 0.0025,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 88
+     },
+     "N2O": {
+      "lr": 0.0025,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 88
+     },
+     "Steel": {
+      "lr": 0.0025,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 88
+     },
+     "WindSCADA": {
+      "lr": 0.0025,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 88
+     }
+    },
+    "stored": {
+     "BlastFurnace": 811,
+     "EWELD": 811,
+     "MetroPT3": 811,
+     "N2O": 811,
+     "Steel": 811,
+     "WindSCADA": 811
+    },
+    "target": 824
+   },
+   {
+    "drawn": {
+     "lr": 0.24,
+     "phaseformer_attn_dropout": 0.2,
+     "phaseformer_heads": 2,
+     "phaseformer_latent_dim": 2,
+     "phaseformer_layers": 2,
+     "phaseformer_pos_embed": false,
+     "phaseformer_routers": 2
+    },
+    "fill": "phaseformer_period_len",
+    "id": "t46",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.24,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 2
+     },
+     "EWELD": {
+      "lr": 0.24,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 2
+     },
+     "MetroPT3": {
+      "lr": 0.24,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 2
+     },
+     "N2O": {
+      "lr": 0.24,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 2
+     },
+     "Steel": {
+      "lr": 0.24,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 2
+     },
+     "WindSCADA": {
+      "lr": 0.24,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 275,
+     "EWELD": 275,
+     "MetroPT3": 275,
+     "N2O": 275,
+     "Steel": 275,
+     "WindSCADA": 275
+    },
+    "target": 284
+   },
+   {
+    "drawn": {
+     "lr": 3e-05,
+     "phaseformer_attn_dropout": 0.05,
+     "phaseformer_heads": 1,
+     "phaseformer_latent_dim": 1,
+     "phaseformer_layers": 2,
+     "phaseformer_pos_embed": false,
+     "phaseformer_routers": 4
+    },
+    "fill": "phaseformer_period_len",
+    "id": "t47",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 3e-05,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 4
+     },
+     "EWELD": {
+      "lr": 3e-05,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 4
+     },
+     "MetroPT3": {
+      "lr": 3e-05,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 4
+     },
+     "N2O": {
+      "lr": 3e-05,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 4
+     },
+     "Steel": {
+      "lr": 3e-05,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 4
+     },
+     "WindSCADA": {
+      "lr": 3e-05,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 4
+     }
+    },
+    "stored": {
+     "BlastFurnace": 384,
+     "EWELD": 384,
+     "MetroPT3": 384,
+     "N2O": 384,
+     "Steel": 384,
+     "WindSCADA": 384
+    },
+    "target": 501
+   },
+   {
+    "drawn": {
+     "lr": 0.14,
+     "phaseformer_attn_dropout": 0.05,
+     "phaseformer_heads": 1,
+     "phaseformer_latent_dim": 1,
+     "phaseformer_layers": 12,
+     "phaseformer_pos_embed": false,
+     "phaseformer_routers": 8
+    },
+    "fill": "phaseformer_period_len",
+    "id": "t48",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.14,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 12,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 8
+     },
+     "EWELD": {
+      "lr": 0.14,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 12,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 8
+     },
+     "MetroPT3": {
+      "lr": 0.14,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 12,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 8
+     },
+     "N2O": {
+      "lr": 0.14,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 12,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 8
+     },
+     "Steel": {
+      "lr": 0.14,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 12,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 8
+     },
+     "WindSCADA": {
+      "lr": 0.14,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 12,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 8
+     }
+    },
+    "stored": {
+     "BlastFurnace": 724,
+     "EWELD": 724,
+     "MetroPT3": 724,
+     "N2O": 724,
+     "Steel": 724,
+     "WindSCADA": 724
+    },
+    "target": 735
+   },
+   {
+    "drawn": {
+     "lr": 0.00044,
+     "phaseformer_attn_dropout": 0.2,
+     "phaseformer_heads": 2,
+     "phaseformer_latent_dim": 2,
+     "phaseformer_layers": 1,
+     "phaseformer_period_len": 16,
+     "phaseformer_pos_embed": true
+    },
+    "fill": "phaseformer_routers",
+    "id": "t49",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.00044,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 322
+     },
+     "EWELD": {
+      "lr": 0.00044,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 322
+     },
+     "MetroPT3": {
+      "lr": 0.00044,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 322
+     },
+     "N2O": {
+      "lr": 0.00044,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 322
+     },
+     "Steel": {
+      "lr": 0.00044,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 322
+     },
+     "WindSCADA": {
+      "lr": 0.00044,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 322
+     }
+    },
+    "stored": {
+     "BlastFurnace": 927,
+     "EWELD": 927,
+     "MetroPT3": 927,
+     "N2O": 927,
+     "Steel": 927,
+     "WindSCADA": 927
+    },
+    "target": 927
+   },
+   {
+    "drawn": {
+     "lr": 0.55,
+     "phaseformer_attn_dropout": 0.05,
+     "phaseformer_heads": 1,
+     "phaseformer_layers": 1,
+     "phaseformer_period_len": 16,
+     "phaseformer_pos_embed": false,
+     "phaseformer_routers": 85
+    },
+    "fill": "phaseformer_latent_dim",
+    "id": "t50",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.55,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 85
+     },
+     "EWELD": {
+      "lr": 0.55,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 85
+     },
+     "MetroPT3": {
+      "lr": 0.55,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 85
+     },
+     "N2O": {
+      "lr": 0.55,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 85
+     },
+     "Steel": {
+      "lr": 0.55,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 85
+     },
+     "WindSCADA": {
+      "lr": 0.55,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 85
+     }
+    },
+    "stored": {
+     "BlastFurnace": 217,
+     "EWELD": 217,
+     "MetroPT3": 217,
+     "N2O": 217,
+     "Steel": 217,
+     "WindSCADA": 217
+    },
+    "target": 323
+   },
+   {
+    "drawn": {
+     "lr": 0.00054,
+     "phaseformer_attn_dropout": 0.0,
+     "phaseformer_heads": 2,
+     "phaseformer_latent_dim": 4,
+     "phaseformer_layers": 1,
+     "phaseformer_pos_embed": false,
+     "phaseformer_routers": 26
+    },
+    "fill": "phaseformer_period_len",
+    "id": "t51",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.00054,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 4,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 26
+     },
+     "EWELD": {
+      "lr": 0.00054,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 4,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 26
+     },
+     "MetroPT3": {
+      "lr": 0.00054,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 4,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 26
+     },
+     "N2O": {
+      "lr": 0.00054,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 4,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 26
+     },
+     "Steel": {
+      "lr": 0.00054,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 4,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 26
+     },
+     "WindSCADA": {
+      "lr": 0.00054,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 4,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 26
+     }
+    },
+    "stored": {
+     "BlastFurnace": 772,
+     "EWELD": 772,
+     "MetroPT3": 772,
+     "N2O": 772,
+     "Steel": 772,
+     "WindSCADA": 772
+    },
+    "target": 787
+   },
+   {
+    "drawn": {
+     "lr": 0.041,
+     "phaseformer_attn_dropout": 0.1,
+     "phaseformer_heads": 1,
+     "phaseformer_latent_dim": 2,
+     "phaseformer_period_len": 48,
+     "phaseformer_pos_embed": true,
+     "phaseformer_routers": 19
+    },
+    "fill": "phaseformer_layers",
+    "id": "t52",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.041,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 19
+     },
+     "EWELD": {
+      "lr": 0.041,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 19
+     },
+     "MetroPT3": {
+      "lr": 0.041,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 19
+     },
+     "N2O": {
+      "lr": 0.041,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 19
+     },
+     "Steel": {
+      "lr": 0.041,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 19
+     },
+     "WindSCADA": {
+      "lr": 0.041,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 19
+     }
+    },
+    "stored": {
+     "BlastFurnace": 287,
+     "EWELD": 287,
+     "MetroPT3": 287,
+     "N2O": 287,
+     "Steel": 287,
+     "WindSCADA": 287
+    },
+    "target": 421
+   },
+   {
+    "drawn": {
+     "lr": 0.24,
+     "phaseformer_attn_dropout": 0.05,
+     "phaseformer_heads": 1,
+     "phaseformer_latent_dim": 1,
+     "phaseformer_period_len": 24,
+     "phaseformer_pos_embed": true,
+     "phaseformer_routers": 1
+    },
+    "fill": "phaseformer_layers",
+    "id": "t53",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.24,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 12,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "EWELD": {
+      "lr": 0.24,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 12,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "MetroPT3": {
+      "lr": 0.24,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 12,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "N2O": {
+      "lr": 0.24,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 12,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "Steel": {
+      "lr": 0.24,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 12,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "WindSCADA": {
+      "lr": 0.24,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 12,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     }
+    },
+    "stored": {
+     "BlastFurnace": 928,
+     "EWELD": 928,
+     "MetroPT3": 928,
+     "N2O": 928,
+     "Steel": 928,
+     "WindSCADA": 928
+    },
+    "target": 989
+   },
+   {
+    "drawn": {
+     "lr": 0.00026,
+     "phaseformer_attn_dropout": 0.1,
+     "phaseformer_heads": 1,
+     "phaseformer_layers": 8,
+     "phaseformer_period_len": 16,
+     "phaseformer_pos_embed": true,
+     "phaseformer_routers": 4
+    },
+    "fill": "phaseformer_latent_dim",
+    "id": "t54",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.00026,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 8,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 4
+     },
+     "EWELD": {
+      "lr": 0.00026,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 8,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 4
+     },
+     "MetroPT3": {
+      "lr": 0.00026,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 8,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 4
+     },
+     "N2O": {
+      "lr": 0.00026,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 8,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 4
+     },
+     "Steel": {
+      "lr": 0.00026,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 8,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 4
+     },
+     "WindSCADA": {
+      "lr": 0.00026,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 8,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 4
+     }
+    },
+    "stored": {
+     "BlastFurnace": 670,
+     "EWELD": 670,
+     "MetroPT3": 670,
+     "N2O": 670,
+     "Steel": 670,
+     "WindSCADA": 670
+    },
+    "target": 814
+   },
+   {
+    "drawn": {
+     "lr": 0.013,
+     "phaseformer_attn_dropout": 0.2,
+     "phaseformer_heads": 2,
+     "phaseformer_layers": 1,
+     "phaseformer_period_len": 4,
+     "phaseformer_pos_embed": true,
+     "phaseformer_routers": 26
+    },
+    "fill": "phaseformer_latent_dim",
+    "id": "t55",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.013,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 4,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 26
+     },
+     "EWELD": {
+      "lr": 0.013,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 4,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 26
+     },
+     "MetroPT3": {
+      "lr": 0.013,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 4,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 26
+     },
+     "N2O": {
+      "lr": 0.013,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 4,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 26
+     },
+     "Steel": {
+      "lr": 0.013,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 4,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 26
+     },
+     "WindSCADA": {
+      "lr": 0.013,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 4,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 26
+     }
+    },
+    "stored": {
+     "BlastFurnace": 752,
+     "EWELD": 752,
+     "MetroPT3": 752,
+     "N2O": 752,
+     "Steel": 752,
+     "WindSCADA": 752
+    },
+    "target": 998
+   },
+   {
+    "drawn": {
+     "lr": 0.0057,
+     "phaseformer_attn_dropout": 0.2,
+     "phaseformer_heads": 1,
+     "phaseformer_layers": 1,
+     "phaseformer_period_len": 12,
+     "phaseformer_pos_embed": true,
+     "phaseformer_routers": 3
+    },
+    "fill": "phaseformer_latent_dim",
+    "id": "t56",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.0057,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 3,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 3
+     },
+     "EWELD": {
+      "lr": 0.0057,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 3,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 3
+     },
+     "MetroPT3": {
+      "lr": 0.0057,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 3,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 3
+     },
+     "N2O": {
+      "lr": 0.0057,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 3,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 3
+     },
+     "Steel": {
+      "lr": 0.0057,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 3,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 3
+     },
+     "WindSCADA": {
+      "lr": 0.0057,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 3,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 3
+     }
+    },
+    "stored": {
+     "BlastFurnace": 513,
+     "EWELD": 513,
+     "MetroPT3": 513,
+     "N2O": 513,
+     "Steel": 513,
+     "WindSCADA": 513
+    },
+    "target": 613
+   },
+   {
+    "drawn": {
+     "lr": 1.1e-05,
+     "phaseformer_attn_dropout": 0.05,
+     "phaseformer_heads": 1,
+     "phaseformer_latent_dim": 1,
+     "phaseformer_layers": 2,
+     "phaseformer_pos_embed": false,
+     "phaseformer_routers": 2
+    },
+    "fill": "phaseformer_period_len",
+    "id": "t57",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 1.1e-05,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 2
+     },
+     "EWELD": {
+      "lr": 1.1e-05,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 2
+     },
+     "MetroPT3": {
+      "lr": 1.1e-05,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 2
+     },
+     "N2O": {
+      "lr": 1.1e-05,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 2
+     },
+     "Steel": {
+      "lr": 1.1e-05,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 2
+     },
+     "WindSCADA": {
+      "lr": 1.1e-05,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 380,
+     "EWELD": 380,
+     "MetroPT3": 380,
+     "N2O": 380,
+     "Steel": 380,
+     "WindSCADA": 380
+    },
+    "target": 410
+   },
+   {
+    "drawn": {
+     "lr": 0.07,
+     "phaseformer_attn_dropout": 0.2,
+     "phaseformer_heads": 1,
+     "phaseformer_latent_dim": 2,
+     "phaseformer_period_len": 16,
+     "phaseformer_pos_embed": false,
+     "phaseformer_routers": 1
+    },
+    "fill": "phaseformer_layers",
+    "id": "t58",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.07,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 1
+     },
+     "EWELD": {
+      "lr": 0.07,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 1
+     },
+     "MetroPT3": {
+      "lr": 0.07,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 1
+     },
+     "N2O": {
+      "lr": 0.07,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 1
+     },
+     "Steel": {
+      "lr": 0.07,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 1
+     },
+     "WindSCADA": {
+      "lr": 0.07,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 1
+     }
+    },
+    "stored": {
+     "BlastFurnace": 661,
+     "EWELD": 661,
+     "MetroPT3": 661,
+     "N2O": 661,
+     "Steel": 661,
+     "WindSCADA": 661
+    },
+    "target": 695
+   },
+   {
+    "drawn": {
+     "lr": 0.0013,
+     "phaseformer_attn_dropout": 0.1,
+     "phaseformer_heads": 1,
+     "phaseformer_latent_dim": 1,
+     "phaseformer_period_len": 48,
+     "phaseformer_pos_embed": false,
+     "phaseformer_routers": 2
+    },
+    "fill": "phaseformer_layers",
+    "id": "t59",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.0013,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 2
+     },
+     "EWELD": {
+      "lr": 0.0013,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 2
+     },
+     "MetroPT3": {
+      "lr": 0.0013,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 2
+     },
+     "N2O": {
+      "lr": 0.0013,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 2
+     },
+     "Steel": {
+      "lr": 0.0013,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 2
+     },
+     "WindSCADA": {
+      "lr": 0.0013,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 114,
+     "EWELD": 114,
+     "MetroPT3": 114,
+     "N2O": 114,
+     "Steel": 114,
+     "WindSCADA": 114
+    },
+    "target": 140
+   },
+   {
+    "drawn": {
+     "lr": 0.00048,
+     "phaseformer_attn_dropout": 0.1,
+     "phaseformer_heads": 2,
+     "phaseformer_layers": 2,
+     "phaseformer_period_len": 48,
+     "phaseformer_pos_embed": true,
+     "phaseformer_routers": 21
+    },
+    "fill": "phaseformer_latent_dim",
+    "id": "t60",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.00048,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 21
+     },
+     "EWELD": {
+      "lr": 0.00048,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 21
+     },
+     "MetroPT3": {
+      "lr": 0.00048,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 21
+     },
+     "N2O": {
+      "lr": 0.00048,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 21
+     },
+     "Steel": {
+      "lr": 0.00048,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 21
+     },
+     "WindSCADA": {
+      "lr": 0.00048,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 21
+     }
+    },
+    "stored": {
+     "BlastFurnace": 543,
+     "EWELD": 543,
+     "MetroPT3": 543,
+     "N2O": 543,
+     "Steel": 543,
+     "WindSCADA": 543
+    },
+    "target": 710
+   },
+   {
+    "drawn": {
+     "lr": 0.0066,
+     "phaseformer_attn_dropout": 0.0,
+     "phaseformer_heads": 1,
+     "phaseformer_latent_dim": 3,
+     "phaseformer_period_len": 24,
+     "phaseformer_pos_embed": false,
+     "phaseformer_routers": 21
+    },
+    "fill": "phaseformer_layers",
+    "id": "t61",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.0066,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 3,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 21
+     },
+     "EWELD": {
+      "lr": 0.0066,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 3,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 21
+     },
+     "MetroPT3": {
+      "lr": 0.0066,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 3,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 21
+     },
+     "N2O": {
+      "lr": 0.0066,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 3,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 21
+     },
+     "Steel": {
+      "lr": 0.0066,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 3,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 21
+     },
+     "WindSCADA": {
+      "lr": 0.0066,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 3,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 21
+     }
+    },
+    "stored": {
+     "BlastFurnace": 694,
+     "EWELD": 694,
+     "MetroPT3": 694,
+     "N2O": 694,
+     "Steel": 694,
+     "WindSCADA": 694
+    },
+    "target": 800
+   },
+   {
+    "drawn": {
+     "lr": 0.044,
+     "phaseformer_attn_dropout": 0.2,
+     "phaseformer_heads": 2,
+     "phaseformer_latent_dim": 2,
+     "phaseformer_period_len": 16,
+     "phaseformer_pos_embed": false,
+     "phaseformer_routers": 17
+    },
+    "fill": "phaseformer_layers",
+    "id": "t62",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.044,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 17
+     },
+     "EWELD": {
+      "lr": 0.044,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 17
+     },
+     "MetroPT3": {
+      "lr": 0.044,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 17
+     },
+     "N2O": {
+      "lr": 0.044,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 17
+     },
+     "Steel": {
+      "lr": 0.044,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 17
+     },
+     "WindSCADA": {
+      "lr": 0.044,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 17
+     }
+    },
+    "stored": {
+     "BlastFurnace": 789,
+     "EWELD": 789,
+     "MetroPT3": 789,
+     "N2O": 789,
+     "Steel": 789,
+     "WindSCADA": 789
+    },
+    "target": 809
+   },
+   {
+    "drawn": {
+     "lr": 0.076,
+     "phaseformer_attn_dropout": 0.2,
+     "phaseformer_heads": 1,
+     "phaseformer_latent_dim": 3,
+     "phaseformer_period_len": 24,
+     "phaseformer_pos_embed": true,
+     "phaseformer_routers": 9
+    },
+    "fill": "phaseformer_layers",
+    "id": "t63",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.076,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 3,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 9
+     },
+     "EWELD": {
+      "lr": 0.076,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 3,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 9
+     },
+     "MetroPT3": {
+      "lr": 0.076,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 3,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 9
+     },
+     "N2O": {
+      "lr": 0.076,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 3,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 9
+     },
+     "Steel": {
+      "lr": 0.076,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 3,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 9
+     },
+     "WindSCADA": {
+      "lr": 0.076,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 3,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 24,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 9
+     }
+    },
+    "stored": {
+     "BlastFurnace": 766,
+     "EWELD": 766,
+     "MetroPT3": 766,
+     "N2O": 766,
+     "Steel": 766,
+     "WindSCADA": 766
+    },
+    "target": 917
+   },
+   {
+    "drawn": {
+     "lr": 0.002,
+     "phaseformer_attn_dropout": 0.05,
+     "phaseformer_heads": 1,
+     "phaseformer_latent_dim": 1,
+     "phaseformer_period_len": 8,
+     "phaseformer_pos_embed": true,
+     "phaseformer_routers": 18
+    },
+    "fill": "phaseformer_layers",
+    "id": "t64",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.002,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 18
+     },
+     "EWELD": {
+      "lr": 0.002,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 18
+     },
+     "MetroPT3": {
+      "lr": 0.002,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 18
+     },
+     "N2O": {
+      "lr": 0.002,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 18
+     },
+     "Steel": {
+      "lr": 0.002,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 18
+     },
+     "WindSCADA": {
+      "lr": 0.002,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 18
+     }
+    },
+    "stored": {
+     "BlastFurnace": 548,
+     "EWELD": 548,
+     "MetroPT3": 548,
+     "N2O": 548,
+     "Steel": 548,
+     "WindSCADA": 548
+    },
+    "target": 605
+   },
+   {
+    "drawn": {
+     "lr": 0.0043,
+     "phaseformer_attn_dropout": 0.0,
+     "phaseformer_heads": 1,
+     "phaseformer_latent_dim": 1,
+     "phaseformer_period_len": 12,
+     "phaseformer_pos_embed": false,
+     "phaseformer_routers": 38
+    },
+    "fill": "phaseformer_layers",
+    "id": "t65",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.0043,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 38
+     },
+     "EWELD": {
+      "lr": 0.0043,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 38
+     },
+     "MetroPT3": {
+      "lr": 0.0043,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 38
+     },
+     "N2O": {
+      "lr": 0.0043,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 38
+     },
+     "Steel": {
+      "lr": 0.0043,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 38
+     },
+     "WindSCADA": {
+      "lr": 0.0043,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 38
+     }
+    },
+    "stored": {
+     "BlastFurnace": 202,
+     "EWELD": 202,
+     "MetroPT3": 202,
+     "N2O": 202,
+     "Steel": 202,
+     "WindSCADA": 202
+    },
+    "target": 259
+   },
+   {
+    "drawn": {
+     "lr": 0.00049,
+     "phaseformer_attn_dropout": 0.2,
+     "phaseformer_heads": 2,
+     "phaseformer_latent_dim": 2,
+     "phaseformer_layers": 3,
+     "phaseformer_pos_embed": false,
+     "phaseformer_routers": 1
+    },
+    "fill": "phaseformer_period_len",
+    "id": "t66",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.00049,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 1
+     },
+     "EWELD": {
+      "lr": 0.00049,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 1
+     },
+     "MetroPT3": {
+      "lr": 0.00049,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 1
+     },
+     "N2O": {
+      "lr": 0.00049,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 1
+     },
+     "Steel": {
+      "lr": 0.00049,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 1
+     },
+     "WindSCADA": {
+      "lr": 0.00049,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 1
+     }
+    },
+    "stored": {
+     "BlastFurnace": 732,
+     "EWELD": 732,
+     "MetroPT3": 732,
+     "N2O": 732,
+     "Steel": 732,
+     "WindSCADA": 732
+    },
+    "target": 852
+   },
+   {
+    "drawn": {
+     "lr": 1.6e-05,
+     "phaseformer_attn_dropout": 0.0,
+     "phaseformer_heads": 1,
+     "phaseformer_latent_dim": 2,
+     "phaseformer_period_len": 48,
+     "phaseformer_pos_embed": true,
+     "phaseformer_routers": 1
+    },
+    "fill": "phaseformer_layers",
+    "id": "t67",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 1.6e-05,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "EWELD": {
+      "lr": 1.6e-05,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "MetroPT3": {
+      "lr": 1.6e-05,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "N2O": {
+      "lr": 1.6e-05,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "Steel": {
+      "lr": 1.6e-05,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "WindSCADA": {
+      "lr": 1.6e-05,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     }
+    },
+    "stored": {
+     "BlastFurnace": 675,
+     "EWELD": 675,
+     "MetroPT3": 675,
+     "N2O": 675,
+     "Steel": 675,
+     "WindSCADA": 675
+    },
+    "target": 700
+   },
+   {
+    "drawn": {
+     "lr": 7.7e-05,
+     "phaseformer_attn_dropout": 0.05,
+     "phaseformer_heads": 1,
+     "phaseformer_layers": 4,
+     "phaseformer_period_len": 12,
+     "phaseformer_pos_embed": true,
+     "phaseformer_routers": 1
+    },
+    "fill": "phaseformer_latent_dim",
+    "id": "t68",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 7.7e-05,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "EWELD": {
+      "lr": 7.7e-05,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "MetroPT3": {
+      "lr": 7.7e-05,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "N2O": {
+      "lr": 7.7e-05,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "Steel": {
+      "lr": 7.7e-05,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     },
+     "WindSCADA": {
+      "lr": 7.7e-05,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 12,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 1
+     }
+    },
+    "stored": {
+     "BlastFurnace": 396,
+     "EWELD": 396,
+     "MetroPT3": 396,
+     "N2O": 396,
+     "Steel": 396,
+     "WindSCADA": 396
+    },
+    "target": 758
+   },
+   {
+    "drawn": {
+     "lr": 0.033,
+     "phaseformer_attn_dropout": 0.0,
+     "phaseformer_heads": 1,
+     "phaseformer_layers": 1,
+     "phaseformer_period_len": 8,
+     "phaseformer_pos_embed": false,
+     "phaseformer_routers": 6
+    },
+    "fill": "phaseformer_latent_dim",
+    "id": "t69",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.033,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 6
+     },
+     "EWELD": {
+      "lr": 0.033,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 6
+     },
+     "MetroPT3": {
+      "lr": 0.033,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 6
+     },
+     "N2O": {
+      "lr": 0.033,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 6
+     },
+     "Steel": {
+      "lr": 0.033,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 6
+     },
+     "WindSCADA": {
+      "lr": 0.033,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 6
+     }
+    },
+    "stored": {
+     "BlastFurnace": 410,
+     "EWELD": 410,
+     "MetroPT3": 410,
+     "N2O": 410,
+     "Steel": 410,
+     "WindSCADA": 410
+    },
+    "target": 614
+   },
+   {
+    "drawn": {
+     "lr": 0.04,
+     "phaseformer_attn_dropout": 0.2,
+     "phaseformer_heads": 1,
+     "phaseformer_latent_dim": 2,
+     "phaseformer_period_len": 16,
+     "phaseformer_pos_embed": false,
+     "phaseformer_routers": 5
+    },
+    "fill": "phaseformer_layers",
+    "id": "t70",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.04,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 5
+     },
+     "EWELD": {
+      "lr": 0.04,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 5
+     },
+     "MetroPT3": {
+      "lr": 0.04,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 5
+     },
+     "N2O": {
+      "lr": 0.04,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 5
+     },
+     "Steel": {
+      "lr": 0.04,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 5
+     },
+     "WindSCADA": {
+      "lr": 0.04,
+      "phaseformer_attn_dropout": 0.2,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 4,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 5
+     }
+    },
+    "stored": {
+     "BlastFurnace": 693,
+     "EWELD": 693,
+     "MetroPT3": 693,
+     "N2O": 693,
+     "Steel": 693,
+     "WindSCADA": 693
+    },
+    "target": 785
+   },
+   {
+    "drawn": {
+     "lr": 0.034,
+     "phaseformer_attn_dropout": 0.0,
+     "phaseformer_heads": 1,
+     "phaseformer_latent_dim": 1,
+     "phaseformer_layers": 3,
+     "phaseformer_pos_embed": true,
+     "phaseformer_routers": 19
+    },
+    "fill": "phaseformer_period_len",
+    "id": "t71",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.034,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 3,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 19
+     },
+     "EWELD": {
+      "lr": 0.034,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 3,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 19
+     },
+     "MetroPT3": {
+      "lr": 0.034,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 3,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 19
+     },
+     "N2O": {
+      "lr": 0.034,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 3,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 19
+     },
+     "Steel": {
+      "lr": 0.034,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 3,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 19
+     },
+     "WindSCADA": {
+      "lr": 0.034,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 3,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 19
+     }
+    },
+    "stored": {
+     "BlastFurnace": 878,
+     "EWELD": 878,
+     "MetroPT3": 878,
+     "N2O": 878,
+     "Steel": 878,
+     "WindSCADA": 878
+    },
+    "target": 962
+   },
+   {
+    "drawn": {
+     "lr": 0.071,
+     "phaseformer_attn_dropout": 0.05,
+     "phaseformer_heads": 4,
+     "phaseformer_layers": 1,
+     "phaseformer_period_len": 16,
+     "phaseformer_pos_embed": true,
+     "phaseformer_routers": 14
+    },
+    "fill": "phaseformer_latent_dim",
+    "id": "t72",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.071,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 4,
+      "phaseformer_latent_dim": 4,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 14
+     },
+     "EWELD": {
+      "lr": 0.071,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 4,
+      "phaseformer_latent_dim": 4,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 14
+     },
+     "MetroPT3": {
+      "lr": 0.071,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 4,
+      "phaseformer_latent_dim": 4,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 14
+     },
+     "N2O": {
+      "lr": 0.071,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 4,
+      "phaseformer_latent_dim": 4,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 14
+     },
+     "Steel": {
+      "lr": 0.071,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 4,
+      "phaseformer_latent_dim": 4,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 14
+     },
+     "WindSCADA": {
+      "lr": 0.071,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 4,
+      "phaseformer_latent_dim": 4,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 14
+     }
+    },
+    "stored": {
+     "BlastFurnace": 705,
+     "EWELD": 705,
+     "MetroPT3": 705,
+     "N2O": 705,
+     "Steel": 705,
+     "WindSCADA": 705
+    },
+    "target": 949
+   },
+   {
+    "drawn": {
+     "lr": 0.00087,
+     "phaseformer_attn_dropout": 0.0,
+     "phaseformer_heads": 2,
+     "phaseformer_latent_dim": 2,
+     "phaseformer_layers": 3,
+     "phaseformer_period_len": 48,
+     "phaseformer_pos_embed": false
+    },
+    "fill": "phaseformer_routers",
+    "id": "t73",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.00087,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 61
+     },
+     "EWELD": {
+      "lr": 0.00087,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 61
+     },
+     "MetroPT3": {
+      "lr": 0.00087,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 61
+     },
+     "N2O": {
+      "lr": 0.00087,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 61
+     },
+     "Steel": {
+      "lr": 0.00087,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 61
+     },
+     "WindSCADA": {
+      "lr": 0.00087,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 61
+     }
+    },
+    "stored": {
+     "BlastFurnace": 747,
+     "EWELD": 747,
+     "MetroPT3": 747,
+     "N2O": 747,
+     "Steel": 747,
+     "WindSCADA": 747
+    },
+    "target": 751
+   },
+   {
+    "drawn": {
+     "lr": 2.3e-05,
+     "phaseformer_attn_dropout": 0.1,
+     "phaseformer_heads": 1,
+     "phaseformer_latent_dim": 1,
+     "phaseformer_period_len": 48,
+     "phaseformer_pos_embed": true,
+     "phaseformer_routers": 318
+    },
+    "fill": "phaseformer_layers",
+    "id": "t74",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 2.3e-05,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 318
+     },
+     "EWELD": {
+      "lr": 2.3e-05,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 318
+     },
+     "MetroPT3": {
+      "lr": 2.3e-05,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 318
+     },
+     "N2O": {
+      "lr": 2.3e-05,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 318
+     },
+     "Steel": {
+      "lr": 2.3e-05,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 318
+     },
+     "WindSCADA": {
+      "lr": 2.3e-05,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 318
+     }
+    },
+    "stored": {
+     "BlastFurnace": 434,
+     "EWELD": 434,
+     "MetroPT3": 434,
+     "N2O": 434,
+     "Steel": 434,
+     "WindSCADA": 434
+    },
+    "target": 698
+   },
+   {
+    "drawn": {
+     "lr": 0.00075,
+     "phaseformer_attn_dropout": 0.0,
+     "phaseformer_heads": 1,
+     "phaseformer_latent_dim": 1,
+     "phaseformer_layers": 2,
+     "phaseformer_period_len": 48,
+     "phaseformer_pos_embed": true
+    },
+    "fill": "phaseformer_routers",
+    "id": "t75",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.00075,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 339
+     },
+     "EWELD": {
+      "lr": 0.00075,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 339
+     },
+     "MetroPT3": {
+      "lr": 0.00075,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 339
+     },
+     "N2O": {
+      "lr": 0.00075,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 339
+     },
+     "Steel": {
+      "lr": 0.00075,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 339
+     },
+     "WindSCADA": {
+      "lr": 0.00075,
+      "phaseformer_attn_dropout": 0.0,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 339
+     }
+    },
+    "stored": {
+     "BlastFurnace": 884,
+     "EWELD": 884,
+     "MetroPT3": 884,
+     "N2O": 884,
+     "Steel": 884,
+     "WindSCADA": 884
+    },
+    "target": 884
+   },
+   {
+    "drawn": {
+     "lr": 0.23,
+     "phaseformer_attn_dropout": 0.1,
+     "phaseformer_heads": 2,
+     "phaseformer_latent_dim": 2,
+     "phaseformer_layers": 1,
+     "phaseformer_period_len": 6,
+     "phaseformer_pos_embed": true
+    },
+    "fill": "phaseformer_routers",
+    "id": "t76",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.23,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 222
+     },
+     "EWELD": {
+      "lr": 0.23,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 222
+     },
+     "MetroPT3": {
+      "lr": 0.23,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 222
+     },
+     "N2O": {
+      "lr": 0.23,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 222
+     },
+     "Steel": {
+      "lr": 0.23,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 222
+     },
+     "WindSCADA": {
+      "lr": 0.23,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 2,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 1,
+      "phaseformer_period_len": 6,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 222
+     }
+    },
+    "stored": {
+     "BlastFurnace": 952,
+     "EWELD": 952,
+     "MetroPT3": 952,
+     "N2O": 952,
+     "Steel": 952,
+     "WindSCADA": 952
+    },
+    "target": 953
+   },
+   {
+    "drawn": {
+     "lr": 0.0017,
+     "phaseformer_attn_dropout": 0.05,
+     "phaseformer_heads": 4,
+     "phaseformer_layers": 2,
+     "phaseformer_period_len": 48,
+     "phaseformer_pos_embed": false,
+     "phaseformer_routers": 10
+    },
+    "fill": "phaseformer_latent_dim",
+    "id": "t77",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.0017,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 4,
+      "phaseformer_latent_dim": 4,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 10
+     },
+     "EWELD": {
+      "lr": 0.0017,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 4,
+      "phaseformer_latent_dim": 4,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 10
+     },
+     "MetroPT3": {
+      "lr": 0.0017,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 4,
+      "phaseformer_latent_dim": 4,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 10
+     },
+     "N2O": {
+      "lr": 0.0017,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 4,
+      "phaseformer_latent_dim": 4,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 10
+     },
+     "Steel": {
+      "lr": 0.0017,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 4,
+      "phaseformer_latent_dim": 4,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 10
+     },
+     "WindSCADA": {
+      "lr": 0.0017,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 4,
+      "phaseformer_latent_dim": 4,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 48,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 10
+     }
+    },
+    "stored": {
+     "BlastFurnace": 853,
+     "EWELD": 853,
+     "MetroPT3": 853,
+     "N2O": 853,
+     "Steel": 853,
+     "WindSCADA": 853
+    },
+    "target": 942
+   },
+   {
+    "drawn": {
+     "lr": 0.019,
+     "phaseformer_attn_dropout": 0.1,
+     "phaseformer_heads": 1,
+     "phaseformer_latent_dim": 1,
+     "phaseformer_layers": 5,
+     "phaseformer_pos_embed": true,
+     "phaseformer_routers": 21
+    },
+    "fill": "phaseformer_period_len",
+    "id": "t78",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.019,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 5,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 21
+     },
+     "EWELD": {
+      "lr": 0.019,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 5,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 21
+     },
+     "MetroPT3": {
+      "lr": 0.019,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 5,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 21
+     },
+     "N2O": {
+      "lr": 0.019,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 5,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 21
+     },
+     "Steel": {
+      "lr": 0.019,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 5,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 21
+     },
+     "WindSCADA": {
+      "lr": 0.019,
+      "phaseformer_attn_dropout": 0.1,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 5,
+      "phaseformer_period_len": 16,
+      "phaseformer_pos_embed": true,
+      "phaseformer_routers": 21
+     }
+    },
+    "stored": {
+     "BlastFurnace": 533,
+     "EWELD": 533,
+     "MetroPT3": 533,
+     "N2O": 533,
+     "Steel": 533,
+     "WindSCADA": 533
+    },
+    "target": 565
+   },
+   {
+    "drawn": {
+     "lr": 0.01,
+     "phaseformer_attn_dropout": 0.05,
+     "phaseformer_heads": 1,
+     "phaseformer_latent_dim": 2,
+     "phaseformer_period_len": 8,
+     "phaseformer_pos_embed": false,
+     "phaseformer_routers": 5
+    },
+    "fill": "phaseformer_layers",
+    "id": "t79",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.01,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 5
+     },
+     "EWELD": {
+      "lr": 0.01,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 5
+     },
+     "MetroPT3": {
+      "lr": 0.01,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 5
+     },
+     "N2O": {
+      "lr": 0.01,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 5
+     },
+     "Steel": {
+      "lr": 0.01,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 5
+     },
+     "WindSCADA": {
+      "lr": 0.01,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 2,
+      "phaseformer_layers": 3,
+      "phaseformer_period_len": 8,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 5
+     }
+    },
+    "stored": {
+     "BlastFurnace": 756,
+     "EWELD": 756,
+     "MetroPT3": 756,
+     "N2O": 756,
+     "Steel": 756,
+     "WindSCADA": 756
+    },
+    "target": 923
+   },
+   {
+    "drawn": {
+     "lr": 0.06,
+     "phaseformer_attn_dropout": 0.05,
+     "phaseformer_heads": 1,
+     "phaseformer_layers": 2,
+     "phaseformer_period_len": 4,
+     "phaseformer_pos_embed": false,
+     "phaseformer_routers": 43
+    },
+    "fill": "phaseformer_latent_dim",
+    "id": "t80",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.06,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 4,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 43
+     },
+     "EWELD": {
+      "lr": 0.06,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 4,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 43
+     },
+     "MetroPT3": {
+      "lr": 0.06,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 4,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 43
+     },
+     "N2O": {
+      "lr": 0.06,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 4,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 43
+     },
+     "Steel": {
+      "lr": 0.06,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 4,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 43
+     },
+     "WindSCADA": {
+      "lr": 0.06,
+      "phaseformer_attn_dropout": 0.05,
+      "phaseformer_heads": 1,
+      "phaseformer_latent_dim": 1,
+      "phaseformer_layers": 2,
+      "phaseformer_period_len": 4,
+      "phaseformer_pos_embed": false,
+      "phaseformer_routers": 43
+     }
+    },
+    "stored": {
+     "BlastFurnace": 614,
+     "EWELD": 614,
+     "MetroPT3": 614,
+     "N2O": 614,
+     "Steel": 614,
+     "WindSCADA": 614
+    },
+    "target": 848
    }
   ],
   "SparseTSF": [
@@ -26151,8 +29511,16 @@
     "phaseformer_layers": 19,
     "phaseformer_routers": 900
    },
+   "lr_widened": [
+    1e-05,
+    1.0
+   ],
    "rejected": {
     "no_fit": 351,
+    "repeat": 0
+   },
+   "rejected_lr_widened": {
+    "no_fit": 315,
     "repeat": 0
    },
    "size_keys": [

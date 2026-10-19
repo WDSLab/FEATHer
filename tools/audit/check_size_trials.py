@@ -16,9 +16,9 @@ import protocol as P  # noqa: E402
 tier = sys.argv[sys.argv.index("--tier") + 1] if "--tier" in sys.argv else "1k"
 J = json.load(open(P.SIZE_TRIALS_FILE, encoding="utf-8"))
 meta_all = J.get("_meta" if tier == "1k" else f"_meta_{tier}", {})
-lo, hi = P.SIZE_COMMON["lr"]
 for model in P.SIZE_MODELS:
     trials, meta = J.get(tier, {}).get(model), meta_all.get(model, {})
+    lo, hi = P.size_lr_range(tier, model)
     if trials is None:
         print(f"\n== {model}: not drawn")
         continue

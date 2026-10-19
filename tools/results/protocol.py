@@ -82,6 +82,7 @@ _size = _experiments("size")
 SIZE_TIERS, SIZE_SELECT_HS = _size["tiers"], _size["select_horizons"]
 SIZE_SELECT_BUDGET = _size["select_budget"]          # epochs / patience of the selection runs (role sizesel)
 SIZE_TRIALS, SIZE_DRAW_SEED, SIZE_COMMON = _size["trials"], _size["draw_seed"], _size["common"]
+SIZE_LR_WIDENED = _size.get("lr_widened") or {}  # "<tier>|<model>" -> widened lr range (edge rule)
 SIZE_SPACE = _size["models"]                     # model -> {key: size / segment / period / switch / dropout / mix / [list] / unused}
 SIZE_MODELS = list(SIZE_SPACE)
 SIZE_TRIALS_FILE = os.path.join(ROOT, "docs", "size_trials.json")
@@ -91,6 +92,11 @@ CHOSEN_SIZE_FILE = os.path.join(ROOT, "docs", "chosen_size.json")
 def size_trials(tier, model):
     """Drawn trials of one model in one tier: [{"id", "author", "knobs": {data: {key: value, lr}}, "stored", ...}]."""
     return _load(SIZE_TRIALS_FILE).get(tier, {}).get(model, [])
+
+
+def size_lr_range(tier, model):
+    """The lr range of one model's search: common.lr, or the widened range once the edge rule applied."""
+    return SIZE_LR_WIDENED.get(f"{tier}|{model}", SIZE_COMMON["lr"])
 
 
 def size_config_id(tier, trial_id, knobs):

@@ -276,7 +276,7 @@ def draw_value(rng, kind, cap=None):
 def draw_trial(rng, model, keys, caps):
     """One random draw -> trial dict, or None if it cannot fit on all datasets."""
     sp = space(model)
-    lo, hi = (math.log10(x) for x in P.SIZE_COMMON["lr"])
+    lo, hi = (math.log10(x) for x in P.size_lr_range(TIER, model))
     drawn = {"lr": float(f"{10 ** rng.uniform(lo, hi):.2g}")}
     target = rng.uniform(0, BUDGET)                    # chip: the same fraction of each dataset's cap
     fill_key = rng.choice(keys) if keys else None
@@ -325,11 +325,16 @@ def build(model):
     if TIER == "chip":
         CAP = chip_caps(model)
     caps = {k: count_cap(model, k) for k, kind in sp.items() if kind == "size" and k not in DEPENDENT}
-    trials, seen = [], set()
-    rng = random.Random(f"{P.SIZE_DRAW_SEED}|{model}" + ("" if TIER == "1k" else f"|{TIER}"))
+    # edge rule (size.yaml lr_widened): the committed first trials stay, `trials` more come from the widened lr range
+    wide = f"{TIER}|{model}" in P.SIZE_LR_WIDENED
+    trials = P.size_trials(TIER, model)[:P.SIZE_TRIALS] if wide else []
+    if wide and len(trials) != P.SIZE_TRIALS:
+        raise RuntimeError(f"{TIER} {model}: lr_widened needs the first {P.SIZE_TRIALS} trials drawn and committed")
+    seen = {json.dumps(t["knobs"], sort_keys=True) for t in trials}
+    rng = random.Random(f"{P.SIZE_DRAW_SEED}|{model}" + ("" if TIER == "1k" else f"|{TIER}") + ("|lr-wide" if wide else ""))
     rejected = {"no_fit": 0, "repeat": 0}
     CHIP_OFF[0] = 0
-    while len(trials) < P.SIZE_TRIALS:
+    while len(trials) < P.SIZE_TRIALS * (2 if wide else 1):
         for _ in range(MAX_DRAWS):
             t = draw_trial(rng, model, keys, caps)
             if t is None:
@@ -372,7 +377,10 @@ def main(write, models, tier_name="1k"):
             meta = {"size_keys": keys, "count_caps": caps, "rejected": rejected}
             if TIER != "1k":
                 meta["cap"] = CAP
-            out.setdefault("_meta" if TIER == "1k" else f"_meta_{TIER}", {})[model] = meta
+            metas = out.setdefault("_meta" if TIER == "1k" else f"_meta_{TIER}", {})
+            if f"{TIER}|{model}" in P.SIZE_LR_WIDENED:               # keep the first draw's record, add the widened one
+                meta = {**metas[model], "lr_widened": P.size_lr_range(TIER, model), "rejected_lr_widened": rejected}
+            metas[model] = meta
             json.dump(out, open(path, "w", encoding="utf-8"), indent=1, sort_keys=True)
             print("written", path, flush=True)
 
