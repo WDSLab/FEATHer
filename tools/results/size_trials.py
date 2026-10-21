@@ -83,7 +83,7 @@ def stored(model, data, knobs, all_h=False):
 # ---- chip tier: real firmware builds (deployment/board, one at a time) ---------------------------------------
 BOARD = {"CMoS": "cmos", "SparseTSF_MLP": "stsf_mlp", "TimeBase": "timebase", "PhaseFormer": "phaseformer",
          "DiPE_Linear": "dipe", "FITS": "fits", "SparseTSF": "stsf", "MixLinear": "mixlinear",
-         "FEATHer_mix": "feather_mix", "FEATHer_CI": "feather_ci"}
+         "FEATHer_mix": "feather_mix", "FEATHer_CI": "feather_ci", "FEATHer_CI_noMLP": "feather_ci"}
 # training-only keys: no effect on the firmware (left out of the build so equal firmware is built once)
 TRAIN_ONLY = {"lr", "cmos_dropout", "cmos_use_pi", "cmos_period", "phaseformer_attn_dropout", "timebase_orthogonal_weight",
               "timebase_use_orthogonal", "dipe_loss_alpha", "lambda_spec", "head_mode"}

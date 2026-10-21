@@ -32,6 +32,7 @@ SELECT_SEED = 2025
 
 HEAVY = ["PatchTST", "TimeMixer", "TQNet", "LMS_AutoTSF", "TimesNet", "iTransformer", "MDMLP_EIA"]
 FEATHER = ["FEATHer_mix", "FEATHer_CI"]          # result names; both train the registry model "FEATHer"
+FEATHER_NOMLP = "FEATHer_CI_noMLP"               # 10-21: FEATHer_CI with the residual MLP off (size study only)
 LIGHT = ["SparseTSF", "SparseTSF_MLP", "DLinear", "CycleNet", "DiPE_Linear", "MixLinear", "FITS",
          "CMoS", "TimeBase", "PhaseFormer", "SAMformer"]
 ON_CHIP = ["SparseTSF", "SparseTSF_MLP", "MixLinear", "DiPE_Linear", "FITS", "CMoS", "TimeBase", "PhaseFormer"]
@@ -169,7 +170,7 @@ def chosen_ltsf():
 def registry_name(model, config_id=""):
     if config_id.startswith("ctrl:"):
         return CONTROL_ARMS[_ctrl(config_id)[0]][0]
-    return "FEATHer" if model in FEATHER else model
+    return "FEATHer" if model in FEATHER or model == FEATHER_NOMLP else model
 
 
 def _merge(model, data, H, config_id=""):
@@ -202,8 +203,10 @@ def resolve(model, group, data, H, config_id):
         return lr, loss, ov
     elif config_id in ("frozen", "official", "official-exc", "ref-default"):
         s = _merge(model, data, H, config_id)
-        if model == "FEATHer_CI" and group == "mfg":
+        if model in ("FEATHer_CI", FEATHER_NOMLP) and group == "mfg":
             s["channel_mode"] = "ci_full"
+        if model == FEATHER_NOMLP:
+            s["use_residual_mlp"] = False
         if model == "FEATHer_mix" and group == "ltsf":
             s["channel_mode"] = "mix"
     elif config_id.startswith("cand:"):
@@ -264,7 +267,7 @@ def ltsf_config_id(model, data):
 
 def mfg_main_config_id(model):
     """config_id of the main industrial runs, or None while a model's setting is not chosen yet."""
-    if model in FEATHER:
+    if model in FEATHER or model == FEATHER_NOMLP:
         return "frozen"
     if model in HEAVY:
         return "ref-default"

@@ -92,7 +92,7 @@ def plan(stage, models=None, tiers=None):
         chosen = P.chosen_size()
         # FEATHer runs only when named (--models FEATHer_mix,FEATHer_CI): its trials are fixed now, run after the baselines
         for tier in (tiers or P.SIZE_TIERS):
-            for m in (models or [m for m in P.SIZE_MODELS if m not in P.FEATHER]):
+            for m in (models or [m for m in P.SIZE_MODELS if m not in P.FEATHER + [P.FEATHER_NOMLP]]):
                 trials = P.size_trials(tier, m)
                 if not trials:
                     print(f"  [skip] {tier} {m}: no trials (not drawn yet, or no setting fits this tier)")

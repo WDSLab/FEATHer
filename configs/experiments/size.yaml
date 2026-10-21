@@ -123,3 +123,8 @@ models:
     front: unused                       # control arm = a different model (no bands)
     mix_sep: unused                     # control arm
   FEATHer_CI: *feather
+  # 10-21 (written before any run of it): FEATHer_CI with the residual MLP off (protocol.FEATHER_NOMLP).  Its trials are
+  # FEATHer_CI's 40 per tier, copied unchanged (mlp_rank stays in the setting but has no effect), so the two pair up.
+  # Choice between the two, per tier, on VALIDATION only: over the 6 datasets x H96 / H720 the picked trial's val loss
+  # of each; the variant lower on more of the 12 cells is the tier's CI model (tie: noMLP, the smaller / faster one).
+  FEATHer_CI_noMLP: *feather
