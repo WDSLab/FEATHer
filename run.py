@@ -208,6 +208,8 @@ def main():
     ap.add_argument("--data", default="", help="comma list of datasets (default: all of the stage)")
     ap.add_argument("--configs", default="", help="comma list of config_ids (default: all)")
     ap.add_argument("--tier", default="", help="size stages only: comma list of tiers (1k,chip; default: all)")
+    ap.add_argument("--trials", default="", help="size stages only: trial id range, e.g. t41-t80 (the lr-widened "
+                    "trials, so another machine running the first 40 is not duplicated)")
     ap.add_argument("--limit", type=int, default=0, help="run only the first N worker invocations (testing)")
     ap.add_argument("--save_model", action="store_true", help="also save each trained state dict "
                     "(results/checkpoints/<exp_tag>/<model>/...; needed for board export and replay)")
@@ -225,6 +227,9 @@ def main():
     if a.configs:
         keep = {x.strip() for x in a.configs.split(",")}
         cells = [c for c in cells if c["config_id"] in keep]
+    if a.trials:
+        lo, hi = (int(x.strip().lstrip("t")) for x in a.trials.split("-"))
+        cells = [c for c in cells if lo <= int(c["config_id"].split(":")[1].split("+")[0].lstrip("t")) <= hi]
     for c in cells:
         c["hparams"] = P.hparams(c["model"], c["group"], c["data"], c["pred_len"], c["config_id"], c["role"])
     done = done_runs()

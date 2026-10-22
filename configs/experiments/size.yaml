@@ -41,6 +41,7 @@ common:
 lr_widened:
   1k|PhaseFormer: [1.0e-5, 1.0]         # 10-19: lr 0.017 (top decade) on 4/4 finished datasets
   1k|MixLinear: [1.0e-5, 1.0]           # 10-20: top decade (0.014-0.072) on 4/6 datasets
+  chip|MixLinear: [1.0e-5, 1.0]         # 10-22: top decade (0.018-0.095) on 3 of the 4 finished datasets
 
 # Every hyperparameter the wrapper reads, and how it is searched:
 #   size    = count / width / depth: drawn from 1 .. the largest value that can fit (or filled)

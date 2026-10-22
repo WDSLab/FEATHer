@@ -36179,9 +36179,18 @@
     "WindSCADA": 28993
    },
    "count_caps": {},
+   "lr_widened": [
+    1e-05,
+    1.0
+   ],
    "rejected": {
     "chip_off": 0,
     "no_fit": 1,
+    "repeat": 0
+   },
+   "rejected_lr_widened": {
+    "chip_off": 0,
+    "no_fit": 5,
     "repeat": 0
    },
    "size_keys": [
@@ -66332,6 +66341,3286 @@
      "WindSCADA": 497
     },
     "target": 236
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 16592,
+      "ram_B": 13744
+     },
+     "EWELD": {
+      "flash_B": 16584,
+      "ram_B": 8368
+     },
+     "MetroPT3": {
+      "flash_B": 16584,
+      "ram_B": 5680
+     },
+     "N2O": {
+      "flash_B": 16584,
+      "ram_B": 8368
+     },
+     "Steel": {
+      "flash_B": 16584,
+      "ram_B": 5296
+     },
+     "WindSCADA": {
+      "flash_B": 16584,
+      "ram_B": 8368
+     }
+    },
+    "drawn": {
+     "lr": 0.17,
+     "mixlinear_alpha": 0.3,
+     "mixlinear_period_len": 16
+    },
+    "fill": "mixlinear_lpf",
+    "id": "t41",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.17,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 6,
+      "mixlinear_period_len": 16
+     },
+     "EWELD": {
+      "lr": 0.17,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 6,
+      "mixlinear_period_len": 16
+     },
+     "MetroPT3": {
+      "lr": 0.17,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 6,
+      "mixlinear_period_len": 16
+     },
+     "N2O": {
+      "lr": 0.17,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 6,
+      "mixlinear_period_len": 16
+     },
+     "Steel": {
+      "lr": 0.17,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 6,
+      "mixlinear_period_len": 16
+     },
+     "WindSCADA": {
+      "lr": 0.17,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 6,
+      "mixlinear_period_len": 16
+     }
+    },
+    "stored": {
+     "BlastFurnace": 263,
+     "EWELD": 263,
+     "MetroPT3": 263,
+     "N2O": 263,
+     "Steel": 263,
+     "WindSCADA": 263
+    },
+    "target": 907
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 20532,
+      "ram_B": 15016
+     },
+     "EWELD": {
+      "flash_B": 20524,
+      "ram_B": 9640
+     },
+     "MetroPT3": {
+      "flash_B": 20524,
+      "ram_B": 6952
+     },
+     "N2O": {
+      "flash_B": 20524,
+      "ram_B": 9640
+     },
+     "Steel": {
+      "flash_B": 20524,
+      "ram_B": 6568
+     },
+     "WindSCADA": {
+      "flash_B": 20524,
+      "ram_B": 9640
+     }
+    },
+    "drawn": {
+     "lr": 2.6e-05,
+     "mixlinear_alpha": 0.7,
+     "mixlinear_period_len": 4
+    },
+    "fill": "mixlinear_lpf",
+    "id": "t42",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 2.6e-05,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 24,
+      "mixlinear_period_len": 4
+     },
+     "EWELD": {
+      "lr": 2.6e-05,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 24,
+      "mixlinear_period_len": 4
+     },
+     "MetroPT3": {
+      "lr": 2.6e-05,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 24,
+      "mixlinear_period_len": 4
+     },
+     "N2O": {
+      "lr": 2.6e-05,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 24,
+      "mixlinear_period_len": 4
+     },
+     "Steel": {
+      "lr": 2.6e-05,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 24,
+      "mixlinear_period_len": 4
+     },
+     "WindSCADA": {
+      "lr": 2.6e-05,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 24,
+      "mixlinear_period_len": 4
+     }
+    },
+    "stored": {
+     "BlastFurnace": 961,
+     "EWELD": 961,
+     "MetroPT3": 961,
+     "N2O": 961,
+     "Steel": 961,
+     "WindSCADA": 961
+    },
+    "target": 530
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 18688,
+      "ram_B": 14432
+     },
+     "EWELD": {
+      "flash_B": 18680,
+      "ram_B": 9056
+     },
+     "MetroPT3": {
+      "flash_B": 18680,
+      "ram_B": 6368
+     },
+     "N2O": {
+      "flash_B": 18680,
+      "ram_B": 9056
+     },
+     "Steel": {
+      "flash_B": 18680,
+      "ram_B": 5984
+     },
+     "WindSCADA": {
+      "flash_B": 18680,
+      "ram_B": 9056
+     }
+    },
+    "drawn": {
+     "lr": 5.6e-05,
+     "mixlinear_alpha": 0.3,
+     "mixlinear_period_len": 6
+    },
+    "fill": "mixlinear_lpf",
+    "id": "t43",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 5.6e-05,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 16,
+      "mixlinear_period_len": 6
+     },
+     "EWELD": {
+      "lr": 5.6e-05,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 16,
+      "mixlinear_period_len": 6
+     },
+     "MetroPT3": {
+      "lr": 5.6e-05,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 16,
+      "mixlinear_period_len": 6
+     },
+     "N2O": {
+      "lr": 5.6e-05,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 16,
+      "mixlinear_period_len": 6
+     },
+     "Steel": {
+      "lr": 5.6e-05,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 16,
+      "mixlinear_period_len": 6
+     },
+     "WindSCADA": {
+      "lr": 5.6e-05,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 16,
+      "mixlinear_period_len": 6
+     }
+    },
+    "stored": {
+     "BlastFurnace": 639,
+     "EWELD": 639,
+     "MetroPT3": 639,
+     "N2O": 639,
+     "Steel": 639,
+     "WindSCADA": 639
+    },
+    "target": 898
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 24512,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 24504,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 24504,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 24504,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 24504,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 24504,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 0.00075,
+     "mixlinear_alpha": 0.3,
+     "mixlinear_lpf@u": 0.030557631738450275
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t44",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.00075,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 0.00075,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 0.00075,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 0.00075,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 0.00075,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 0.00075,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1713,
+     "EWELD": 1713,
+     "MetroPT3": 1713,
+     "N2O": 1713,
+     "Steel": 1713,
+     "WindSCADA": 1713
+    },
+    "target": 402
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 18072,
+      "ram_B": 14432
+     },
+     "EWELD": {
+      "flash_B": 18064,
+      "ram_B": 9056
+     },
+     "MetroPT3": {
+      "flash_B": 18064,
+      "ram_B": 6368
+     },
+     "N2O": {
+      "flash_B": 18064,
+      "ram_B": 9056
+     },
+     "Steel": {
+      "flash_B": 18064,
+      "ram_B": 5984
+     },
+     "WindSCADA": {
+      "flash_B": 18064,
+      "ram_B": 9056
+     }
+    },
+    "drawn": {
+     "lr": 1.5e-05,
+     "mixlinear_alpha": 0.3,
+     "mixlinear_lpf@u": 0.14381741561535455
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t45",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 1.5e-05,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 6
+     },
+     "EWELD": {
+      "lr": 1.5e-05,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 6
+     },
+     "MetroPT3": {
+      "lr": 1.5e-05,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 6
+     },
+     "N2O": {
+      "lr": 1.5e-05,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 6
+     },
+     "Steel": {
+      "lr": 1.5e-05,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 6
+     },
+     "WindSCADA": {
+      "lr": 1.5e-05,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 6
+     }
+    },
+    "stored": {
+     "BlastFurnace": 579,
+     "EWELD": 579,
+     "MetroPT3": 579,
+     "N2O": 579,
+     "Steel": 579,
+     "WindSCADA": 579
+    },
+    "target": 25
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 25324,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 25316,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 25316,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 25316,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 25316,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 25316,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 0.57,
+     "mixlinear_alpha": 0.1,
+     "mixlinear_lpf@u": 0.582865419347545
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t46",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.57,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 10,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 0.57,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 10,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 0.57,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 10,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 0.57,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 10,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 0.57,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 10,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 0.57,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 10,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1749,
+     "EWELD": 1749,
+     "MetroPT3": 1749,
+     "N2O": 1749,
+     "Steel": 1749,
+     "WindSCADA": 1749
+    },
+    "target": 295
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 25668,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 25660,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 25660,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 25660,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 25660,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 25660,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 0.086,
+     "mixlinear_alpha": 0.7,
+     "mixlinear_lpf@u": 0.8962962447911703
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t47",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.086,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 32,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 0.086,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 32,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 0.086,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 32,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 0.086,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 32,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 0.086,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 32,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 0.086,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 32,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1837,
+     "EWELD": 1837,
+     "MetroPT3": 1837,
+     "N2O": 1837,
+     "Steel": 1837,
+     "WindSCADA": 1837
+    },
+    "target": 251
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 25244,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 25236,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 25236,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 25236,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 25236,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 25236,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 0.022,
+     "mixlinear_alpha": 0.7,
+     "mixlinear_lpf@u": 0.39467950839838184
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t48",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.022,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 5,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 0.022,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 5,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 0.022,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 5,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 0.022,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 5,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 0.022,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 5,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 0.022,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 5,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1729,
+     "EWELD": 1729,
+     "MetroPT3": 1729,
+     "N2O": 1729,
+     "Steel": 1729,
+     "WindSCADA": 1729
+    },
+    "target": 338
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 25908,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 25900,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 25900,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 25900,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 25900,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 25900,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 0.078,
+     "mixlinear_alpha": 0.5,
+     "mixlinear_period_len": 2
+    },
+    "fill": "mixlinear_lpf",
+    "id": "t49",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.078,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 48,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 0.078,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 48,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 0.078,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 48,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 0.078,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 48,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 0.078,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 48,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 0.078,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 48,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1901,
+     "EWELD": 1901,
+     "MetroPT3": 1901,
+     "N2O": 1901,
+     "Steel": 1901,
+     "WindSCADA": 1901
+    },
+    "target": 356
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 24512,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 24504,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 24504,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 24504,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 24504,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 24504,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 1.5e-05,
+     "mixlinear_alpha": 0.1,
+     "mixlinear_lpf@u": 0.03046223035933071
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t50",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 1.5e-05,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 1.5e-05,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 1.5e-05,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 1.5e-05,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 1.5e-05,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 1.5e-05,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1713,
+     "EWELD": 1713,
+     "MetroPT3": 1713,
+     "N2O": 1713,
+     "Steel": 1713,
+     "WindSCADA": 1713
+    },
+    "target": 859
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 16120,
+      "ram_B": 13584
+     },
+     "EWELD": {
+      "flash_B": 16112,
+      "ram_B": 8208
+     },
+     "MetroPT3": {
+      "flash_B": 16112,
+      "ram_B": 5520
+     },
+     "N2O": {
+      "flash_B": 16112,
+      "ram_B": 8208
+     },
+     "Steel": {
+      "flash_B": 16112,
+      "ram_B": 5136
+     },
+     "WindSCADA": {
+      "flash_B": 16112,
+      "ram_B": 8208
+     }
+    },
+    "drawn": {
+     "lr": 5.8e-05,
+     "mixlinear_alpha": 0.1,
+     "mixlinear_period_len": 24
+    },
+    "fill": "mixlinear_lpf",
+    "id": "t51",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 5.8e-05,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "EWELD": {
+      "lr": 5.8e-05,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "MetroPT3": {
+      "lr": 5.8e-05,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "N2O": {
+      "lr": 5.8e-05,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "Steel": {
+      "lr": 5.8e-05,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "WindSCADA": {
+      "lr": 5.8e-05,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     }
+    },
+    "stored": {
+     "BlastFurnace": 185,
+     "EWELD": 185,
+     "MetroPT3": 185,
+     "N2O": 185,
+     "Steel": 185,
+     "WindSCADA": 185
+    },
+    "target": 578
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 20532,
+      "ram_B": 15016
+     },
+     "EWELD": {
+      "flash_B": 20524,
+      "ram_B": 9640
+     },
+     "MetroPT3": {
+      "flash_B": 20524,
+      "ram_B": 6952
+     },
+     "N2O": {
+      "flash_B": 20524,
+      "ram_B": 9640
+     },
+     "Steel": {
+      "flash_B": 20524,
+      "ram_B": 6568
+     },
+     "WindSCADA": {
+      "flash_B": 20524,
+      "ram_B": 9640
+     }
+    },
+    "drawn": {
+     "lr": 0.3,
+     "mixlinear_alpha": 0.1,
+     "mixlinear_period_len": 4
+    },
+    "fill": "mixlinear_lpf",
+    "id": "t52",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.3,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 24,
+      "mixlinear_period_len": 4
+     },
+     "EWELD": {
+      "lr": 0.3,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 24,
+      "mixlinear_period_len": 4
+     },
+     "MetroPT3": {
+      "lr": 0.3,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 24,
+      "mixlinear_period_len": 4
+     },
+     "N2O": {
+      "lr": 0.3,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 24,
+      "mixlinear_period_len": 4
+     },
+     "Steel": {
+      "lr": 0.3,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 24,
+      "mixlinear_period_len": 4
+     },
+     "WindSCADA": {
+      "lr": 0.3,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 24,
+      "mixlinear_period_len": 4
+     }
+    },
+    "stored": {
+     "BlastFurnace": 961,
+     "EWELD": 961,
+     "MetroPT3": 961,
+     "N2O": 961,
+     "Steel": 961,
+     "WindSCADA": 961
+    },
+    "target": 585
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 15656,
+      "ram_B": 13448
+     },
+     "EWELD": {
+      "flash_B": 15648,
+      "ram_B": 8072
+     },
+     "MetroPT3": {
+      "flash_B": 15648,
+      "ram_B": 5384
+     },
+     "N2O": {
+      "flash_B": 15648,
+      "ram_B": 8072
+     },
+     "Steel": {
+      "flash_B": 15648,
+      "ram_B": 5000
+     },
+     "WindSCADA": {
+      "flash_B": 15648,
+      "ram_B": 8072
+     }
+    },
+    "drawn": {
+     "lr": 0.06,
+     "mixlinear_alpha": 0.9,
+     "mixlinear_period_len": 48
+    },
+    "fill": "mixlinear_lpf",
+    "id": "t53",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.06,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 48
+     },
+     "EWELD": {
+      "lr": 0.06,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 48
+     },
+     "MetroPT3": {
+      "lr": 0.06,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 48
+     },
+     "N2O": {
+      "lr": 0.06,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 48
+     },
+     "Steel": {
+      "lr": 0.06,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 48
+     },
+     "WindSCADA": {
+      "lr": 0.06,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 48
+     }
+    },
+    "stored": {
+     "BlastFurnace": 133,
+     "EWELD": 133,
+     "MetroPT3": 133,
+     "N2O": 133,
+     "Steel": 133,
+     "WindSCADA": 133
+    },
+    "target": 320
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 24512,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 24504,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 24504,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 24504,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 24504,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 24504,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 0.037,
+     "mixlinear_alpha": 0.7,
+     "mixlinear_lpf@u": 0.10461437163957432
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t54",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.037,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 0.037,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 0.037,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 0.037,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 0.037,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 0.037,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1713,
+     "EWELD": 1713,
+     "MetroPT3": 1713,
+     "N2O": 1713,
+     "Steel": 1713,
+     "WindSCADA": 1713
+    },
+    "target": 591
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 20364,
+      "ram_B": 15016
+     },
+     "EWELD": {
+      "flash_B": 20356,
+      "ram_B": 9640
+     },
+     "MetroPT3": {
+      "flash_B": 20356,
+      "ram_B": 6952
+     },
+     "N2O": {
+      "flash_B": 20356,
+      "ram_B": 9640
+     },
+     "Steel": {
+      "flash_B": 20356,
+      "ram_B": 6568
+     },
+     "WindSCADA": {
+      "flash_B": 20356,
+      "ram_B": 9640
+     }
+    },
+    "drawn": {
+     "lr": 0.64,
+     "mixlinear_alpha": 0.1,
+     "mixlinear_lpf@u": 0.8122142040988004
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t55",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.64,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 13,
+      "mixlinear_period_len": 4
+     },
+     "EWELD": {
+      "lr": 0.64,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 13,
+      "mixlinear_period_len": 4
+     },
+     "MetroPT3": {
+      "lr": 0.64,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 13,
+      "mixlinear_period_len": 4
+     },
+     "N2O": {
+      "lr": 0.64,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 13,
+      "mixlinear_period_len": 4
+     },
+     "Steel": {
+      "lr": 0.64,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 13,
+      "mixlinear_period_len": 4
+     },
+     "WindSCADA": {
+      "lr": 0.64,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 13,
+      "mixlinear_period_len": 4
+     }
+    },
+    "stored": {
+     "BlastFurnace": 917,
+     "EWELD": 917,
+     "MetroPT3": 917,
+     "N2O": 917,
+     "Steel": 917,
+     "WindSCADA": 917
+    },
+    "target": 38
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 25228,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 25220,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 25220,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 25220,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 25220,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 25220,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 0.00012,
+     "mixlinear_alpha": 0.7,
+     "mixlinear_lpf@u": 0.37498120183746797
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t56",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.00012,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 0.00012,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 0.00012,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 0.00012,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 0.00012,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 0.00012,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1725,
+     "EWELD": 1725,
+     "MetroPT3": 1725,
+     "N2O": 1725,
+     "Steel": 1725,
+     "WindSCADA": 1725
+    },
+    "target": 883
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 16592,
+      "ram_B": 13744
+     },
+     "EWELD": {
+      "flash_B": 16584,
+      "ram_B": 8368
+     },
+     "MetroPT3": {
+      "flash_B": 16584,
+      "ram_B": 5680
+     },
+     "N2O": {
+      "flash_B": 16584,
+      "ram_B": 8368
+     },
+     "Steel": {
+      "flash_B": 16584,
+      "ram_B": 5296
+     },
+     "WindSCADA": {
+      "flash_B": 16584,
+      "ram_B": 8368
+     }
+    },
+    "drawn": {
+     "lr": 0.015,
+     "mixlinear_alpha": 0.1,
+     "mixlinear_period_len": 16
+    },
+    "fill": "mixlinear_lpf",
+    "id": "t57",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.015,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 6,
+      "mixlinear_period_len": 16
+     },
+     "EWELD": {
+      "lr": 0.015,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 6,
+      "mixlinear_period_len": 16
+     },
+     "MetroPT3": {
+      "lr": 0.015,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 6,
+      "mixlinear_period_len": 16
+     },
+     "N2O": {
+      "lr": 0.015,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 6,
+      "mixlinear_period_len": 16
+     },
+     "Steel": {
+      "lr": 0.015,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 6,
+      "mixlinear_period_len": 16
+     },
+     "WindSCADA": {
+      "lr": 0.015,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 6,
+      "mixlinear_period_len": 16
+     }
+    },
+    "stored": {
+     "BlastFurnace": 263,
+     "EWELD": 263,
+     "MetroPT3": 263,
+     "N2O": 263,
+     "Steel": 263,
+     "WindSCADA": 263
+    },
+    "target": 822
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 17852,
+      "ram_B": 14176
+     },
+     "EWELD": {
+      "flash_B": 17844,
+      "ram_B": 8800
+     },
+     "MetroPT3": {
+      "flash_B": 17844,
+      "ram_B": 6112
+     },
+     "N2O": {
+      "flash_B": 17844,
+      "ram_B": 8800
+     },
+     "Steel": {
+      "flash_B": 17844,
+      "ram_B": 5728
+     },
+     "WindSCADA": {
+      "flash_B": 17844,
+      "ram_B": 8800
+     }
+    },
+    "drawn": {
+     "lr": 0.041,
+     "mixlinear_alpha": 0.5,
+     "mixlinear_period_len": 8
+    },
+    "fill": "mixlinear_lpf",
+    "id": "t58",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.041,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 12,
+      "mixlinear_period_len": 8
+     },
+     "EWELD": {
+      "lr": 0.041,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 12,
+      "mixlinear_period_len": 8
+     },
+     "MetroPT3": {
+      "lr": 0.041,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 12,
+      "mixlinear_period_len": 8
+     },
+     "N2O": {
+      "lr": 0.041,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 12,
+      "mixlinear_period_len": 8
+     },
+     "Steel": {
+      "lr": 0.041,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 12,
+      "mixlinear_period_len": 8
+     },
+     "WindSCADA": {
+      "lr": 0.041,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 12,
+      "mixlinear_period_len": 8
+     }
+    },
+    "stored": {
+     "BlastFurnace": 497,
+     "EWELD": 497,
+     "MetroPT3": 497,
+     "N2O": 497,
+     "Steel": 497,
+     "WindSCADA": 497
+    },
+    "target": 705
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 25356,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 25348,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 25348,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 25348,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 25348,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 25348,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 0.6,
+     "mixlinear_alpha": 0.9,
+     "mixlinear_lpf@u": 0.6520072737711645
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t59",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.6,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 12,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 0.6,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 12,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 0.6,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 12,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 0.6,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 12,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 0.6,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 12,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 0.6,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 12,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1757,
+     "EWELD": 1757,
+     "MetroPT3": 1757,
+     "N2O": 1757,
+     "Steel": 1757,
+     "WindSCADA": 1757
+    },
+    "target": 322
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 18676,
+      "ram_B": 14432
+     },
+     "EWELD": {
+      "flash_B": 18668,
+      "ram_B": 9056
+     },
+     "MetroPT3": {
+      "flash_B": 18668,
+      "ram_B": 6368
+     },
+     "N2O": {
+      "flash_B": 18668,
+      "ram_B": 9056
+     },
+     "Steel": {
+      "flash_B": 18668,
+      "ram_B": 5984
+     },
+     "WindSCADA": {
+      "flash_B": 18668,
+      "ram_B": 9056
+     }
+    },
+    "drawn": {
+     "lr": 0.00036,
+     "mixlinear_alpha": 0.5,
+     "mixlinear_period_len": 6
+    },
+    "fill": "mixlinear_lpf",
+    "id": "t60",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.00036,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 16,
+      "mixlinear_period_len": 6
+     },
+     "EWELD": {
+      "lr": 0.00036,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 16,
+      "mixlinear_period_len": 6
+     },
+     "MetroPT3": {
+      "lr": 0.00036,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 16,
+      "mixlinear_period_len": 6
+     },
+     "N2O": {
+      "lr": 0.00036,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 16,
+      "mixlinear_period_len": 6
+     },
+     "Steel": {
+      "lr": 0.00036,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 16,
+      "mixlinear_period_len": 6
+     },
+     "WindSCADA": {
+      "lr": 0.00036,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 16,
+      "mixlinear_period_len": 6
+     }
+    },
+    "stored": {
+     "BlastFurnace": 639,
+     "EWELD": 639,
+     "MetroPT3": 639,
+     "N2O": 639,
+     "Steel": 639,
+     "WindSCADA": 639
+    },
+    "target": 393
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 25488,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 25480,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 25480,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 25480,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 25480,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 25480,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 0.059,
+     "mixlinear_alpha": 0.9,
+     "mixlinear_lpf@u": 0.7868216663872443
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t61",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.059,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 21,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 0.059,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 21,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 0.059,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 21,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 0.059,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 21,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 0.059,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 21,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 0.059,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 21,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1793,
+     "EWELD": 1793,
+     "MetroPT3": 1793,
+     "N2O": 1793,
+     "Steel": 1793,
+     "WindSCADA": 1793
+    },
+    "target": 999
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 17856,
+      "ram_B": 14176
+     },
+     "EWELD": {
+      "flash_B": 17848,
+      "ram_B": 8800
+     },
+     "MetroPT3": {
+      "flash_B": 17848,
+      "ram_B": 6112
+     },
+     "N2O": {
+      "flash_B": 17848,
+      "ram_B": 8800
+     },
+     "Steel": {
+      "flash_B": 17848,
+      "ram_B": 5728
+     },
+     "WindSCADA": {
+      "flash_B": 17848,
+      "ram_B": 8800
+     }
+    },
+    "drawn": {
+     "lr": 2e-05,
+     "mixlinear_alpha": 0.3,
+     "mixlinear_period_len": 8
+    },
+    "fill": "mixlinear_lpf",
+    "id": "t62",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 2e-05,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 12,
+      "mixlinear_period_len": 8
+     },
+     "EWELD": {
+      "lr": 2e-05,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 12,
+      "mixlinear_period_len": 8
+     },
+     "MetroPT3": {
+      "lr": 2e-05,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 12,
+      "mixlinear_period_len": 8
+     },
+     "N2O": {
+      "lr": 2e-05,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 12,
+      "mixlinear_period_len": 8
+     },
+     "Steel": {
+      "lr": 2e-05,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 12,
+      "mixlinear_period_len": 8
+     },
+     "WindSCADA": {
+      "lr": 2e-05,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 12,
+      "mixlinear_period_len": 8
+     }
+    },
+    "stored": {
+     "BlastFurnace": 497,
+     "EWELD": 497,
+     "MetroPT3": 497,
+     "N2O": 497,
+     "Steel": 497,
+     "WindSCADA": 497
+    },
+    "target": 413
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 15656,
+      "ram_B": 13448
+     },
+     "EWELD": {
+      "flash_B": 15648,
+      "ram_B": 8072
+     },
+     "MetroPT3": {
+      "flash_B": 15648,
+      "ram_B": 5384
+     },
+     "N2O": {
+      "flash_B": 15648,
+      "ram_B": 8072
+     },
+     "Steel": {
+      "flash_B": 15648,
+      "ram_B": 5000
+     },
+     "WindSCADA": {
+      "flash_B": 15648,
+      "ram_B": 8072
+     }
+    },
+    "drawn": {
+     "lr": 0.0004,
+     "mixlinear_alpha": 0.9,
+     "mixlinear_period_len": 48
+    },
+    "fill": "mixlinear_lpf",
+    "id": "t63",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.0004,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 48
+     },
+     "EWELD": {
+      "lr": 0.0004,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 48
+     },
+     "MetroPT3": {
+      "lr": 0.0004,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 48
+     },
+     "N2O": {
+      "lr": 0.0004,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 48
+     },
+     "Steel": {
+      "lr": 0.0004,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 48
+     },
+     "WindSCADA": {
+      "lr": 0.0004,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 48
+     }
+    },
+    "stored": {
+     "BlastFurnace": 133,
+     "EWELD": 133,
+     "MetroPT3": 133,
+     "N2O": 133,
+     "Steel": 133,
+     "WindSCADA": 133
+    },
+    "target": 72
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 24512,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 24504,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 24504,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 24504,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 24504,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 24504,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 0.017,
+     "mixlinear_alpha": 0.7,
+     "mixlinear_lpf@u": 0.06682013971014689
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t64",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.017,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 0.017,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 0.017,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 0.017,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 0.017,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 0.017,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 1,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1713,
+     "EWELD": 1713,
+     "MetroPT3": 1713,
+     "N2O": 1713,
+     "Steel": 1713,
+     "WindSCADA": 1713
+    },
+    "target": 962
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 16120,
+      "ram_B": 13584
+     },
+     "EWELD": {
+      "flash_B": 16112,
+      "ram_B": 8208
+     },
+     "MetroPT3": {
+      "flash_B": 16112,
+      "ram_B": 5520
+     },
+     "N2O": {
+      "flash_B": 16112,
+      "ram_B": 8208
+     },
+     "Steel": {
+      "flash_B": 16112,
+      "ram_B": 5136
+     },
+     "WindSCADA": {
+      "flash_B": 16112,
+      "ram_B": 8208
+     }
+    },
+    "drawn": {
+     "lr": 0.00023,
+     "mixlinear_alpha": 0.7,
+     "mixlinear_period_len": 24
+    },
+    "fill": "mixlinear_lpf",
+    "id": "t65",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.00023,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "EWELD": {
+      "lr": 0.00023,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "MetroPT3": {
+      "lr": 0.00023,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "N2O": {
+      "lr": 0.00023,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "Steel": {
+      "lr": 0.00023,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "WindSCADA": {
+      "lr": 0.00023,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     }
+    },
+    "stored": {
+     "BlastFurnace": 185,
+     "EWELD": 185,
+     "MetroPT3": 185,
+     "N2O": 185,
+     "Steel": 185,
+     "WindSCADA": 185
+    },
+    "target": 479
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 25212,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 25204,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 25204,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 25204,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 25204,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 25204,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 0.3,
+     "mixlinear_alpha": 0.3,
+     "mixlinear_lpf@u": 0.23864419889996813
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t66",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.3,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 3,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 0.3,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 3,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 0.3,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 3,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 0.3,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 3,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 0.3,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 3,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 0.3,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 3,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1721,
+     "EWELD": 1721,
+     "MetroPT3": 1721,
+     "N2O": 1721,
+     "Steel": 1721,
+     "WindSCADA": 1721
+    },
+    "target": 475
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 25764,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 25756,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 25756,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 25756,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 25756,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 25756,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 0.82,
+     "mixlinear_alpha": 0.9,
+     "mixlinear_lpf@u": 0.9411433457376452
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t67",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.82,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 38,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 0.82,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 38,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 0.82,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 38,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 0.82,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 38,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 0.82,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 38,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 0.82,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 38,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1861,
+     "EWELD": 1861,
+     "MetroPT3": 1861,
+     "N2O": 1861,
+     "Steel": 1861,
+     "WindSCADA": 1861
+    },
+    "target": 141
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 25212,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 25204,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 25204,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 25204,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 25204,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 25204,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 0.00018,
+     "mixlinear_alpha": 0.7,
+     "mixlinear_lpf@u": 0.24152967273585224
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t68",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.00018,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 3,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 0.00018,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 3,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 0.00018,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 3,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 0.00018,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 3,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 0.00018,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 3,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 0.00018,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 3,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1721,
+     "EWELD": 1721,
+     "MetroPT3": 1721,
+     "N2O": 1721,
+     "Steel": 1721,
+     "WindSCADA": 1721
+    },
+    "target": 355
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 16592,
+      "ram_B": 13744
+     },
+     "EWELD": {
+      "flash_B": 16584,
+      "ram_B": 8368
+     },
+     "MetroPT3": {
+      "flash_B": 16584,
+      "ram_B": 5680
+     },
+     "N2O": {
+      "flash_B": 16584,
+      "ram_B": 8368
+     },
+     "Steel": {
+      "flash_B": 16584,
+      "ram_B": 5296
+     },
+     "WindSCADA": {
+      "flash_B": 16584,
+      "ram_B": 8368
+     }
+    },
+    "drawn": {
+     "lr": 4.6e-05,
+     "mixlinear_alpha": 0.9,
+     "mixlinear_period_len": 16
+    },
+    "fill": "mixlinear_lpf",
+    "id": "t69",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 4.6e-05,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 6,
+      "mixlinear_period_len": 16
+     },
+     "EWELD": {
+      "lr": 4.6e-05,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 6,
+      "mixlinear_period_len": 16
+     },
+     "MetroPT3": {
+      "lr": 4.6e-05,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 6,
+      "mixlinear_period_len": 16
+     },
+     "N2O": {
+      "lr": 4.6e-05,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 6,
+      "mixlinear_period_len": 16
+     },
+     "Steel": {
+      "lr": 4.6e-05,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 6,
+      "mixlinear_period_len": 16
+     },
+     "WindSCADA": {
+      "lr": 4.6e-05,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 6,
+      "mixlinear_period_len": 16
+     }
+    },
+    "stored": {
+     "BlastFurnace": 263,
+     "EWELD": 263,
+     "MetroPT3": 263,
+     "N2O": 263,
+     "Steel": 263,
+     "WindSCADA": 263
+    },
+    "target": 482
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 25164,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 25156,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 25156,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 25156,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 25156,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 25156,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 0.029,
+     "mixlinear_alpha": 0.7,
+     "mixlinear_lpf@u": 0.1342970875811823
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t70",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.029,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 0.029,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 0.029,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 0.029,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 0.029,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 0.029,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1717,
+     "EWELD": 1717,
+     "MetroPT3": 1717,
+     "N2O": 1717,
+     "Steel": 1717,
+     "WindSCADA": 1717
+    },
+    "target": 107
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 25540,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 25532,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 25532,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 25532,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 25532,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 25532,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 6.2e-05,
+     "mixlinear_alpha": 0.5,
+     "mixlinear_lpf@u": 0.8316065511305263
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t71",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 6.2e-05,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 25,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 6.2e-05,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 25,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 6.2e-05,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 25,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 6.2e-05,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 25,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 6.2e-05,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 25,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 6.2e-05,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 25,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1809,
+     "EWELD": 1809,
+     "MetroPT3": 1809,
+     "N2O": 1809,
+     "Steel": 1809,
+     "WindSCADA": 1809
+    },
+    "target": 278
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 25156,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 25148,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 25148,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 25148,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 25148,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 25148,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 0.057,
+     "mixlinear_alpha": 0.5,
+     "mixlinear_lpf@u": 0.23103578438361727
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t72",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.057,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 0.057,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 0.057,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 0.057,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 0.057,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 0.057,
+      "mixlinear_alpha": 0.5,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1717,
+     "EWELD": 1717,
+     "MetroPT3": 1717,
+     "N2O": 1717,
+     "Steel": 1717,
+     "WindSCADA": 1717
+    },
+    "target": 253
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 25888,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 25880,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 25880,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 25880,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 25880,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 25880,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 0.36,
+     "mixlinear_alpha": 0.1,
+     "mixlinear_lpf@u": 0.9875381798176519
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t73",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.36,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 46,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 0.36,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 46,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 0.36,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 46,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 0.36,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 46,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 0.36,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 46,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 0.36,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 46,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1893,
+     "EWELD": 1893,
+     "MetroPT3": 1893,
+     "N2O": 1893,
+     "Steel": 1893,
+     "WindSCADA": 1893
+    },
+    "target": 827
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 25164,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 25156,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 25156,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 25156,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 25156,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 25156,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 0.038,
+     "mixlinear_alpha": 0.1,
+     "mixlinear_lpf@u": 0.2317921910313474
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t74",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.038,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 0.038,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 0.038,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 0.038,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 0.038,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 0.038,
+      "mixlinear_alpha": 0.1,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1717,
+     "EWELD": 1717,
+     "MetroPT3": 1717,
+     "N2O": 1717,
+     "Steel": 1717,
+     "WindSCADA": 1717
+    },
+    "target": 990
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 25268,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 25260,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 25260,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 25260,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 25260,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 25260,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 4.5e-05,
+     "mixlinear_alpha": 0.7,
+     "mixlinear_lpf@u": 0.5199021408274717
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t75",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 4.5e-05,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 7,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 4.5e-05,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 7,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 4.5e-05,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 7,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 4.5e-05,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 7,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 4.5e-05,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 7,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 4.5e-05,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 7,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1737,
+     "EWELD": 1737,
+     "MetroPT3": 1737,
+     "N2O": 1737,
+     "Steel": 1737,
+     "WindSCADA": 1737
+    },
+    "target": 729
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 25164,
+      "ram_B": 16712
+     },
+     "EWELD": {
+      "flash_B": 25156,
+      "ram_B": 11336
+     },
+     "MetroPT3": {
+      "flash_B": 25156,
+      "ram_B": 8648
+     },
+     "N2O": {
+      "flash_B": 25156,
+      "ram_B": 11336
+     },
+     "Steel": {
+      "flash_B": 25156,
+      "ram_B": 8264
+     },
+     "WindSCADA": {
+      "flash_B": 25156,
+      "ram_B": 11336
+     }
+    },
+    "drawn": {
+     "lr": 6.3e-05,
+     "mixlinear_alpha": 0.9,
+     "mixlinear_lpf@u": 0.12618123831631267
+    },
+    "fill": "mixlinear_period_len",
+    "id": "t76",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 6.3e-05,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "EWELD": {
+      "lr": 6.3e-05,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "MetroPT3": {
+      "lr": 6.3e-05,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "N2O": {
+      "lr": 6.3e-05,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "Steel": {
+      "lr": 6.3e-05,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     },
+     "WindSCADA": {
+      "lr": 6.3e-05,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 2,
+      "mixlinear_period_len": 2
+     }
+    },
+    "stored": {
+     "BlastFurnace": 1717,
+     "EWELD": 1717,
+     "MetroPT3": 1717,
+     "N2O": 1717,
+     "Steel": 1717,
+     "WindSCADA": 1717
+    },
+    "target": 272
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 16120,
+      "ram_B": 13584
+     },
+     "EWELD": {
+      "flash_B": 16112,
+      "ram_B": 8208
+     },
+     "MetroPT3": {
+      "flash_B": 16112,
+      "ram_B": 5520
+     },
+     "N2O": {
+      "flash_B": 16112,
+      "ram_B": 8208
+     },
+     "Steel": {
+      "flash_B": 16112,
+      "ram_B": 5136
+     },
+     "WindSCADA": {
+      "flash_B": 16112,
+      "ram_B": 8208
+     }
+    },
+    "drawn": {
+     "lr": 0.024,
+     "mixlinear_alpha": 0.3,
+     "mixlinear_period_len": 24
+    },
+    "fill": "mixlinear_lpf",
+    "id": "t77",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.024,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "EWELD": {
+      "lr": 0.024,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "MetroPT3": {
+      "lr": 0.024,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "N2O": {
+      "lr": 0.024,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "Steel": {
+      "lr": 0.024,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "WindSCADA": {
+      "lr": 0.024,
+      "mixlinear_alpha": 0.3,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     }
+    },
+    "stored": {
+     "BlastFurnace": 185,
+     "EWELD": 185,
+     "MetroPT3": 185,
+     "N2O": 185,
+     "Steel": 185,
+     "WindSCADA": 185
+    },
+    "target": 650
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 16120,
+      "ram_B": 13584
+     },
+     "EWELD": {
+      "flash_B": 16112,
+      "ram_B": 8208
+     },
+     "MetroPT3": {
+      "flash_B": 16112,
+      "ram_B": 5520
+     },
+     "N2O": {
+      "flash_B": 16112,
+      "ram_B": 8208
+     },
+     "Steel": {
+      "flash_B": 16112,
+      "ram_B": 5136
+     },
+     "WindSCADA": {
+      "flash_B": 16112,
+      "ram_B": 8208
+     }
+    },
+    "drawn": {
+     "lr": 0.00041,
+     "mixlinear_alpha": 0.9,
+     "mixlinear_period_len": 24
+    },
+    "fill": "mixlinear_lpf",
+    "id": "t78",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.00041,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "EWELD": {
+      "lr": 0.00041,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "MetroPT3": {
+      "lr": 0.00041,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "N2O": {
+      "lr": 0.00041,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "Steel": {
+      "lr": 0.00041,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     },
+     "WindSCADA": {
+      "lr": 0.00041,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 4,
+      "mixlinear_period_len": 24
+     }
+    },
+    "stored": {
+     "BlastFurnace": 185,
+     "EWELD": 185,
+     "MetroPT3": 185,
+     "N2O": 185,
+     "Steel": 185,
+     "WindSCADA": 185
+    },
+    "target": 648
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 18688,
+      "ram_B": 14432
+     },
+     "EWELD": {
+      "flash_B": 18680,
+      "ram_B": 9056
+     },
+     "MetroPT3": {
+      "flash_B": 18680,
+      "ram_B": 6368
+     },
+     "N2O": {
+      "flash_B": 18680,
+      "ram_B": 9056
+     },
+     "Steel": {
+      "flash_B": 18680,
+      "ram_B": 5984
+     },
+     "WindSCADA": {
+      "flash_B": 18680,
+      "ram_B": 9056
+     }
+    },
+    "drawn": {
+     "lr": 0.00047,
+     "mixlinear_alpha": 0.7,
+     "mixlinear_period_len": 6
+    },
+    "fill": "mixlinear_lpf",
+    "id": "t79",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 0.00047,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 16,
+      "mixlinear_period_len": 6
+     },
+     "EWELD": {
+      "lr": 0.00047,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 16,
+      "mixlinear_period_len": 6
+     },
+     "MetroPT3": {
+      "lr": 0.00047,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 16,
+      "mixlinear_period_len": 6
+     },
+     "N2O": {
+      "lr": 0.00047,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 16,
+      "mixlinear_period_len": 6
+     },
+     "Steel": {
+      "lr": 0.00047,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 16,
+      "mixlinear_period_len": 6
+     },
+     "WindSCADA": {
+      "lr": 0.00047,
+      "mixlinear_alpha": 0.7,
+      "mixlinear_lpf": 16,
+      "mixlinear_period_len": 6
+     }
+    },
+    "stored": {
+     "BlastFurnace": 639,
+     "EWELD": 639,
+     "MetroPT3": 639,
+     "N2O": 639,
+     "Steel": 639,
+     "WindSCADA": 639
+    },
+    "target": 704
+   },
+   {
+    "chip": {
+     "BlastFurnace": {
+      "flash_B": 20532,
+      "ram_B": 15016
+     },
+     "EWELD": {
+      "flash_B": 20524,
+      "ram_B": 9640
+     },
+     "MetroPT3": {
+      "flash_B": 20524,
+      "ram_B": 6952
+     },
+     "N2O": {
+      "flash_B": 20524,
+      "ram_B": 9640
+     },
+     "Steel": {
+      "flash_B": 20524,
+      "ram_B": 6568
+     },
+     "WindSCADA": {
+      "flash_B": 20524,
+      "ram_B": 9640
+     }
+    },
+    "drawn": {
+     "lr": 7.5e-05,
+     "mixlinear_alpha": 0.9,
+     "mixlinear_period_len": 4
+    },
+    "fill": "mixlinear_lpf",
+    "id": "t80",
+    "knobs": {
+     "BlastFurnace": {
+      "lr": 7.5e-05,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 24,
+      "mixlinear_period_len": 4
+     },
+     "EWELD": {
+      "lr": 7.5e-05,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 24,
+      "mixlinear_period_len": 4
+     },
+     "MetroPT3": {
+      "lr": 7.5e-05,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 24,
+      "mixlinear_period_len": 4
+     },
+     "N2O": {
+      "lr": 7.5e-05,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 24,
+      "mixlinear_period_len": 4
+     },
+     "Steel": {
+      "lr": 7.5e-05,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 24,
+      "mixlinear_period_len": 4
+     },
+     "WindSCADA": {
+      "lr": 7.5e-05,
+      "mixlinear_alpha": 0.9,
+      "mixlinear_lpf": 24,
+      "mixlinear_period_len": 4
+     }
+    },
+    "stored": {
+     "BlastFurnace": 961,
+     "EWELD": 961,
+     "MetroPT3": 961,
+     "N2O": 961,
+     "Steel": 961,
+     "WindSCADA": 961
+    },
+    "target": 809
    }
   ],
   "PhaseFormer": [
