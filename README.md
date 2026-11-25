@@ -10,6 +10,10 @@ The repository holds the model, the size-budgeted comparison with lightweight fo
 ports used to measure each model on the boards (NUCLEO-F103RB as the reference device: Cortex-M3, 128 KB flash, 20 KB
 SRAM, no FPU; NUCLEO-F411RE for latency with an FPU).
 
+<p align="center">
+  <img src="assets/overallframework.svg" alt="FEATHer overall framework" width="100%"/>
+</p>
+
 ## Model
 
 Each channel is forecast with the same weights.
