@@ -1,0 +1,51 @@
+/*
+ * SparseTSF (linear, 41 params) float32 inference.
+ * Default config = the MetroPT3 cell: period_len=24 -> n=m=4, conv k=25.
+ */
+#ifndef STSF_INFER_H
+#define STSF_INFER_H
+
+#include "mcu_emit.h"
+
+/* Board builds: deployment/board/tools/board_prep.py writes board_cfg.h into the
+ * CubeIDE project (never into this repo), carrying the geometry of the model
+ * under test.  The x86 tests do not see it. */
+#if defined(__has_include)
+#if __has_include("board_cfg.h")
+#include "board_cfg.h"
+#endif
+#endif
+
+#include "mcu_kernels.h"
+
+#ifndef STSF_L
+#define STSF_L 96
+#endif
+#ifndef STSF_H
+#define STSF_H 96
+#endif
+#ifndef STSF_D
+#define STSF_D 7
+#endif
+#ifndef STSF_P                          /* period_len: 24, or 48 on WindSCADA / BlastFurnace */
+#define STSF_P 24
+#endif
+#define STSF_N (STSF_L / STSF_P)        /* input segments  = 4       */
+#define STSF_M (STSF_H / STSF_P)        /* output segments = 4       */
+#define STSF_K (1 + 2 * (STSF_P / 2))   /* agg conv kernel = 25      */
+
+/* x: (STSF_L, STSF_D) time-major -> y: (STSF_H, STSF_D) time-major */
+void stsf_forward(const float *x, float *y);
+/* one channel d -> yc[0..H-1] (stream per channel) */
+void stsf_forward_ch(const float *x, int d, float *yc);
+/* one channel d, each value to emit(d, t, v) as it is final (no H buffer) */
+void stsf_forward_emit(const float *x, int d, mcu_emit_fn emit);
+
+/* stage buffers for golden comparison - test build only (the board build
+ * works one channel at a time and never holds these) */
+#ifdef STSF_CAPTURE_STAGES
+extern float stsf_st_mean[STSF_D];
+extern float stsf_st_xagg[STSF_D * STSF_L];   /* channel-major, conv+residual */
+#endif
+
+#endif /* STSF_INFER_H */

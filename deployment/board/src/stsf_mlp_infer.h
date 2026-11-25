@@ -1,0 +1,71 @@
+/*
+ * SparseTSF-MLP float32 inference.
+ *
+ * SparseTSF ships two heads. The linear one (stsf_infer.c, 41 params) is the
+ * paper's headline model; this is the `mlp` variant, which replaces the
+ * phase-wise Linear(n -> m) with Linear(n -> 128) -> ReLU -> Linear(128 -> m)
+ * (1,181 parameters at the MetroPT3 cell, H=96).
+ *
+ * Everything upstream of the head is identical to the linear variant
+ * (mean-subtract, shared k=25 'same' conv, residual, phase folding), so this
+ * file reuses the same weights layout and only diverges at the projection.
+ */
+#ifndef STSF_MLP_INFER_H
+#define STSF_MLP_INFER_H
+
+#include "mcu_emit.h"
+
+/* Board builds: deployment/board/tools/board_prep.py writes board_cfg.h into the
+ * CubeIDE project (never into this repo), carrying the geometry of the model
+ * under test.  The x86 tests do not see it. */
+#if defined(__has_include)
+#if __has_include("board_cfg.h")
+#include "board_cfg.h"
+#endif
+#endif
+
+#include "mcu_kernels.h"
+
+#ifndef SMLP_L
+#define SMLP_L 96
+#endif
+#ifndef SMLP_H
+#define SMLP_H 96
+#endif
+#ifndef SMLP_D
+#define SMLP_D 7
+#endif
+#define SMLP_N (SMLP_L / SMLP_P)        /* input segments  = 4        */
+#define SMLP_M (SMLP_H / SMLP_P)        /* output segments = 4        */
+#define SMLP_K (1 + 2 * (SMLP_P / 2))   /* agg conv kernel = 25       */
+/* hidden width: golden/stsf_mlp_geom.h (e.g. 512 in the Traffic setting) */
+#if defined(__has_include)
+#if __has_include("stsf_mlp_geom.h")
+#include "stsf_mlp_geom.h"
+#endif
+#endif
+#ifndef SMLP_P                          /* period_len (geom header) */
+#define SMLP_P 24
+#endif
+#ifndef SMLP_DM
+#define SMLP_DM 128                     /* d_model, upstream default  */
+#endif
+
+/* x: (SMLP_L, SMLP_D) time-major -> y: (SMLP_H, SMLP_D) time-major */
+void stsf_mlp_forward(const float *x, float *y);
+/* one channel d -> yc[0..H-1] (stream per channel) */
+void stsf_mlp_forward_ch(const float *x, int d, float *yc);
+/* one channel d, each value to emit(d, t, v) as it is final (no H buffer) */
+void stsf_mlp_forward_emit(const float *x, int d, mcu_emit_fn emit);
+
+/* Stage buffers for golden comparison exist ONLY under -DSMLP_CAPTURE_STAGES
+ * (the x86 golden test).  The board build works one channel at a time and
+ * keeps one 128-float hidden row; the full post-ReLU hidden tensor alone is
+ * 86 KB against 20 KB of SRAM. */
+#ifdef SMLP_CAPTURE_STAGES
+extern float smlp_st_mean[SMLP_D];
+extern float smlp_st_xagg[SMLP_D * SMLP_L];   /* channel-major, conv+residual */
+extern float smlp_st_hid[SMLP_D * SMLP_P * SMLP_DM];
+#endif
+
+#endif /* STSF_MLP_INFER_H */

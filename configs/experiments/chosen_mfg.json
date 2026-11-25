@@ -1,0 +1,9 @@
+{
+ "CMoS": "cand:Weather",
+ "FITS": "cand:ETTm1",
+ "MixLinear": "cand:Traffic",
+ "PhaseFormer": "cand:Weather",
+ "SparseTSF": "cand:ETTh1",
+ "SparseTSF_MLP": "cand:Traffic",
+ "TimeBase": "cand:ETTm2"
+}

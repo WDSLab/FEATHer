@@ -1,0 +1,145 @@
+# -*- coding: utf-8 -*-
+"""Export golden vectors + weights for the TimeBase port (src/timebase_infer.c).
+
+TimeBase (ICML 2025).  basis_num and
+`individual` come from the candidate setting, period_len from the dataset's
+period rule; --config / --data resolve them exactly as the experiments do
+(tools/results/protocol.resolve, industrial group).  The structural values
+are written into timebase_weights.h so the C port is built from the header.
+
+Real upstream model via the benchmark wrapper; every weight re-drawn at
+random (blind-golden rule); staged replication asserted equal to
+model(x) before writing.
+
+Run:  python deployment/board/export/export_golden_timebase.py [--config Weather] [--data MetroPT3] [--pred_len H] [--d_model D]
+"""
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+import torch
+
+_ROOT = Path(__file__).resolve().parents[3]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+from baselines.TimeBase.wrapper import build   # noqa: E402
+from tools.results.protocol import resolve     # noqa: E402
+from golden_io import emit_array, load_ckpt  # noqa: E402
+
+WEIGHT_SEED = 2025
+INPUT_SEED = 7
+# wrapper defaults (baselines/TimeBase/wrapper.py) for keys a setting leaves unset
+KEYS = {"timebase_period_len": 24, "timebase_basis_num": 6, "timebase_individual": 0,
+        "timebase_use_period_norm": 1, "timebase_use_orthogonal": 1}
+
+OUT_DIR = Path(__file__).resolve().parents[1] / "golden"
+
+
+def geometry(config: str, H: int, data: str = "MetroPT3") -> dict:
+    _, _, ov = resolve("TimeBase", "mfg", data, H, "cand:" + config)
+    return {k: int(ov.get(k, v)) for k, v in KEYS.items()}
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--pred_len", type=int, default=96)
+    ap.add_argument("--seq_len", type=int, default=96)
+    ap.add_argument("--d_model", type=int, default=7)
+    ap.add_argument("--data", default="MetroPT3", help="industrial dataset (period rule)")
+    ap.add_argument("--config", default="ETTh1", help="candidate: a dataset name of the authors' settings")
+    ap.add_argument("--ckpt", default=None, help="trained weights (streaming replay) instead of the random golden weights")
+    ap.add_argument("--f64", action="store_true",
+                    help="stage/output vectors from a float64 run of the same weights (precision check: "
+                         "the C error vs float64 should not exceed PyTorch float32's)")
+    a = ap.parse_args()
+    L, H, D = a.seq_len, a.pred_len, a.d_model
+    geo = geometry(a.config, H, a.data)
+    P, B, ind = geo["timebase_period_len"], geo["timebase_basis_num"], geo["timebase_individual"]
+    pnorm, orth = geo["timebase_use_period_norm"], geo["timebase_use_orthogonal"]
+    print(f"config={a.config} data={a.data} L={L} H={H} D={D} period={P} basis={B} individual={ind} "
+          f"period_norm={pnorm}")
+
+    torch.manual_seed(WEIGHT_SEED)
+    model = build(argparse.Namespace(**geo), D, L, H).eval()
+    if a.ckpt:
+        load_ckpt(model, a.ckpt)
+    with torch.no_grad():                       # blind-golden rule: all weights random
+        for p in (() if a.ckpt else model.parameters()):
+            p.normal_(0.0, 0.5)
+    print(f"params = {sum(p.numel() for p in model.parameters())}")
+    up = model.model
+
+    g = torch.Generator().manual_seed(INPUT_SEED)
+    x = (torch.randn(1, L, D, generator=g) * 3.0
+         + torch.linspace(-5.0, 5.0, D).view(1, 1, D))
+    if a.f64:
+        with torch.no_grad():
+            y32 = model(x)
+        model = model.double()
+        x = x.double()
+
+    nx, ny = L // P, H // P
+    with torch.no_grad():
+        xv = x.permute(0, 2, 1).reshape(1, D, nx, P).permute(0, 1, 3, 2)    # (1,D,P,nx)
+        if pnorm:
+            pm = xv.mean(-1, keepdim=True)
+        else:                                   # one mean per channel, as upstream _normalize_input
+            pm = xv.reshape(1, D, -1).mean(-1, keepdim=True).unsqueeze(-1).expand(1, D, P, 1)
+        xc = xv - pm
+        if ind:
+            basis = torch.stack([up.ts2basis[i](xc[:, i]) for i in range(D)], dim=1)
+            pred = torch.stack([up.basis2ts[i](basis[:, i]) for i in range(D)], dim=1)
+        else:
+            basis = up.ts2basis(xc)
+            pred = up.basis2ts(basis)
+        y = (pred + pm).permute(0, 1, 3, 2).reshape(1, D, H).permute(0, 2, 1)
+        y_ref = model(x)
+        assert torch.allclose(y, y_ref, atol=1e-6), "staged forward drifted from model.forward"
+        orth_ref = up(x)[1].reshape(1) if orth else None      # upstream forward's second output
+        if a.f64:
+            print(f"torch float32 vs float64: max abs {(y32.double() - y_ref).abs().max().item():.3e}")
+
+    if ind:
+        w1 = torch.stack([m.weight for m in up.ts2basis]); b1 = torch.stack([m.bias for m in up.ts2basis])
+        w2 = torch.stack([m.weight for m in up.basis2ts]); b2 = torch.stack([m.bias for m in up.basis2ts])
+    else:
+        w1, b1, w2, b2 = up.ts2basis.weight, up.ts2basis.bias, up.basis2ts.weight, up.basis2ts.bias
+
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    with (OUT_DIR / "timebase_weights.h").open("w", newline="\n") as f:
+        f.write("/* Auto-generated by deployment/board/export/export_golden_timebase.py - do not edit. */\n")
+        f.write(f"/* config={a.config}, data={a.data}, seed={WEIGHT_SEED} */\n")
+        f.write("#ifndef TIMEBASE_WEIGHTS_H\n#define TIMEBASE_WEIGHTS_H\n\n")
+        f.write(f"#define TB_H_GEN {H}\n#define TB_L_GEN {L}\n#define TB_D_GEN {D}\n")
+        f.write(f"#define TB_P {P}\n#define TB_B {B}\n#define TB_IND {ind}\n")
+        if not pnorm:                           # stamped only off the default: old headers stay identical
+            f.write("#define TB_PNORM 0\n")
+        f.write(f"#define TB_ORTH {orth}\n")      # upstream computes the orthogonality term in forward
+        f.write("\n")
+        emit_array(f, "TB_W1", w1)      # ([D,] B, nx)
+        emit_array(f, "TB_B1", b1)      # ([D,] B)
+        emit_array(f, "TB_W2", w2)      # ([D,] ny, B)
+        emit_array(f, "TB_B2", b2)      # ([D,] ny)
+        f.write("#endif /* TIMEBASE_WEIGHTS_H */\n")
+
+    with (OUT_DIR / "timebase_vectors.h").open("w", newline="\n") as f:
+        f.write("/* Auto-generated by deployment/board/export/export_golden_timebase.py - do not edit. */\n")
+        f.write(f"/* weight_seed={WEIGHT_SEED}, input_seed={INPUT_SEED} */\n")
+        f.write("#ifndef TIMEBASE_VECTORS_H\n#define TIMEBASE_VECTORS_H\n\n")
+        emit_array(f, "TG_X", x[0])                    # (L,D)
+        emit_array(f, "TG_PMEAN", pm[0, :, :, 0])      # (D,P)
+        emit_array(f, "TG_BASIS", basis[0])            # (D,P,B)
+        emit_array(f, "TG_Y", y_ref[0])                # (H,D)
+        if orth:
+            emit_array(f, "TG_ORTH", orth_ref)         # (1,)
+        f.write("#endif /* TIMEBASE_VECTORS_H */\n")
+
+    print(f"wrote {OUT_DIR / 'timebase_weights.h'}")
+    print(f"wrote {OUT_DIR / 'timebase_vectors.h'}")
+
+
+if __name__ == "__main__":
+    main()

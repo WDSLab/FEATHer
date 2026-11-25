@@ -1,0 +1,32 @@
+# FEATHer (this work) - frozen configuration.
+# One configuration on every dataset; only the period (FFT-detected) and the channel mode differ.
+# The size-matched runs tune FEATHer per study and always use the channel-independent mode "ci_full"
+# (tools/results/protocol.py overrides channel_mode; configs/experiments/size.yaml).
+# Change a value in place, never by adding a second entry.
+
+default: {lr: 0.001, loss: mse}
+
+frozen: &frozen
+  num_bands: 3              # {conv k=3, conv k=5, AvgPool4 + interp}
+  point_kernel: 3           # keep this form, not band_kernels (different RNG stream -> different init)
+  gate_mode: banded         # per-band spectral energy gate
+  use_residual_mlp: true
+  mlp_rank: 4
+  lambda_spec: 0.01
+
+datasets:
+  # LTSF: channel-independent
+  ETTh1: {<<: *frozen, channel_mode: ci_full, period: 6}
+  ETTh2: {<<: *frozen, channel_mode: ci_full, period: 12}
+  ETTm1: {<<: *frozen, channel_mode: ci_full, period: 6}
+  ETTm2: {<<: *frozen, channel_mode: ci_full, period: 6}
+  Weather: {<<: *frozen, channel_mode: ci_full, period: 6}
+  Electricity: {<<: *frozen, channel_mode: ci_full, period: 24, lambda_spec: 0.0, lr: 0.005}   # earlier per-dataset values (dataset not used in the paper)
+  Traffic: {<<: *frozen, channel_mode: ci_full, period: 12, lr: 0.005}                          # earlier per-dataset values (dataset not used in the paper)
+  # industrial: channel mixing, period = FFT period <= 48
+  Steel: {<<: *frozen, channel_mode: mix, period: 24}
+  WindSCADA: {<<: *frozen, channel_mode: mix, period: 48}
+  BlastFurnace: {<<: *frozen, channel_mode: mix, period: 48}
+  MetroPT3: {<<: *frozen, channel_mode: mix, period: 24}
+  N2O: {<<: *frozen, channel_mode: mix, period: 24}
+  EWELD: {<<: *frozen, channel_mode: mix, period: 24}

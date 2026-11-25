@@ -1,0 +1,84 @@
+/*
+ * SparseTSF (linear) forward, mirroring the upstream
+ * baselines/SparseTSF/SparseTSF-main/models/SparseTSF.py exactly:
+ *   mean-subtract -> shared 1x25 'same' conv + residual ->
+ *   phase-wise shared linear n->m -> add mean back.
+ */
+#include "stsf_infer.h"
+#include "mcu_pt.h"
+#include "stsf_weights.h"      /* generated: golden/stsf_weights.h */
+
+/* The golden headers are regenerated per horizon.  Building this port
+ * against weights exported for a DIFFERENT horizon would compile fine and
+ * return a plausible, wrong forecast, so refuse it at compile time. */
+#ifdef STSF_P_GEN                       /* stamped by the export */
+_Static_assert(STSF_P == STSF_P_GEN, "stsf_weights.h was exported at another period");
+#endif
+_Static_assert(STSF_H == STSF_H_GEN,
+               "STSF_H does not match the horizon the weights were exported at - re-run export_golden_*.py --pred_len");
+
+/* PER-CHANNEL WORKING SET - equal-effort rule (every port gets the same
+ * memory tidy-up).  SparseTSF is channel-independent: the mean,
+ * the conv and the phase-wise head all act on one channel, so nothing needs
+ * to be held for all D at once (2*D*L floats would be 21.5 KB at D=28, over
+ * the 20 KB SRAM - an artefact of the port, not of the model).  Full-width
+ * copies are test-build only. */
+#ifdef STSF_CAPTURE_STAGES
+float stsf_st_mean[STSF_D];
+float stsf_st_xagg[STSF_D * STSF_L];
+#endif
+
+static float s_xc[STSF_L];    /* one channel: centered, then conv+residual */
+static float s_cv[STSF_L];    /* conv output, one channel                  */
+static float s_mean[STSF_D];  /* the means of all channels (torch.mean) */
+
+static void stsf_run(const float *x, float *y, int d0, int d1, int ys, mcu_emit_fn emit)
+{
+    for (int d = d0; d < d1; ++d) {
+        float *yd = y ? ((ys == 1) ? y : y + d) : 0;   /* this channel's outputs */
+        /* mean only (SparseTSF has no variance norm) = torch.mean's kernel (mcu_pt.c): all channels in
+         * one call, at the first channel */
+        if (d == 0)
+            pt_mean_t(x, s_mean, STSF_L, STSF_D);
+        const float m = s_mean[d];
+
+        for (int t = 0; t < STSF_L; ++t)
+            s_xc[t] = x[t * STSF_D + d] - m;
+
+        /* one shared conv kernel + residual.  The conv reads s_xc and writes
+         * s_cv, so the residual can then be folded back into s_xc in place. */
+        mcu_dwconv_same(s_xc, s_cv, STSF_W_CONV, 0, STSF_L, 1, STSF_K);
+        for (int t = 0; t < STSF_L; ++t)
+            s_xc[t] += s_cv[t];
+
+#ifdef STSF_CAPTURE_STAGES
+        stsf_st_mean[d] = m;
+        for (int t = 0; t < STSF_L; ++t)
+            stsf_st_xagg[d * STSF_L + t] = s_xc[t];
+#endif
+
+        /* phase-wise shared linear: v[n] -> out[m] per phase */
+        for (int ph = 0; ph < STSF_P; ++ph) {
+            float v[STSF_N];
+            for (int in = 0; in < STSF_N; ++in)
+                v[in] = s_xc[in * STSF_P + ph];
+            for (int om = 0; om < STSF_M; ++om) {
+                float acc = 0.0f;
+                for (int in = 0; in < STSF_N; ++in)
+                    acc += STSF_W_LIN[om * STSF_N + in] * v[in];
+                MCU_OUT(yd, ys, emit, d, om * STSF_P + ph, acc + m);
+            }
+        }
+    }
+}
+
+/* Full buffer (caller owns H x D, time-major): the original API, same arithmetic. */
+void stsf_forward(const float *x, float *y) { stsf_run(x, y, 0, STSF_D, STSF_D, 0); }
+
+/* One channel d: its H forecasts to yc[0..H-1].  Lets the caller emit channel by
+ * channel with an H-float buffer instead of holding H x D. */
+void stsf_forward_ch(const float *x, int d, float *yc) { stsf_run(x, yc, d, d + 1, 1, 0); }
+
+/* One channel d: each forecast value goes to emit(d, t, v) the moment it is final -
+ * no H-float buffer (mcu_emit.h).  Same values as stsf_forward_ch, bit for bit. */
+void stsf_forward_emit(const float *x, int d, mcu_emit_fn emit) { stsf_run(x, 0, d, d + 1, 1, emit); }

@@ -1,0 +1,182 @@
+/*
+ * FEATHer float32 inference for Cortex-M3 (baselines/FEATHer/FEATHer.py,
+ * frozen configuration in configs/FEATHer.yaml):
+ *
+ *   RevIN -> 3 bands (conv k=3 | conv k=5 | AvgPool4+interp)
+ *         -> banded FFT gate -> weighted sum
+ *         -> residual MLP (D->R->GELU->D) -> SPK head -> RevIN^-1
+ *
+ * The port performs the same operations as the PyTorch forward pass; only the
+ * order of the loops and the buffers differ:
+ *
+ *   (1) OUTPUT STREAMING.  The SPK backbone maps input periods -> output
+ *       periods per PHASE, so output step (om*P + ph) of channel d depends
+ *       only on backbone row `om` and on channel d.  Emitting one period of
+ *       one channel at a time is a pure loop reordering (verified in PyTorch,
+ *       max|diff| 2.7e-07), and it removes H from the arena entirely: no
+ *       H*D output buffer is allocated.
+ *
+ *   (2) BAND ACCUMULATE-IN-PLACE.  Each band is scaled by its gate weight
+ *       and added to the hidden accumulator as it is produced, so the
+ *       L*D band scratch buffer disappears.  Legal because the gate is
+ *       computed from x_norm (not from the bands) and each band conv reads
+ *       only x_norm.
+ *
+ *   (3) the residual MLP bottleneck is per-timestep (R floats) instead of
+ *       L*R - the MLP is applied independently at each step, so nothing
+ *       needs to be materialised.
+ *
+ *   (4) ONE (L, D) BUFFER.  The residual MLP needs every channel of h[t] at
+ *       once, so the hidden state is held for all channels.  Nothing else
+ *       is: x_norm is parked in the hidden accumulator until the gate is
+ *       known, the bands and the SPK aggregation run one channel at a time,
+ *       and the output block is one channel wide and lives in the scratch.
+ *       No stage is recomputed.
+ *
+ * Arena is HORIZON-INDEPENDENT.  See FEA2_ARENA_BYTES.
+ *
+ * Layout: time-major buf[t*D + d] throughout.
+ * Compile with -O2 -ffp-contract=off -fno-fast-math on every target.
+ */
+#ifndef FEATHER_CORE_H
+#define FEATHER_CORE_H
+
+/* Board builds: deployment/board/tools/board_prep.py writes board_cfg.h into the
+ * CubeIDE project (never into this repo), carrying the geometry of the model
+ * under test.  The x86 tests do not see it. */
+#if defined(__has_include)
+#if __has_include("board_cfg.h")
+#include "board_cfg.h"
+#endif
+#endif
+
+#include <stddef.h>
+
+#include "mcu_kernels.h"
+
+/* ---- geometry (overridable at build time, e.g. -DFEA2_H=720) ---- */
+#ifndef FEA2_L
+#define FEA2_L 96                       /* seq_len                        */
+#endif
+#ifndef FEA2_H
+#define FEA2_H 96                       /* pred_len                       */
+#endif
+#ifndef FEA2_D
+#define FEA2_D 7                        /* channels (MetroPT3 cell)       */
+#endif
+#ifndef FEA2_PERIOD
+#define FEA2_PERIOD 24                  /* SPK period (FFT-detected)      */
+#endif
+/* Size keys (FEATHer.py head_seg / agg_shared).  FEA2_SEG = segment length of the SPK
+ * map, decoupled from the period (the aggregation kernel keeps the period width); FEA2_SEG =
+ * FEA2_PERIOD is the canonical head.  FEA2_AGG_SHARED = 1: one aggregation kernel for every
+ * channel (SparseTSF's choice) instead of one per channel.  Defaults = the frozen model. */
+#ifndef FEA2_SEG
+#define FEA2_SEG FEA2_PERIOD
+#endif
+#ifndef FEA2_AGG_SHARED
+#define FEA2_AGG_SHARED 0
+#endif
+#define FEA2_AGG_ROW(d) (FEA2_AGG_SHARED ? 0 : (d))   /* row of W_AGG2 for channel d */
+
+/* Structural switches of the chip-tier search (FEATHer.py num_bands / point_kernel /
+ * use_norm, ablation.FEATHerNoGate).  Defaults = the frozen model; a non-default value is
+ * stamped by the export (FEA2_NB_GEN ...) and asserted in the .c. */
+#ifndef FEA2_NB
+#define FEA2_NB 3                       /* bands: POINT / MID / LOW; 2 = POINT + LOW; 1 = POINT */
+#endif
+#ifndef FEA2_KP
+#define FEA2_KP 3                       /* POINT conv kernel (odd)        */
+#endif
+#ifndef FEA2_USE_NORM
+#define FEA2_USE_NORM 1                 /* RevIN                          */
+#endif
+#ifndef FEA2_GATE_NONE
+#define FEA2_GATE_NONE 0                /* 1 = bands summed without weights (gate_mode none) */
+#endif
+/* the spectrum gate runs whenever PyTorch runs it - with one band too (its weight is then 1) */
+#define FEA2_GATE_ON (!FEA2_GATE_NONE)
+#define FEA2_KM 5                       /* MID   conv kernel              */
+#ifndef FEA2_MLP_R                      /* overridable                    */
+#define FEA2_MLP_R 16                   /* residual MLP bottleneck rank   */
+#endif
+#ifndef FEA2_USE_MLP                    /* 0 = no residual MLP (use_residual_mlp=False) */
+#define FEA2_USE_MLP 1
+#endif
+
+#define FEA2_NF (FEA2_L / 2 + 1)                 /* rfft bins  = 49       */
+#define FEA2_LP (FEA2_L / 4)                     /* pooled LOW = 24       */
+#define FEA2_N  (FEA2_L / FEA2_SEG)              /* input segments        */
+#define FEA2_M  (FEA2_H / FEA2_SEG)              /* output segments       */
+#define FEA2_AGG_K (2 * (FEA2_PERIOD / 2) + 1)   /* SPK agg conv kernel   */
+
+/* ---- static arena, in floats ----
+ *   s_C       L*D   x_norm -> hidden accumulator -> h_agg  (the ONLY D*L)
+ *   s_scratch       ONE buffer shared by five SEQUENTIAL stages (below)
+ *   + mean/stdev (2D), gate (NB)
+ * No term contains H; the only term that scales with D beyond 2D is s_C.
+ *
+ * The scratch stages never coexist.  The forward pass touches them strictly
+ * in this order and never revisits an earlier one:
+ *   1. s_spec 3*NF+L   gate rfft spectrum (2 NF) / power (NF) + the FFT's work buffer (banded_gate)
+ *   2. s_row  L     one channel's x_norm   } per channel, both live at once,
+ *      s_pool LP    that channel pooled    } so they sit side by side
+ *   3. s_mlp  R     residual MLP bottleneck (per timestep)
+ *   4. s_row  L     SPK aggregation: one channel's pre-conv column
+ *   5. s_blk  P     one output period of one channel (fea2_block, after
+ *                   fea2_begin has returned - the streaming window)
+ * so one buffer of max(3*NF+L, L+LP, R, P) floats serves all five.  The same
+ * overlay is applied to the other ports (equal-effort rule): it is an
+ * implementation tidy-up, and giving it only to our own model would make the
+ * footprint table measure our effort rather than the designs.
+ */
+#define FEA2_MAX2(a, b) ((a) > (b) ? (a) : (b))
+/* 3*NF + L: the gate's spectrum (re, im pairs) and power plus the FFT's work buffer */
+#define FEA2_SCRATCH_N FEA2_MAX2(FEA2_MAX2(FEA2_GATE_ON ? 3 * FEA2_NF + FEA2_L : 0,           \
+                                           FEA2_L + (FEA2_NB >= 2 ? FEA2_LP : 0)),         \
+                                 FEA2_MAX2(FEA2_MLP_R, FEA2_SEG))
+#define FEA2_ARENA_N (FEA2_L * FEA2_D + FEA2_SCRATCH_N \
+                      + (FEA2_USE_NORM ? 2 * FEA2_D : 0) + (FEA2_GATE_ON ? FEA2_NB : 0))
+#define FEA2_ARENA_BYTES (FEA2_ARENA_N * (int)sizeof(float))
+
+/* ---- streaming API ----
+ *
+ * Typical board use — never materialises the forecast:
+ *
+ *     fea2_begin(x);                                  // x is read only
+ *     for (int om = 0; om < FEA2_M; ++om)
+ *         for (int d = 0; d < FEA2_D; ++d)
+ *             sink_write(om, d, fea2_block(om, d));   // FEA2_SEG floats
+ *
+ * fea2_begin() runs everything up to and including the SPK aggregation and
+ * leaves h_agg in the arena; fea2_block() then costs one backbone row for one
+ * channel.  The returned pointer is valid until the next fea2_block() or
+ * fea2_begin() call.
+ *
+ * fea2_input() returns the arena's (L, D) buffer.  A caller that must stage
+ * the window itself (e.g. gather one channel out of a wider buffer) may write
+ * it there and call fea2_begin(fea2_input()); it is normalized in place.
+ */
+void fea2_interp_setup(void);       /* once per forecast, before the first fea2_begin (LOW band upsampling) */
+void fea2_norm_setup(const float *x);     /* once per forecast, before the first fea2_begin: x = the whole window */
+void fea2_begin(const float *x, int c);   /* c = the channel (ci_full: its row of the batch) */
+const float *fea2_block(int om, int d);
+float *fea2_input(void);
+
+/* stage capture for golden comparison; only with -DFEA2_CAPTURE_STAGES */
+#ifdef FEA2_CAPTURE_STAGES
+extern float fea2_st_xnorm[FEA2_L * FEA2_D];
+extern float fea2_st_mean[FEA2_D];
+extern float fea2_st_stdev[FEA2_D];
+extern float fea2_st_power[FEA2_NF];      /* channel-mean power spectrum */
+extern float fea2_st_feats[FEA2_NB];      /* centered log energy ratios  */
+extern float fea2_st_gate[FEA2_NB];
+extern float fea2_st_bP[FEA2_L * FEA2_D];
+extern float fea2_st_bM[FEA2_L * FEA2_D];
+extern float fea2_st_bL[FEA2_L * FEA2_D];
+extern float fea2_st_hidden[FEA2_L * FEA2_D];   /* after gated sum      */
+extern float fea2_st_mlp[FEA2_L * FEA2_D];      /* after residual MLP   */
+extern float fea2_st_hagg[FEA2_D * FEA2_L];     /* channel-major        */
+#endif
+
+#endif /* FEATHER_CORE_H */
