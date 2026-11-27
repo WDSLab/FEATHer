@@ -5,6 +5,8 @@ microcontroller (MCU) next to the machine.
 
 > Paper: *FEATHer: Lightweight long-horizon forecasting on microcontrollers for manufacturing systems* (under review).
 > Preprint: [arXiv:2601.11350](https://arxiv.org/abs/2601.11350).
+>
+> Author: Jaehoon Lee ([@ijaehun](https://github.com/ijaehun)) · questions via GitHub Issues
 
 The repository holds the model, the size-budgeted comparison with lightweight forecasting models, and the float32 C
 ports used to measure each model on the boards (NUCLEO-F103RB as the reference device: Cortex-M3, 128 KB flash, 20 KB
